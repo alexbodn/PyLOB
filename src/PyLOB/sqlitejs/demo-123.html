@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+    <title>Hello, sqlite3</title>
+    <style>
+      .warning, .error {color: red}
+      .error {background-color: yellow}
+      body {
+          display: flex;
+          flex-direction: column;
+          font-family: monospace;
+          white-space: break-spaces;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>1-2-sqlite3 demo</h1>
+    <script src="sqlite3.js"></script>
+    <script src="demo-123.js"></script>
+    <script>
+    	async function fetchText(relative) {
+		    let response = await fetch(relative);
+    		let data = await response.text();
+    		console.log(data);
+		}
+		let myurl = window.location.href;
+		let mydir = myurl.substring(0,myurl.lastIndexOf('/'));
+		let sqldir = mydir.substring(0,mydir.lastIndexOf('/')) + '/src/PyLOB/sql/active_orders.sql';
+    	console.log(sqldir/*, mydir*/);
+    fetchText(sqldir);
+    </script>
+  </body>
+</html>

@@ -26,7 +26,7 @@ class OrderBook(object):
         self.db = db
         location = os.path.dirname(inspect.getabsfile(inspect.currentframe()))
         ext = '.sql'
-        queries = [fname.rsplit('.', 1)[0] for fname in os.listdir(location) if fname.endswith(ext)]
+        queries = [fname.rsplit('.', 1)[0] for fname in os.listdir(os.path.join(location, 'sql')) if fname.endswith(ext)]
         for query in queries:
             setattr(self, query, open(os.path.join(location, query + ext), 'r').read())
         self.best_quotes_order_asc = self.best_quotes_order.replace(':direction', 'asc')
