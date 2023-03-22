@@ -164,7 +164,10 @@ BEGIN
         from trader
         where trader.tid=new.trader
     ) as trader
-    where trade_order.order_id=new.order_id and old.cancel=0 and new.fulfilled>0;
+    where
+    	trade_order.order_id=new.order_id
+    	and old.cancel=0 -- not fulfilling anymore??
+    	and new.fulfilled>0;
 END;
 
 create trigger if not exists trader_commission
