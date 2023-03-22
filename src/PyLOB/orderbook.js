@@ -42,6 +42,7 @@ class OrderBook {
 		'modify_order',
 		'select_trades',
 		'set_lastprice',
+		'get_lastprice',
 		'volume_at_price',
 		'commission_test',
 	];
@@ -153,14 +154,11 @@ class OrderBook {
 
 	processMatchesDB(quote, db, verbose) {
 		let instrument = quote.instrument;
-		quote.lastprice = this.lastPrice[instrument] || null;
-		
+		quote.lastprice = this.getLastPrice(instrument, db);
 		let trades = [];
 		let qtyToExec = quote.qty;
 		let sql_matches = this.matches + this.best_quotes_order_asc;
 		let matches = [];
-		//warn(sql_matches);
-		//log(JSON.stringify(quote, null, '\t'));
 		db.exec({
 			sql: sql_matches, 
 			bind: prepKeys({
@@ -172,7 +170,6 @@ class OrderBook {
 			}),
 			rowMode: 'array',
 			callback: match => {
-				//warn(JSON.stringify(match));
 				if (qtyToExec > 0) {
 					let [order_id, counterparty, price, available] = match;
 					let bid_order = quote.side == 'bid' ? quote.order_id : order_id;
@@ -181,16 +178,11 @@ class OrderBook {
 					qtyToExec -= qty;
 					let trade = [bid_order, ask_order, this.time, price, qty];
 					trades.push(trade);
-					//warn(trade);
 					db.exec({
 						sql: this.insert_trade, 
 						bind: prepKeys(trade)
 					});
-					this.lastPrice[instrument] = price;
-					db.exec({
-						sql: this.set_lastprice, 
-						bind: prepKeys({instrument: instrument, lastprice: price})
-					});
+					this.setLastPrice(instrument, price, db);
 					if (verbose) {
 						log(`>>> TRADE \nt=${this.time} ${price} n=${qty} p1=${counterparty} p2=${quote.tid}`);
 					}
@@ -296,36 +288,30 @@ class OrderBook {
 				});
 			}
 		);
-		/*this.db.exec('begin transaction')
-		let row = null;
-		this.db.exec({
-			sql: this.find_order, 
-			bind: prepKeys([idNum]),
-			rowMode: 'array',
-			callback: rec => {
-				row = rec
-			},
-		});
-		if (row) {
-			let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type] = row;
-			objectUpdate(orderUpdate, {
-				type: order_type,
-				order_id: order_id,
-				instrument: instrument,
-			});
-			if (orderUpdate.price) {
-				orderUpdate.price = this.clipPrice(orderUpdate.price);
-			}
-			this.db.exec({
-				sql: this.modify_order,
-				bind: prepKeys(orderUpdate)
-			});
-			if (this.betterPrice(side, price, orderUpdate.price)) {
-				ret = this.processMatchesDB(orderUpdate, db, verbose);
-			}
-		}
-		this.db.exec('commit');*/
 		return ret;
+	}
+	
+	setLastPrice(instrument, price, db) {
+		this.lastPrice[instrument] = price;
+		db.exec({
+			sql: this.set_lastprice, 
+			bind: prepKeys({instrument: instrument, lastprice: price})
+		});
+	}
+	
+	getLastPrice(instrument, db) {
+		let price = this.lastPrice[instrument] || null;
+		if (price === null) {
+			db.exec({
+				sql: this.get_lastprice, 
+				bind: prepKeys({instrument: instrument}),
+				rowMode: 'array',
+				callback: row => {
+					price = row[0];
+				}
+			});
+		}
+		return price;
 	}
 	
 	getVolumeAtPrice(instrument, side, price) {
@@ -387,6 +373,7 @@ class OrderBook {
 			rowMode: 'array',
 			callback: bidask,
 		});
+		fileStr.push("");
 		fileStr.push("------ Asks -------");
 		this.db.exec({
 			sql: sql_active_orders,
@@ -394,16 +381,17 @@ class OrderBook {
 			rowMode: 'array',
 			callback: bidask,
 		});
+		fileStr.push("");
 		fileStr.push("------ Trades ------");
 		this.db.exec({
 			sql: this.select_trades, 
 			bind: prepKeys({instrument: instrument}),
-			rowMode: 'object',
+			rowMode: 'array',
 			callback: trade => {
 				fileStr.push(JSON.stringify(trade));
 			}
 		});
-		fileStr.push("\n");
+		fileStr.push("");
 		
 		this.db.exec({
 			sql: this.commission_test, 
@@ -412,7 +400,7 @@ class OrderBook {
 				fileStr.push(JSON.stringify(commission));
 			}
 		});
-		fileStr.push("\n");
+		fileStr.push("");
 		
 		fileStr.push(`volume bid if i ask 98: ${this.getVolumeAtPrice(instrument, 'bid', 98)}`);
 		fileStr.push(`volume ask if i bid 101: ${this.getVolumeAtPrice(instrument, 'ask', 101)}`);
@@ -426,5 +414,3 @@ class OrderBook {
 		return value;
 	}
 };
-
-
