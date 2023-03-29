@@ -6,4 +6,10 @@ insert into trade (
     price,
     qty
 )
-values (?, ?, ?, ?, ?)
+values (
+	:bid_order,
+	:ask_order,
+	:time,
+	:price,
+	:qty
+)

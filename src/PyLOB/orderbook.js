@@ -1,4 +1,6 @@
 
+'use strict';
+
 function objectUpdate(dest, src) {
 	for (let [k, v] of Object.entries(src)) {
 		dest[k] = v;
@@ -36,15 +38,26 @@ class OrderBook {
 		'cancel_order',
 		'find_order',
 		'insert_order',
+		'trader_insert',
+		'trader_transfer',
+		'trader_balance',
+		'lastorder',
+		'lasttrader',
+		'instrument_insert',
 		'insert_trade',
 		'limit1',
+		'order_by_dt',
 		'matches',
+		'trade_balance',
 		'modify_order',
+		'trade_fulfills',
 		'select_trades',
 		'set_lastprice',
 		'get_lastprice',
 		'volume_at_price',
 		'commission_test',
+		'insert_order_log',
+		'select_order_log',
 	];
 	 
 	constructor(location, file_loader, db, tick_size=0.0001) {
@@ -98,16 +111,90 @@ class OrderBook {
 		return Math.round(price * this.rounder) / this.rounder;
 	}
 	
-	updateTime() {
-		this.time++;
+	updateTime(timestamp) {
+		if (timestamp === undefined) {
+			timestamp = this.time + 1;
+		}
+		this.time = timestamp;
 	}
 	
-	processOrder(quote, fromData, verbose) {
-		if (fromData) {
-			this.time = quote.timestamp;
-		}
-		else {
-			this.updateTime();
+	createInstrument(symbol, currency) {
+		this.db.exec({
+			sql: this.instrument_insert,
+			bind: prepKeys({
+				symbol: symbol,
+				currency: currency,
+			})
+		});
+	}
+	
+	createTrader(name, tid, currency, 
+		commission_per_unit, commission_min, commission_max_percnt, 
+		allow_self_matching=0)
+	{
+		let ret = null;
+		this.db.transaction(
+			D => {
+				D.exec({
+					sql: this.trader_insert,
+					bind: prepKeys({
+						tid: tid,
+						name: name,
+						currency: currency,
+						commission_min: commission_min,
+						commission_max_percnt: commission_max_percnt,
+						commission_per_unit: commission_per_unit,
+						allow_self_matching: allow_self_matching
+					}),
+				});
+				D.exec({
+					sql: this.lasttrader,
+					nodeMode: 0,
+					callback: res => {
+						ret = res;
+					}
+				});
+			}
+		);
+		return ret;
+	}
+	
+	traderTransfer(trader, instrument, amount) {
+		// deposit/withdrawal by the sign of amount
+		this.db.transaction(
+			D => {
+				D.exec({
+					sql: this.trader_transfer,
+					bind: prepKeys({
+						trader: trader,
+						instrument: instrument,
+						amount: amount,
+					}),
+				});
+			}
+		);
+	}
+	
+	traderGetBalance(trader, instrument) {
+		// if !instrument, return an object for all
+		let balance = [];
+		this.db.exec({
+			sql: this.trader_balance,
+			bind: prepKeys({
+				trader: quote.tid, 
+				symbol: instrument,
+			}),
+			rowMode: 'object',
+			callback: row => {
+				balance.push(row);
+			}
+		});
+		return balance;
+	}
+	
+	processOrder(quote, fromData, verbose=false, comment) {
+		this.updateTime(quote.timestamp);
+		if (!fromData) {
 			quote.timestamp = this.time;
 			this.nextQuoteID += 1;
 			quote.idNum = this.nextQuoteID;
@@ -139,17 +226,22 @@ class OrderBook {
 					bind: prepKeys(quote),
 				});
 				D.exec({
-					sql: "select max(rowid) from trade_order;",
+					sql: obj.lastorder,
 					nodeMode: 'array',
 					callback: res => {
 						quote.order_id = res[0];
+						this.order_log_insert(this.time, res[0], this.printQuote(quote), D);
 						ret = obj.processMatchesDB(quote, D, verbose);
 					}
 				});
 			}
 		);
-		
-		return ret;
+		if (ret) {
+			let [trades, trade_fulfills, balance_updates] = ret;
+			this.matchesEvents(trades, trade_fulfills, balance_updates, quote, comment);
+			return [trades, quote];
+		}
+		return [[], quote];
 	}
 
 	processMatchesDB(quote, db, verbose) {
@@ -158,7 +250,9 @@ class OrderBook {
 		let trades = [];
 		let qtyToExec = quote.qty;
 		let sql_matches = this.matches + this.best_quotes_order_asc;
-		let matches = [];
+		let fulfills = [];
+		let balance_updates = [];
+		let obj = this;
 		db.exec({
 			sql: sql_matches, 
 			bind: prepKeys({
@@ -170,49 +264,116 @@ class OrderBook {
 			}),
 			rowMode: 'array',
 			callback: match => {
-				if (qtyToExec > 0) {
-					let [order_id, counterparty, price, available] = match;
-					let bid_order = quote.side == 'bid' ? quote.order_id : order_id;
-					let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
-					let qty = Math.min(available, qtyToExec);
-					qtyToExec -= qty;
-					let trade = [bid_order, ask_order, this.time, price, qty];
-					trades.push(trade);
-					db.exec({
-						sql: this.insert_trade, 
-						bind: prepKeys(trade)
-					});
-					this.setLastPrice(instrument, price, db);
-					if (verbose) {
-						log(`>>> TRADE \nt=${this.time} ${price} n=${qty} p1=${counterparty} p2=${quote.tid}`);
-					}
+				if (qtyToExec <= 0) {
+					return;
 				}
+				let [order_id, counterparty, price, available, currency] = match;
+				let bid_order = quote.side == 'bid' ? quote.order_id : order_id;
+				let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
+				let qty = Math.min(available, qtyToExec);
+				qtyToExec -= qty;
+				let trade = obj.tradeExecute(
+					bid_order, ask_order, price, qty, instrument, db, verbose);
+				trades.push(trade);
+				db.exec({
+					sql: this.trade_fulfills, 
+					bind: prepKeys({
+						bid_order: bid_order, 
+						ask_order: ask_order,
+					}),
+					rowMode: 'object',
+					callback: row => {
+						fulfills.push(row);
+						this.order_log_insert(this.time, row.order_id, `FULFILLED ${row.fulfilled} / ${row.qty}`, db);
+					}
+				});
+				db.exec({
+					sql: this.trade_balance,
+					bind: prepKeys({
+						trader: quote.tid, 
+						counterparty: counterparty,
+						symbol: instrument,
+						currency: currency
+					}),
+					rowMode: 'object',
+					callback: row => {
+						balance_updates.push(row);
+					}
+				});
 			}
 		});
-		
-		return [trades, quote];
+		return [trades, fulfills, balance_updates];
 	}
 	
-	cancelOrder(side, idNum, time=null) {
-		if (time) {
-			this.time = time;
+	tradeExecute(bid_order, ask_order, price, qty, instrument, db, verbose) {
+		let trade = {
+			bid_order: bid_order,
+			ask_order: ask_order,
+			time: this.time,
+			price: price,
+			qty: qty
+		};
+		db.exec({
+			sql: this.insert_trade, 
+			bind: prepKeys(trade)
+		});
+		this.order_log_insert(this.time, ask_order, `SOLD ${qty} @ ${price}`, db);
+		this.order_log_insert(this.time, bid_order, `BOUGHT ${qty} @ ${price}`, db);
+		this.setLastPrice(instrument, price, db);
+		if (verbose) {
+			log(`>>> TRADE \nt=${this.time} ${price} n=${qty} p1=${counterparty} p2=${quote.tid}`);
 		}
-		else {
-			this.updateTime();
+		return trade;
+	}
+	
+	matchesEvents(trades, fulfills, balance_updates, quote, comment) {
+		if (comment) {
+			this.order_log_insert(quote.timestamp, quote.order_id, comment);
 		}
+		for (let trade of trades) {
+		}
+		for (let fulfill of fulfills) {
+			// send execution event mentioning qty ramaining
+		}
+		for (let update of balance_updates) {
+			if (update.instrument == quote.instrument) {
+				// update position event
+			}
+			else {
+				// update balance
+			}
+			error(JSON.stringify(update));
+		}
+	}
+	
+	cancelOrder(side, idNum, time, comment) {
+		this.updateTime(time);
 		
 		this.db.transaction(
 			D => {
 				D.exec({
-					sql: this.cancel_order, 
-					bind: prepKeys({cancel: 1, idNum: idNum, side: side})
+					sql: this.find_order,
+					bind: prepKeys([idNum]),
+					nodeMode: 'array',
+					callback: row => {
+						let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type] = row;
+						D.exec({
+							sql: this.cancel_order, 
+							bind: prepKeys({
+								cancel: 1, 
+								order_id: order_id, 
+								//side: side
+							})
+						});
+						this.order_log_insert(this.time, order_id, 'CANCEL ORDER', D);
+					}
 				});
 			}
 		);
 	}
 
-	// return whether comparedPrice has better matching chance than price
 	betterPrice(side, price, comparedPrice) {
+		// return whether comparedPrice has better matching chance than price
 		if (price === null && comparedPrice !== null) {
 			return false;
 		}
@@ -232,34 +393,28 @@ class OrderBook {
 
 	orderGetSide(idNum) {
 		ret = null;
-		// SHOULD BE SYNCHRONOUS
 		this.db.exec({
 			sql: this.find_order, 
 			bind: prepKeys([idNum]),
-			rowMode: 'array',
-			callback: row => {ret = row[0]}
+			rowMode: 0,
+			callback: row => {ret = row}
 		});
 		return ret;
 	}
 
-	modifyOrder(idNum, orderUpdate, time=null, verbose=false) {
-		if (time) {
-			this.time = time;
-		}
-		else {
-			this.updateTime();
-		}
+	modifyOrder(idNum, orderUpdate, time, verbose=false, comment) {
+		this.updateTime(time);
 		let side = orderUpdate.side;
 		orderUpdate.idNum = idNum;
 		orderUpdate.timestamp = this.time;
 
-		let ret = [[], orderUpdate];
+		let ret = null;
 		this.db.transaction(
 			D => {
 				D.exec({
 					sql: this.find_order,
 					bind: prepKeys([idNum]),
-					nodeMode: 'array',
+					rowMode: 'array',
 					callback: row => {
 						let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type] = row;
 						objectUpdate(orderUpdate, {
@@ -267,8 +422,19 @@ class OrderBook {
 							order_id: order_id,
 							instrument: instrument,
 						});
-						if (orderUpdate.price) {
+						let loginfo = 'MODIFY';
+						if ('price' in orderUpdate) {
 							orderUpdate.price = this.clipPrice(orderUpdate.price);
+							loginfo += ' price: ' + orderUpdate.price + ';';
+						}
+						else {
+							orderUpdate.price = price;
+						}
+						if ('qty' in orderUpdate) {
+							loginfo += ' qty: ' + orderUpdate.qty + ';';
+						}
+						else {
+							orderUpdate.qty = qty;
 						}
 						D.exec({
 							sql: this.modify_order,
@@ -276,11 +442,12 @@ class OrderBook {
 								price: orderUpdate.price,
 								qty: orderUpdate.qty,
 								timestamp: orderUpdate.timestamp,
-								idNum: orderUpdate.idNum,
-								side: orderUpdate.side,
-								tid: orderUpdate.tid,
+								order_id: orderUpdate.order_id,
+								//side: orderUpdate.side,
+								//tid: orderUpdate.tid,
 							})
 						});
+						this.order_log_insert(this.time, order_id, loginfo, D);
 						if (this.betterPrice(side, price, orderUpdate.price)) {
 							ret = this.processMatchesDB(orderUpdate, D, verbose);
 						}
@@ -288,7 +455,12 @@ class OrderBook {
 				});
 			}
 		);
-		return ret;
+		if (ret) {
+			let [trades, fulfills, balance_updates] = ret;
+			this.matchesEvents(trades, fulfills, balance_updates, orderUpdate, comment);
+			return [trades, orderUpdate];
+		}
+		return [[], orderUpdate];
 	}
 	
 	setLastPrice(instrument, price, db) {
@@ -308,6 +480,7 @@ class OrderBook {
 				rowMode: 'array',
 				callback: row => {
 					price = row[0];
+					this.lastPrice[instrument] = price;
 				}
 			});
 		}
@@ -317,15 +490,18 @@ class OrderBook {
 	getVolumeAtPrice(instrument, side, price) {
 		// how much can i buy / sell for this price 
 		// should include all matching prices.
-		price = this.clipPrice(price);
-		let params = {instrument: instrument, side: side, price: price};
+		let params = {
+			instrument: instrument, 
+			side: side, 
+			price: this.clipPrice(price)
+		};
 		let ret = null;
 		this.db.exec({
 			sql: this.volume_at_price, 
 			bind: prepKeys(params),
-			rowMode: 'array',
+			rowMode: 0,
 			callback: row => {
-				ret = row[0];
+				ret = row;
 			}
 		});
 		return ret;
@@ -357,6 +533,31 @@ class OrderBook {
 		return this.getPrice(instrument, 'ask', 'desc');
 	}
 	
+	order_log_insert(event_dt, order_id, info, db) {
+		db.exec({
+			sql: this.insert_order_log, 
+			bind: prepKeys({event_dt: event_dt, order_id: order_id, info: info})
+		});
+	}
+	
+	order_log_show() {
+		this.db.exec({
+			sql: this.select_order_log,
+			rowMode: 'object',
+			callback: row => {
+				warn(JSON.stringify(row));
+			}
+		});
+	}
+	
+	printQuote(quote) {
+		let action = quote.side == 'ask' ? 'SELL' : 'BUY';
+		let order_type = quote.type == 'limit' ? 'LMT' : 'MKT';
+		let price = quote.type == 'limit' ? ' ' + quote.price : '';
+		let ret = `${action} ${quote.qty} ${quote.instrument} @${order_type} ${price}`;
+		return ret;
+	}
+	
 	print(instrument) {
 		let sql_active_orders = 
 			this.active_orders + this.best_quotes_order_asc;
@@ -384,7 +585,7 @@ class OrderBook {
 		fileStr.push("");
 		fileStr.push("------ Trades ------");
 		this.db.exec({
-			sql: this.select_trades, 
+			sql: this.select_trades + this.order_by_dt, 
 			bind: prepKeys({instrument: instrument}),
 			rowMode: 'array',
 			callback: trade => {

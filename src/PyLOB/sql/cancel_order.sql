@@ -1,4 +1,6 @@
 
 update trade_order 
 set cancel=:cancel
-where idNum=:idNum and side=:side
+where
+	order_id=:order_id
+	-- and side=:side

@@ -94,7 +94,7 @@ class OrderBook(object):
             ask_order = quote['order_id'] if quote['side'] == 'ask' else order_id
             qty = min(available, qtyToExec)
             qtyToExec -= qty
-            trade = bid_order, ask_order, self.time, price, qty
+            trade = dict(bid_order=bid_order, ask_order=ask_order, time=self.time, price=price, qty=qty)
             trades.append(trade)
             if verbose: print('>>> TRADE \nt=%s $%f n=%d p1=%d p2=%d' % 
                               (self.time, price, qty,

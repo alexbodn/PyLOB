@@ -2,8 +2,9 @@
 select 
     order_id, trader as counterparty, 
     coalesce(price, :price, :lastprice) as price, 
-    available
-from best_quotes 
+    available, currency
+from best_quotes
+inner join instrument on instrument.symbol=instrument
 where 
     instrument=:instrument and 
     matching=:side and

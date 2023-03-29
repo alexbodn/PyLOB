@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
-    <title>js lob</title>
+    <title>simulob</title>
     <style>
       .warning, .error {color: red}
       .error {background-color: yellow}
@@ -17,7 +17,7 @@
     </style>
   </head>
   <body>
-    <h1>js lob</h1>
+    <h1>simulob</h1>
     <script src="./PyLOB/sqlitejs/sqlite3.js"></script>
     <!--script src="./PyLOB/sqlitejs/demo-123.js"></script-->
 	<script src="./PyLOB/orderbook.js"></script>
@@ -27,6 +27,20 @@
 				return response.text().then(data => [name, data]);
     		});
     		return ret;
+		}
+		function cmp(a, b) {
+			if (a > b) return 1;
+			if (a < b) return -1;
+			return 0;
+		}
+		function objCmp(a, b, fields) {
+			for (let field of fields) {
+				let ret = cmp(a[field], b[field]);
+				if (ret != 0) {
+					return ret;
+				}
+			}
+			return 0;
 		}
     </script>
     <script>
@@ -58,7 +72,7 @@
 	const warn = (...args)=>logHtml('warning',...args);
 	const error = (...args)=>logHtml('error',...args);
 	</script>
-    <script src="./example.js"></script>
+    <script src="./data.js"></script>
     <script>
     if(self.window!==self) /*worker thread*/{
 		/*
@@ -106,9 +120,30 @@
 				let ob = new OrderBook(mydir + '/PyLOB', fetchText, db);
 				ob.init().then(
 					obj => {
-						warn('initialization done.');
+						//log(obj);
+						//let instrument = 'FAKE';
+						//test_init(db, instrument);
+						//test_perform(ob, instrument);
 						
-						test_perform(ob);
+						let input = data
+							.filter(branch=>['price', 'bid', 'ask'].includes(branch.title))
+							.map(
+								branch=>branch
+								.data
+								.map(
+									(datum, rowid)=>{
+										datum.label = branch.title;
+										datum.rowid = rowid;
+										return datum;
+									}
+								)
+							)
+							.reduce((a, b)=>a.concat(b))
+							.sort((a, b)=>objCmp(a, b, ['x', 'rowid']))
+						;
+						
+						warn(JSON.stringify(input[0]));
+						warn(JSON.stringify(input[input.length-1]));
 					}
 				); 
 			});

@@ -1,34 +1,13 @@
 
+'use strict';
 
-function test_init(db, instrument) {
-	let insert_traders = '';
+function test_perform(lob) {
+	// Initialize
+	let instrument = 'FAKE';
+	lob.createInstrument(instrument, 'USD');
 	for (let tid=100; tid<112; ++tid) {
-		let name = tid.toString();
-		let one_trader = `
-			insert into trader (tid, name)
-			values (${tid}, '${name}') 
-			on conflict do nothing;`;
-		insert_traders += one_trader;
+		lob.createTrader(tid.toString(), tid, 'USD', 0.01, 2.5, 1);
 	}
-	let create_traders = `
-		begin transaction;
-		PRAGMA foreign_keys=1;
-		${insert_traders}
-		update trader 
-		set 
-			commission_min=2.5,
-			commission_max_percnt=1,
-			commission_per_unit=0.01
-		;
-		insert into instrument (symbol, currency) 
-		values ('${instrument}', 'USD')
-		on conflict do nothing;
-		commit;`;
-	db.exec(create_traders);
-}
-
-function test_perform(lob, instrument) {
-	
 	//########### Limit Orders #############
 	
 	//# Create some limit orders
@@ -102,7 +81,7 @@ function test_perform(lob, instrument) {
 
 	//let [trades, orderInBook] = 
 	lob.processOrder(crossingLimitOrder, false, false);
-	warn("Trade occurs as incoming bid limit crosses best ask..", JSON.stringify(crossingLimitOrder, null, '\t'));
+	warn("Trade occurs as incoming bid limit crosses best ask..", lob.printQuote(crossingLimitOrder));
 	lob.print(instrument);
 	
 	//# If a limit order crosses but is only partially matched, the remaining 
@@ -115,7 +94,7 @@ function test_perform(lob, instrument) {
 							 'tid' : 110};
 	//let [trades, orderInBook] = 
 	lob.processOrder(bigCrossingLimitOrder, false, false);
-	warn("Large incoming bid limit crosses best ask. Remaining volume is placed in the book..", JSON.stringify(bigCrossingLimitOrder, null, '\t'));
+	warn("Large incoming bid limit crosses best ask. Remaining volume is placed in the book..", lob.printQuote(bigCrossingLimitOrder));
 	lob.print(instrument);
 	
 	//############# Market Orders ##############
@@ -130,7 +109,7 @@ function test_perform(lob, instrument) {
 	//let [trades, idNum] = 
 	lob.processOrder(marketOrder, false, false);
 	warn("A market order takes the specified volume from the inside of the book, regardless of price");
-	warn("A market ask for 40 results in..", JSON.stringify(marketOrder, null, '\t'));
+	warn("A market ask for 40 results in..", lob.printQuote(marketOrder));
 	lob.print(instrument);
 	
 	//############ Cancelling Orders #############
@@ -173,6 +152,8 @@ function test_perform(lob, instrument) {
 					 'tid' : 111};
 	//let [trades, idNum] = 
 	lob.processOrder(marketOrder2, false, false);
-	warn("A market ask for 40 should take all the bids and keep the remainder in the book", JSON.stringify(marketOrder2, null, '\t'));
+	warn("A market ask for 40 should take all the bids and keep the remainder in the book", lob.printQuote(marketOrder2));
 	lob.print(instrument);
+	
+	lob.order_log_show();
 }

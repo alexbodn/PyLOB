@@ -6,7 +6,7 @@ begin transaction;
 create table if not exists trader (
     tid integer not null primary key,
     name text,
-    currency text,
+    currency text default('USD'),
     -- commission calculations in the currency of the instrument
     commission_per_unit real default(0),
     commission_min real default(0),
@@ -19,7 +19,10 @@ create table if not exists trader (
 create table if not exists instrument (
     symbol text unique,
     currency text,
-    lastprice real
+    lastprice real default(1),
+    lastbid real default(1),
+	lastask real default(1),
+	foreign key(currency) references instrument(symbol)
 ) -- strict
 ;
 
@@ -75,7 +78,7 @@ create table if not exists trade_order (
     side text, -- bid/ask
 -------
     --event_dt text default(datetime('now')), -- supplied
-    event_dt integer, -- for testing only
+    event_dt integer default(CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)),
 -------
     qty integer not null, -- required
     fulfilled integer default(0), -- accumulator of trades by :side _order
@@ -140,6 +143,11 @@ END;
 create trigger if not exists order_insert
     AFTER INSERT ON trade_order
 BEGIN
+    -- set default timestamp
+    update trade_order
+    set event_dt=CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)
+    where new.event_dt is null 
+        and trade_order.order_id=new.order_id;
     -- ensure trader has balance for instrument and instrument.currency
     insert into trader_balance (trader, instrument) 
     select new.trader, new.instrument 
@@ -187,7 +195,10 @@ create table if not exists trade (
     trade_id integer primary key, 
     bid_order integer,
     ask_order integer,
-    event_dt text default(datetime('now')), -- supplied
+-------
+    --event_dt text default(datetime('now')),
+    event_dt integer default(CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)),
+-------
     price real, -- order price or better
     qty integer, -- accumulates to fulfill of orders
     idNum integer, -- external supplied, optional
@@ -205,6 +216,11 @@ END;
 create trigger if not exists trade_insert
     AFTER INSERT ON trade
 BEGIN
+    -- set default timestamp
+    update trade
+    set event_dt=CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)
+    where new.event_dt is null 
+        and trade.trade_id=new.trade_id;
     -- increase order fulfillment
     update trade_order 
     set fulfilled=fulfilled + new.qty,
@@ -320,7 +336,7 @@ END;
 
 create view if not exists trade_detail as
 select 
-    'trade', trade.qty, trade.price, bidorder.instrument,
+    'trade', trade.qty, trade.price, bidorder.instrument, trade.event_dt, trade.trade_id,
     case when bidorder.price is null or askorder.price is null or bidorder.price >= askorder.price 
     then '👍' else '👎'
     end as matches,
@@ -335,6 +351,7 @@ create table if not exists event (
     reqId integer,
     handler text, -- method on lob that will handle. it will handle using the args
     callback text, -- method to invoke on trigger
+    condition text, -- arg values
     unique(reqId) on conflict replace
 );
 
@@ -345,6 +362,12 @@ create table if not exists event_arg (
     convertor text,
     unique(reqId, arg) on conflict replace,
     foreign key(reqId) references event(reqId) on delete cascade
+);
+
+create table if not exists order_log (
+	event_dt integer,
+	order_id integer,
+	info text
 );
 
 commit;
