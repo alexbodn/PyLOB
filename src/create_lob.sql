@@ -19,6 +19,7 @@ create table if not exists trader (
 create table if not exists instrument (
     symbol text unique,
     currency text,
+    rounder integer default(4),
     lastprice real default(1),
     lastbid real default(1),
 	lastask real default(1),
@@ -365,9 +366,19 @@ create table if not exists event_arg (
 );
 
 create table if not exists order_log (
-	event_dt integer,
+	event_dt integer default(CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)),
 	order_id integer,
 	info text
 );
+
+create trigger if not exists order_log_insert
+    AFTER INSERT ON order_log
+BEGIN
+    -- set default timestamp
+    update order_log
+    set event_dt=CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)
+    where new.event_dt is null 
+        and order_log.order_id=new.order_id;
+END;
 
 commit;

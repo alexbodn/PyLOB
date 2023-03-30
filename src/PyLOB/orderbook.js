@@ -60,7 +60,7 @@ class OrderBook {
 		'select_order_log',
 	];
 	 
-	constructor(location, file_loader, db, tick_size=0.0001) {
+	constructor(location, file_loader, db, tick_size=0.0001, verbose=false) {
 		this.lastTick = null;
 		this.lastPrice = {};
 		this.lastTimestamp = 0;
@@ -71,12 +71,12 @@ class OrderBook {
 		this.db = db;
 		this.location = location;
 		this.file_loader = file_loader;
+		this.verbose = verbose;
 	}
 	
 	async init() {
 		let result = new Promise((resolve, reject) => {
-		let query_promises = Array();
-		let obj = this;
+		let query_promises = [];
 		for (let query of this.query_names) {
 			let promise = this.file_loader(query, this.location + '/sql/' + query + '.sql');
 			query_promises.push(promise);
@@ -88,17 +88,17 @@ class OrderBook {
 					if (one.status != 'fulfilled') {
 						reject(`could not open {one.value[0]}`);
 					}
-					obj[one.value[0]] = '--<' + one.value[0] +'>--\n' + one.value[1];
+					this[one.value[0]] = '--<' + one.value[0] +'>--\n' + one.value[1];
 				}
-				obj.best_quotes_order_asc = 
-					obj.best_quotes_order.replaceAll(':direction', 'asc');
-				obj.best_quotes_order_desc = 
-					obj.best_quotes_order.replaceAll(':direction', 'desc');
-				obj.best_quotes_order_map = {
-					desc: obj.best_quotes_order_desc,
-					asc: obj.best_quotes_order_asc,
+				this.best_quotes_order_asc = 
+					this.best_quotes_order.replaceAll(':direction', 'asc');
+				this.best_quotes_order_desc = 
+					this.best_quotes_order.replaceAll(':direction', 'desc');
+				this.best_quotes_order_map = {
+					desc: this.best_quotes_order_desc,
+					asc: this.best_quotes_order_asc,
 				};
-				delete obj.best_quotes_order;
+				delete this.best_quotes_order;
 				resolve('init done');
 			}
 		);
@@ -218,20 +218,19 @@ class OrderBook {
 			quote.price = null;
 		}
 		let ret = null;
-		let obj = this;
 		this.db.transaction(
 			D => {
 				D.exec({
-					sql: obj.insert_order,
+					sql: this.insert_order,
 					bind: prepKeys(quote),
 				});
 				D.exec({
-					sql: obj.lastorder,
+					sql: this.lastorder,
 					nodeMode: 'array',
 					callback: res => {
 						quote.order_id = res[0];
 						this.order_log_insert(this.time, res[0], this.printQuote(quote), D);
-						ret = obj.processMatchesDB(quote, D, verbose);
+						ret = this.processMatchesDB(quote, D, verbose);
 					}
 				});
 			}
@@ -252,7 +251,7 @@ class OrderBook {
 		let sql_matches = this.matches + this.best_quotes_order_asc;
 		let fulfills = [];
 		let balance_updates = [];
-		let obj = this;
+		//let obj = this;
 		db.exec({
 			sql: sql_matches, 
 			bind: prepKeys({
@@ -272,7 +271,7 @@ class OrderBook {
 				let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
 				let qty = Math.min(available, qtyToExec);
 				qtyToExec -= qty;
-				let trade = obj.tradeExecute(
+				let trade = this.tradeExecute(
 					bid_order, ask_order, price, qty, instrument, db, verbose);
 				trades.push(trade);
 				db.exec({
@@ -342,11 +341,11 @@ class OrderBook {
 			else {
 				// update balance
 			}
-			error(JSON.stringify(update));
+			//error(JSON.stringify(update));
 		}
 	}
 	
-	cancelOrder(side, idNum, time, comment) {
+	cancelOrder(idNum, time, comment) {
 		this.updateTime(time);
 		
 		this.db.transaction(
@@ -365,7 +364,7 @@ class OrderBook {
 								//side: side
 							})
 						});
-						this.order_log_insert(this.time, order_id, 'CANCEL ORDER', D);
+						this.order_log_insert(this.time, order_id, '<u>CANCEL ORDER</u>', D);
 					}
 				});
 			}
@@ -447,7 +446,7 @@ class OrderBook {
 								//tid: orderUpdate.tid,
 							})
 						});
-						this.order_log_insert(this.time, order_id, loginfo, D);
+						this.order_log_insert(this.time, order_id, `<u>${loginfo}</u>`, D);
 						if (this.betterPrice(side, price, orderUpdate.price)) {
 							ret = this.processMatchesDB(orderUpdate, D, verbose);
 						}
@@ -534,9 +533,16 @@ class OrderBook {
 	}
 	
 	order_log_insert(event_dt, order_id, info, db) {
+		if (this.verbose) {
+			log(`${event_dt}:${order_id}:<b>${info}</b>`);
+		}
 		db.exec({
 			sql: this.insert_order_log, 
-			bind: prepKeys({event_dt: event_dt, order_id: order_id, info: info})
+			bind: prepKeys({
+				event_dt: event_dt,
+				order_id: order_id,
+				info: info
+			})
 		});
 	}
 	
@@ -554,7 +560,7 @@ class OrderBook {
 		let action = quote.side == 'ask' ? 'SELL' : 'BUY';
 		let order_type = quote.type == 'limit' ? 'LMT' : 'MKT';
 		let price = quote.type == 'limit' ? ' ' + quote.price : '';
-		let ret = `${action} ${quote.qty} ${quote.instrument} @${order_type} ${price}`;
+		let ret = `<u>${action} ${quote.qty} ${quote.instrument} @${order_type} ${price}</u>`;
 		return ret;
 	}
 	
@@ -563,6 +569,7 @@ class OrderBook {
 			this.active_orders + this.best_quotes_order_asc;
 
 		let fileStr = [];
+		fileStr.push(`<b>limit order book for ${instrument}</b>`);
 		function bidask(row) {
 			let [idNum, qty, fulfilled, price, event_dt, instrument] = row;
 			fileStr.push(`${idNum})${qty}-${fulfilled} @ ${price} t=${event_dt}`);
@@ -583,7 +590,7 @@ class OrderBook {
 			callback: bidask,
 		});
 		fileStr.push("");
-		fileStr.push("------ Trades ------");
+		/*fileStr.push("------ Trades ------");
 		this.db.exec({
 			sql: this.select_trades + this.order_by_dt, 
 			bind: prepKeys({instrument: instrument}),
@@ -592,7 +599,7 @@ class OrderBook {
 				fileStr.push(JSON.stringify(trade));
 			}
 		});
-		fileStr.push("");
+		fileStr.push("");*/
 		
 		this.db.exec({
 			sql: this.commission_test, 
@@ -609,6 +616,8 @@ class OrderBook {
 		fileStr.push(`worst bid: ${this.getWorstBid(instrument)}`);
 		fileStr.push(`best ask: ${this.getBestAsk(instrument)}`);
 		fileStr.push(`worst ask: ${this.getWorstAsk(instrument)}`);
+		
+		fileStr.push("");
 		
 		let value = fileStr.join('\n');
 		log(value);
