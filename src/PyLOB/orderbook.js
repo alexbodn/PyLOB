@@ -52,8 +52,8 @@ class OrderBook {
 		'modify_order',
 		'trade_fulfills',
 		'select_trades',
-		'set_lastprice',
-		'get_lastprice',
+		'instrument_get',
+		'instrument_set',
 		'volume_at_price',
 		'commission_test',
 		'insert_order_log',
@@ -61,9 +61,6 @@ class OrderBook {
 	];
 	 
 	constructor(location, file_loader, db, tick_size=0.0001, verbose=false) {
-		this.lastTick = null;
-		this.lastPrice = {};
-		this.lastTimestamp = 0;
 		this.tickSize = tick_size
 		this.rounder = Math.floor(Math.log10(1 / this.tickSize));
 		this.time = 0;
@@ -72,6 +69,7 @@ class OrderBook {
 		this.location = location;
 		this.file_loader = file_loader;
 		this.verbose = verbose;
+		this.instrument_cache = {};
 	}
 	
 	async init() {
@@ -106,9 +104,10 @@ class OrderBook {
 		return result;
 	}
 	
-	clipPrice(price) {
+	clipPrice(instrument, price, db) {
 		// Clips the price according to the ticksize
-		return Math.round(price * this.rounder) / this.rounder;
+		let rounder = this.getRounder(instrument, db);
+		return Math.round(price * rounder) / rounder;
 	}
 	
 	updateTime(timestamp) {
@@ -212,7 +211,7 @@ class OrderBook {
 		}
 
 		if (quote.price) {
-			quote.price = this.clipPrice(quote.price);
+			quote.price = this.clipPrice(quote.instrument, quote.price);
 		}
 		else {
 			quote.price = null;
@@ -423,7 +422,7 @@ class OrderBook {
 						});
 						let loginfo = 'MODIFY';
 						if ('price' in orderUpdate) {
-							orderUpdate.price = this.clipPrice(orderUpdate.price);
+							orderUpdate.price = this.clipPrice(instrument, orderUpdate.price);
 							loginfo += ' price: ' + orderUpdate.price + ';';
 						}
 						else {
@@ -462,28 +461,64 @@ class OrderBook {
 		return [[], orderUpdate];
 	}
 	
-	setLastPrice(instrument, price, db) {
-		this.lastPrice[instrument] = price;
-		db.exec({
-			sql: this.set_lastprice, 
-			bind: prepKeys({instrument: instrument, lastprice: price})
+	setInstrument(instrument, db, field, value) {
+		(db || this.db).exec({
+			sql: this.instrument_set.replaceAll(':field', field), 
+			bind: prepKeys({
+				instrument: instrument,
+				value: value
+			}),
 		});
+		this.instrument_cache[instrument][field] = value;
 	}
 	
-	getLastPrice(instrument, db) {
-		let price = this.lastPrice[instrument] || null;
-		if (price === null) {
-			db.exec({
-				sql: this.get_lastprice, 
+	setLastPrice(instrument, lastprice, db) {
+		this.setInstrument(
+			instrument, db, 'lastprice', lastprice);
+	}
+	
+	setLastBid(instrument, lastbid, db) {
+		this.setInstrument(
+			instrument, db, 'lastbid', lastbid);
+	}
+	
+	setLastAsk(instrument, lastask, db) {
+		this.setInstrument(
+			instrument, db, 'lastask', lastask);
+	}
+	
+	getInstrument(instrument, db, force) {
+		if (!this.instrument_cache[instrument] || force) {
+			(db || this.db).exec({
+				sql: this.instrument_get, 
 				bind: prepKeys({instrument: instrument}),
-				rowMode: 'array',
+				rowMode: 'object',
 				callback: row => {
-					price = row[0];
-					this.lastPrice[instrument] = price;
+					this.instrument_cache[instrument] = row;
 				}
 			});
 		}
-		return price;
+		return this.instrument_cache[instrument];
+	}
+	
+	getRounder(instrument, db) {
+		let cache = this.getInstrument(instrument, db);
+		return (cache ? cache.rounder : null) || this.rounder;
+	}
+	
+	getLastPrice(instrument, db) {
+		let cache = this.getInstrument(instrument, db);
+		return cache ? cache.lastprice : null;
+	}
+	
+	getLastBid(instrument, db) {
+		let cache = this.getInstrument(instrument, db);
+		return cache ? cache.lastbid : null;
+	}
+	
+	getLastAsk(instrument, db) {
+		let cache = this.getInstrument(instrument, db);
+		return cache ? cache.lastask : null;
 	}
 	
 	getVolumeAtPrice(instrument, side, price) {
@@ -492,7 +527,7 @@ class OrderBook {
 		let params = {
 			instrument: instrument, 
 			side: side, 
-			price: this.clipPrice(price)
+			price: this.clipPrice(instrument, price)
 		};
 		let ret = null;
 		this.db.exec({
