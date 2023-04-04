@@ -22,12 +22,12 @@
     <!--script src="./PyLOB/sqlitejs/demo-123.js"></script-->
 	<script src="./PyLOB/orderbook.js"></script>
     <script>
-		async function fetchText(name, url) {
+		/*async function fetchText(name, url) {
 			let ret = fetch(url).then(function(response) {
 				return response.text().then(data => [name, data]);
     		});
     		return ret;
-		}
+		}*/
     </script>
     <script>
     /**
@@ -38,16 +38,6 @@
 	let logHtml;
 	if(self.window === self /* UI thread */){
 		console.log("Running demo from main UI thread.");
-		function createHTMLNode(htmlCode, tooltip) {
-    		// create html node
-    		var htmlNode = document.createElement('span');
-    		htmlNode.innerHTML = htmlCode
-    		//htmlNode.className = 'treehtml';
-    		if (tooltip) {
-    			htmlNode.setAttribute('title', tooltip);
-    		}
-    		return htmlNode;
-    	}
 		logHtml = function(cssClass,...args){
 			const ln = document.createElement('div');
 			if(cssClass) ln.classList.add(cssClass);
@@ -102,7 +92,7 @@
 		//log("Done initializing. Running demo...");
 		try {
 			let myurl = window.location.href;
-			let mydir = myurl.substring(0, myurl.lastIndexOf('/'));
+			let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
 			const oo = sqlite3.oo1/*high-level OO API*/;
 			const db = new oo.DB("/mydb.sqlite3",'ct');
 			// isolation_level: null

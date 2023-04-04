@@ -1,50 +1,69 @@
 <!doctype html>
 <html lang="en-us">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
-    <title>simulob</title>
-    <style>
-      .warning, .error {color: red}
-      .error {background-color: yellow}
-      body {
-          display: flex;
-          flex-direction: column;
-          font-family: monospace;
-          white-space: break-spaces;
-      }
-    </style>
-  </head>
-  <body>
-    <h1>simulob</h1>
-    <script src="./PyLOB/sqlitejs/sqlite3.js"></script>
-    <!--script src="./PyLOB/sqlitejs/demo-123.js"></script-->
+	<head>
+	<meta charset="utf-8">
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+	<title>simulob</title>
+	<style>
+		.warning, .error {color: red}
+		.error {background-color: yellow}
+		body {
+			display: flex;
+			flex-direction: column;
+			font-family: monospace;
+			white-space: break-spaces;
+		}
+	</style>
+	</head>
+	<body>
+	<h1>simulob</h1>
+
+	<div>
+		<div>
+			<div style="display: flex;">
+				<div>
+					capital
+				</div>
+				<div>
+					<input id="capital" value="22,000" type="text" />
+				</div>
+			</div>
+			<div style="display: flex;">
+				<div>
+					minimum profit
+				</div>
+				<div>
+					<input id="minprofit" value="10" type="text" />
+				</div>
+			</div>
+			<div style="display: flex;">
+				<div>
+					<input checked id="hidden" type="checkbox" /> hidden data
+				</div>
+			</div>
+			<div style="display: flex;">
+				<div>
+					<input value="chart update" id="update" type="button" onclick="chartupdate()" />
+				</div>
+			</div>
+		</div>
+		<canvas id="c1"></canvas>
+	</div>
+	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
-    <script>
-		async function fetchText(name, url) {
-			let ret = fetch(url).then(function(response) {
-				return response.text().then(data => [name, data]);
-    		});
-    		return ret;
-		}
-		function cmp(a, b) {
-			if (a > b) return 1;
-			if (a < b) return -1;
-			return 0;
-		}
-		function objCmp(a, b, fields) {
-			for (let field of fields) {
-				let ret = cmp(a[field], b[field]);
-				if (ret != 0) {
-					return ret;
-				}
-			}
-			return 0;
-		}
-    </script>
-    <script>
-    /**
+	<!--script src="./example.js"></script-->
+	<script src="./PyLOB/simulob.js"></script>
+	<script src="./PyLOB/chart/luxon/luxon.min.js"></script>
+	<script src="./PyLOB/chart/chartjs/chart.umd.js"></script>
+	<script src="./PyLOB/chart/chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
+	<!--script src="./PyLOB/chart/chartjs-streaming/chartjs-plugin-streaming.min.js"></script-->
+	<script src="./PyLOB/chart/luxon/chartjs-adapter-luxon.js"></script>
+	<script src="./PyLOB/chart/data.js"></script>
+	<script src="./PyLOB/chart/commission.js"></script>
+	<script src="./PyLOB/chart/peakdet.js"></script>
+	<script>
+	/**
 	Set up our output channel differently depending
 	on whether we are running in a worker thread or
 	the main (UI) thread.
@@ -55,7 +74,8 @@
 		logHtml = function(cssClass,...args){
 			const ln = document.createElement('div');
 			if(cssClass) ln.classList.add(cssClass);
-			ln.append(document.createTextNode(args.join(' ')));
+			//ln.append(document.createTextNode(args.join(' ')));
+			ln.append(createHTMLNode(args.join(' ')));
 			document.body.append(ln);
 		};
 	}
@@ -72,9 +92,9 @@
 	const warn = (...args)=>logHtml('warning',...args);
 	const error = (...args)=>logHtml('error',...args);
 	</script>
-    <script src="./data.js"></script>
-    <script>
-    if(self.window!==self) /*worker thread*/{
+	<script src="./data.js"></script>
+	<script>
+	if(self.window!==self) /*worker thread*/{
 		/*
 		If sqlite3.js is in a directory other than this script, in order
 		to get sqlite3.js to resolve sqlite3.wasm properly, we have to
@@ -105,9 +125,9 @@
 		//log("Done initializing. Running demo...");
 		try {
 			let myurl = window.location.href;
-			let mydir = myurl.substring(0, myurl.lastIndexOf('/'));
+			let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
 			const oo = sqlite3.oo1/*high-level OO API*/;
-			const db = new oo.DB("/mydb.sqlite3",'ct');
+			const db = new oo.DB("/mydb.sqlite3",'c');
 			// isolation_level: null
 			fetchText('create_db', mydir + '/create_lob.sql')
 			.then(function(sql) {
@@ -117,33 +137,13 @@
 					sql: sql[1],
 				});
 				//finally
-				let ob = new OrderBook(mydir + '/PyLOB', fetchText, db);
-				ob.init().then(
+				let sob = new SimuLOB(
+						mydir + '/PyLOB', fetchText, db, 
+						undefined, undefined, 'c1');
+				sob.init().then(
 					obj => {
 						//log(obj);
-						//let instrument = 'FAKE';
-						//test_init(db, instrument);
-						//test_perform(ob, instrument);
-						
-						let input = data
-							.filter(branch=>['price', 'bid', 'ask'].includes(branch.title))
-							.map(
-								branch=>branch
-								.data
-								.map(
-									(datum, rowid)=>{
-										datum.label = branch.title;
-										datum.rowid = rowid;
-										return datum;
-									}
-								)
-							)
-							.reduce((a, b)=>a.concat(b))
-							.sort((a, b)=>objCmp(a, b, ['x', 'rowid']))
-						;
-						
-						warn(JSON.stringify(input[0]));
-						warn(JSON.stringify(input[input.length-1]));
+						sob.run(data);
 					}
 				); 
 			});
@@ -153,5 +153,5 @@
 		}
 	});
 	</script>
-  </body>
+	</body>
 </html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>IVE prices for 2009-09-29</title>
+	<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+	
+	<div class="header">
+		<button onClick="document.body.classList.add('dark');">Dark Theme</button>
+		<button onClick="document.body.classList.remove('dark');">Light Theme</button>
+		<h1>IVE prices for 2009-09-29</h1>
+		<div class="clear"></div>
+	</div>
+	
+	<div class="container">
+		<canvas class="chart" id="c1"></canvas>
+	</div>
+	
+	<script src="./pixljs/chart.min.js"></script>
+	<script src="./data.js"></script>
+	<script>
+		var chart = new Chart({
+			"canvas": '#c1',
+			"fill": false,
+			"title": "IVE prices for 2009-09-29",
+			"dataType": "float",
+			"floatPrecision": 4,
+			"dataSuffix": "",
+			"zeroFloor": false,
+			"autoHeadroom": false,
+			"timeZone": "GMT",
+			"legendMaxLines": 3
+		});
+		chart.addLayers(data);
+		for (const [key, value] of Object.entries(chart.dateStyles)) {
+			if ('hour12' in value) {
+				value.hour12 = false;
+			}
+		}
+		chart.dateStyles.tooltip = chart.dateStyles.minute;
+		chart.update();
+		chart.render();
+	</script>
+</body>
+</html>

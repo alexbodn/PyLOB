@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>TypeScript | chartjs-plugin-datalabels</title>
+    <meta name="generator" content="VuePress 1.8.3">
+    <link rel="icon" href="/favicon.png">
+    <meta name="description" content="Display labels on data for any type of charts">
+    <link rel="preload" href="/assets/css/0.styles.1081bff5.css" as="style"><link rel="preload" href="/assets/js/app.1700e4dd.js" as="script"><link rel="preload" href="/assets/js/3.a58e3441.js" as="script"><link rel="preload" href="/assets/js/18.11d19920.js" as="script"><link rel="prefetch" href="/assets/js/10.5e8bc862.js"><link rel="prefetch" href="/assets/js/11.2cb531fc.js"><link rel="prefetch" href="/assets/js/12.cc2aa147.js"><link rel="prefetch" href="/assets/js/13.0a15b16a.js"><link rel="prefetch" href="/assets/js/14.21d3ff0d.js"><link rel="prefetch" href="/assets/js/15.ff9e378b.js"><link rel="prefetch" href="/assets/js/16.73fc0c53.js"><link rel="prefetch" href="/assets/js/17.77a6b1f1.js"><link rel="prefetch" href="/assets/js/19.0c6abffe.js"><link rel="prefetch" href="/assets/js/20.d7da9a79.js"><link rel="prefetch" href="/assets/js/21.0c613cec.js"><link rel="prefetch" href="/assets/js/22.f21ca1cd.js"><link rel="prefetch" href="/assets/js/23.ad3bc641.js"><link rel="prefetch" href="/assets/js/24.f36fb4d9.js"><link rel="prefetch" href="/assets/js/25.7c288e7c.js"><link rel="prefetch" href="/assets/js/26.226eea41.js"><link rel="prefetch" href="/assets/js/27.8c7780f3.js"><link rel="prefetch" href="/assets/js/28.23dccf11.js"><link rel="prefetch" href="/assets/js/29.dda7e369.js"><link rel="prefetch" href="/assets/js/30.8dad8bd2.js"><link rel="prefetch" href="/assets/js/31.932f2e6a.js"><link rel="prefetch" href="/assets/js/32.887c2883.js"><link rel="prefetch" href="/assets/js/33.99998a95.js"><link rel="prefetch" href="/assets/js/34.bc3a3be6.js"><link rel="prefetch" href="/assets/js/4.95ae4f48.js"><link rel="prefetch" href="/assets/js/5.551aa8e3.js"><link rel="prefetch" href="/assets/js/6.bb237f66.js"><link rel="prefetch" href="/assets/js/7.dfe4e2c3.js"><link rel="prefetch" href="/assets/js/8.348055ce.js"><link rel="prefetch" href="/assets/js/9.5f880f3e.js"><link rel="prefetch" href="/assets/js/vendors~docsearch.b064b63d.js">
+    <link rel="stylesheet" href="/assets/css/0.styles.1081bff5.css">
+  </head>
+  <body>
+    <div id="app" data-server-rendered="true"><div class="theme-container"><header class="navbar"><div class="sidebar-button"><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="img" viewBox="0 0 448 512" class="icon"><path fill="currentColor" d="M436 124H12c-6.627 0-12-5.373-12-12V80c0-6.627 5.373-12 12-12h424c6.627 0 12 5.373 12 12v32c0 6.627-5.373 12-12 12zm0 160H12c-6.627 0-12-5.373-12-12v-32c0-6.627 5.373-12 12-12h424c6.627 0 12 5.373 12 12v32c0 6.627-5.373 12-12 12zm0 160H12c-6.627 0-12-5.373-12-12v-32c0-6.627 5.373-12 12-12h424c6.627 0 12 5.373 12 12v32c0 6.627-5.373 12-12 12z"></path></svg></div> <a href="/" class="home-link router-link-active"><img src="/favicon.png" alt="chartjs-plugin-datalabels" class="logo"> <span class="site-name can-hide">chartjs-plugin-datalabels</span></a> <div class="links"><form id="search-form" role="search" class="algolia-search-wrapper search-box"><input id="algolia-search-input" class="search-query"></form> <nav class="nav-links can-hide"><div class="nav-item"><a href="/" class="nav-link">
+  Home
+</a></div><div class="nav-item"><a href="/guide/" class="nav-link router-link-active">
+  Guide
+</a></div><div class="nav-item"><a href="/samples/" class="nav-link">
+  Samples
+</a></div> <a href="https://github.com/chartjs/chartjs-plugin-datalabels" target="_blank" rel="noopener noreferrer" class="repo-link">
+    GitHub
+    <span><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" x="0px" y="0px" viewBox="0 0 100 100" width="15" height="15" class="icon outbound"><path fill="currentColor" d="M18.8,85.1h56l0,0c2.2,0,4-1.8,4-4v-32h-8v28h-48v-48h28v-8h-32l0,0c-2.2,0-4,1.8-4,4v56C14.8,83.3,16.6,85.1,18.8,85.1z"></path> <polygon fill="currentColor" points="45.7,48.7 51.3,54.3 77.2,28.5 77.2,37.2 85.2,37.2 85.2,14.9 62.8,14.9 62.8,22.9 71.5,22.9"></polygon></svg> <span class="sr-only">(opens new window)</span></span></a></nav></div></header> <div class="sidebar-mask"></div> <aside class="sidebar"><nav class="nav-links"><div class="nav-item"><a href="/" class="nav-link">
+  Home
+</a></div><div class="nav-item"><a href="/guide/" class="nav-link router-link-active">
+  Guide
+</a></div><div class="nav-item"><a href="/samples/" class="nav-link">
+  Samples
+</a></div> <a href="https://github.com/chartjs/chartjs-plugin-datalabels" target="_blank" rel="noopener noreferrer" class="repo-link">
+    GitHub
+    <span><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" x="0px" y="0px" viewBox="0 0 100 100" width="15" height="15" class="icon outbound"><path fill="currentColor" d="M18.8,85.1h56l0,0c2.2,0,4-1.8,4-4v-32h-8v28h-48v-48h28v-8h-32l0,0c-2.2,0-4,1.8-4,4v56C14.8,83.3,16.6,85.1,18.8,85.1z"></path> <polygon fill="currentColor" points="45.7,48.7 51.3,54.3 77.2,28.5 77.2,37.2 85.2,37.2 85.2,14.9 62.8,14.9 62.8,22.9 71.5,22.9"></polygon></svg> <span class="sr-only">(opens new window)</span></span></a></nav>  <ul class="sidebar-links"><li><a href="/guide/" aria-current="page" class="sidebar-link">Introduction</a></li><li><a href="/guide/getting-started.html" class="sidebar-link">Getting Started</a></li><li><a href="/guide/options.html" class="sidebar-link">Options</a></li><li><a href="/guide/labels.html" class="sidebar-link">Labels</a></li><li><a href="/guide/positioning.html" class="sidebar-link">Positioning</a></li><li><a href="/guide/formatting.html" class="sidebar-link">Formatting</a></li><li><a href="/guide/events.html" class="sidebar-link">Events</a></li><li><a href="/guide/typescript.html" aria-current="page" class="active sidebar-link">TypeScript</a><ul class="sidebar-sub-headers"><li class="sidebar-sub-header"><a href="/guide/typescript.html#option-context" class="sidebar-link">Option Context</a></li></ul></li><li><a href="/guide/migration.html" class="sidebar-link">Migration</a></li></ul> </aside> <main class="page"> <div class="theme-default-content content__default"><h1 id="typescript"><a href="#typescript" class="header-anchor">#</a> TypeScript</h1> <p>This plugin provides TypeScript type declaration files bundled in the npm package so that types of this plugin options are checked when building your TypeScript project.</p> <h2 id="option-context"><a href="#option-context" class="header-anchor">#</a> Option Context</h2> <p>The declaration of the <a href="/guide/options.html#option-context">option context</a> is exported as <code>Context</code>:</p> <div class="language-ts extra-class"><pre class="language-ts"><code><span class="token keyword">import</span> <span class="token punctuation">{</span>Context<span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'chartjs-plugin-datalabels'</span><span class="token punctuation">;</span>
+<span class="token keyword">const</span> chart <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Chart</span><span class="token punctuation">(</span><span class="token string">'foo'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+  options<span class="token operator">:</span> <span class="token punctuation">{</span>
+    plugins<span class="token operator">:</span> <span class="token punctuation">{</span>
+      datalabels<span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token function-variable function">rotation</span><span class="token operator">:</span> <span class="token punctuation">(</span>ctx<span class="token operator">:</span> Context<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+          <span class="token keyword">return</span> ctx<span class="token punctuation">.</span>dataIndex <span class="token operator">%</span> <span class="token number">2</span> <span class="token operator">?</span> <span class="token number">180</span> <span class="token operator">:</span> <span class="token number">0</span><span class="token punctuation">;</span>
+        <span class="token punctuation">}</span><span class="token punctuation">,</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre></div><p>Extending this context can be done using one of the following methods:</p> <h3 id="custom-interface"><a href="#custom-interface" class="header-anchor">#</a> Custom Interface</h3> <div class="language-ts extra-class"><pre class="language-ts"><code><span class="token keyword">import</span> <span class="token punctuation">{</span>Context<span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'chartjs-plugin-datalabels'</span><span class="token punctuation">;</span>
+<span class="token keyword">interface</span> <span class="token class-name">FooContext</span> <span class="token keyword">extends</span> <span class="token class-name">Context</span> <span class="token punctuation">{</span>
+  foo<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+<span class="token keyword">const</span> chart <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Chart</span><span class="token punctuation">(</span><span class="token string">'foo'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+  options<span class="token operator">:</span> <span class="token punctuation">{</span>
+    plugins<span class="token operator">:</span> <span class="token punctuation">{</span>
+      datalabels<span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token function-variable function">rotation</span><span class="token operator">:</span> <span class="token punctuation">(</span>ctx<span class="token operator">:</span> FooContext<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> ctx<span class="token punctuation">.</span>foo <span class="token operator">||</span> <span class="token number">0</span><span class="token punctuation">,</span>
+        listeners<span class="token operator">:</span> <span class="token punctuation">{</span>
+          <span class="token function-variable function">click</span><span class="token operator">:</span> <span class="token punctuation">(</span>ctx<span class="token operator">:</span> FooContext<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+            ctx<span class="token punctuation">.</span>foo <span class="token operator">+=</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">.</span>foo <span class="token operator">||</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token number">10</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+          <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre></div><div class="custom-block tip"><p class="custom-block-title">TIP</p> <p>This method allows to declare different context interfaces to use in different charts.</p></div> <h3 id="module-augmentation"><a href="#module-augmentation" class="header-anchor">#</a> Module Augmentation</h3> <div class="language-ts extra-class"><pre class="language-ts"><code><span class="token comment">// shims-chartjs-plugin-datalabels.d.ts</span>
+<span class="token keyword">import</span> <span class="token punctuation">{</span>Context<span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">'chartjs-plugin-datalabels'</span><span class="token punctuation">;</span>
+<span class="token keyword">declare</span> <span class="token keyword">module</span> <span class="token string">'chartjs-plugin-datalabels'</span> <span class="token punctuation">{</span>
+  <span class="token keyword">interface</span> <span class="token class-name">Context</span> <span class="token punctuation">{</span>
+    foo<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+</code></pre></div><div class="language-ts extra-class"><pre class="language-ts"><code><span class="token comment">// index.ts</span>
+<span class="token keyword">const</span> chart <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">Chart</span><span class="token punctuation">(</span><span class="token string">'foo'</span><span class="token punctuation">,</span> <span class="token punctuation">{</span>
+  options<span class="token operator">:</span> <span class="token punctuation">{</span>
+    plugins<span class="token operator">:</span> <span class="token punctuation">{</span>
+      datalabels<span class="token operator">:</span> <span class="token punctuation">{</span>
+        <span class="token function-variable function">rotation</span><span class="token operator">:</span> <span class="token punctuation">(</span>ctx<span class="token operator">:</span> Context<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> ctx<span class="token punctuation">.</span>foo <span class="token operator">||</span> <span class="token number">0</span><span class="token punctuation">,</span>
+        listeners<span class="token operator">:</span> <span class="token punctuation">{</span>
+          <span class="token function-variable function">click</span><span class="token operator">:</span> <span class="token punctuation">(</span>ctx<span class="token operator">:</span> Context<span class="token punctuation">)</span> <span class="token operator">=&gt;</span> <span class="token punctuation">{</span>
+            ctx<span class="token punctuation">.</span>foo <span class="token operator">+=</span> <span class="token punctuation">(</span>ctx<span class="token punctuation">.</span>foo <span class="token operator">||</span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token operator">+</span> <span class="token number">10</span><span class="token punctuation">;</span>
+            <span class="token keyword">return</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+          <span class="token punctuation">}</span>
+        <span class="token punctuation">}</span>
+      <span class="token punctuation">}</span>
+    <span class="token punctuation">}</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre></div><div class="custom-block warning"><p class="custom-block-title">WARNING</p> <p>The augmented <code>Context</code> declaration will be the same for all charts. This method should be considered only if all charts should share the same context declaration. Read more about <a href="https://www.typescriptlang.org/docs/handbook/declaration-merging.html#module-augmentation" target="_blank" rel="noopener noreferrer">module augmentation<span><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" x="0px" y="0px" viewBox="0 0 100 100" width="15" height="15" class="icon outbound"><path fill="currentColor" d="M18.8,85.1h56l0,0c2.2,0,4-1.8,4-4v-32h-8v28h-48v-48h28v-8h-32l0,0c-2.2,0-4,1.8-4,4v56C14.8,83.3,16.6,85.1,18.8,85.1z"></path> <polygon fill="currentColor" points="45.7,48.7 51.3,54.3 77.2,28.5 77.2,37.2 85.2,37.2 85.2,14.9 62.8,14.9 62.8,22.9 71.5,22.9"></polygon></svg> <span class="sr-only">(opens new window)</span></span></a>.</p></div></div> <footer class="page-edit"><div class="edit-link"><a href="https://github.com/chartjs/chartjs-plugin-datalabels/edit/master/docs/guide/typescript.md" target="_blank" rel="noopener noreferrer">Edit this page</a> <span><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" x="0px" y="0px" viewBox="0 0 100 100" width="15" height="15" class="icon outbound"><path fill="currentColor" d="M18.8,85.1h56l0,0c2.2,0,4-1.8,4-4v-32h-8v28h-48v-48h28v-8h-32l0,0c-2.2,0-4,1.8-4,4v56C14.8,83.3,16.6,85.1,18.8,85.1z"></path> <polygon fill="currentColor" points="45.7,48.7 51.3,54.3 77.2,28.5 77.2,37.2 85.2,37.2 85.2,14.9 62.8,14.9 62.8,22.9 71.5,22.9"></polygon></svg> <span class="sr-only">(opens new window)</span></span></div> <div class="last-updated"><span class="prefix">Last Updated:</span> <span class="time">8/2/2021, 9:03:59 PM</span></div></footer> <div class="page-nav"><p class="inner"><span class="prev">
+      ←
+      <a href="/guide/events.html" class="prev">
+        Events
+      </a></span> <span class="next"><a href="/guide/migration.html">
+        Migration
+      </a>
+      →
+    </span></p></div> </main></div><div class="global-ui"></div></div>
+    <script src="/assets/js/app.1700e4dd.js" defer></script><script src="/assets/js/3.a58e3441.js" defer></script><script src="/assets/js/18.11d19920.js" defer></script>
+  </body>
+</html>

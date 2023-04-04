@@ -6,7 +6,9 @@ function test_perform(lob) {
 	let instrument = 'FAKE';
 	lob.createInstrument(instrument, 'USD');
 	for (let tid=100; tid<112; ++tid) {
-		lob.createTrader(tid.toString(), tid, 'USD', 0.01, 2.5, 1);
+		lob.createTrader(
+			tid.toString(), tid, 
+			'USD', 0.01, 2.5, 1);
 	}
 	//########### Limit Orders #############
 	

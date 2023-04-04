@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<body>
+In chart.js v3 they removed moment and the adapter so you will need to add both to your script and it should work
+
+Example:
+
+<!--script src="./moment/moment.js"></script-->
+<script src="./luxon/luxon.min.js"></script>
+<script src="./chartjs/chart.umd.js"></script>
+<!--script src="./moment/chartjs-adapter-moment.js"></script-->
+<script src="./luxon/chartjs-adapter-luxon.js"></script>
+
+<canvas id="chart" style="background-color: rgb(50, 50, 50);"></canvas>
+<script>
+var ctx = document.getElementById('chart').getContext('2d');
+var myChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        datasets: [
+            {
+            label: "Switched",
+            data: [{x:"00:00:07", y: 0}, {x:"00:00:14", y: 1}, {x:"00:05:24", y: 4}],
+            //showLine: false,
+            fill: false,
+            tooltip: "Player switched",
+            borderColor: "#16a085",
+            backgroundColor: "#16a085"
+        }
+    ]},
+    options: {
+        responsive: true,
+        scales: {
+        x: {
+                type: 'time',
+                time: {
+                    parser: 'HH:mm:ss',
+                    unit: "second",
+                    tooltipFormat: 'HH:mm:ss',
+                    displayFormats: {
+                        'second': "HH:mm:ss"
+                    },
+                    unitStepSize: 30
+                }
+            },
+            y: {
+                min: -1,
+                max: 13,
+                stepSize: 1,
+            }
+        }
+    }
+});
+</script>
+</body>
+</html>

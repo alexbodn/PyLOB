@@ -1,6 +1,6 @@
 
 -- the sign of amount varies for deposit/withdrawal
-insert into trader_balance (trader, instrument, amount)
+insert into trader_balance (trader, instrument, 0)
 select :trader, :instrument, :amount
 on conflict do nothing;
 update trader_balance

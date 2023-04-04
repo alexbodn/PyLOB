@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>dataset_title</title>
+	<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+	
+	<div class="header">
+		<button onClick="document.body.classList.add('dark');">Dark Theme</button>
+		<button onClick="document.body.classList.remove('dark');">Light Theme</button>
+		<div class="clear"></div>
+		<h1>dataset_title</h1>
+	</div>
+	
+    <div>
+		<div>
+			<div style="display: flex;">
+				<div>
+					capital
+				</div>
+				<div>
+					<input id="capital" value="22,000" type="text" />
+				</div>
+			</div>
+			<div style="display: flex;">
+				<div>
+					minimum profit
+				</div>
+				<div>
+					<input id="minprofit" value="10" type="text" />
+				</div>
+			</div>
+			<div style="display: flex;">
+				<div>
+					<input checked id="hidden" type="checkbox" /> hidden data
+				</div>
+			</div>
+			<div style="display: flex;">
+				<div>
+					<input value="chart update" id="update" type="button" onclick="chartupdate()" />
+				</div>
+			</div>
+		</div>
+		<canvas id="c1"></canvas>
+	</div>
+	<script src="./luxon/luxon.min.js"></script>
+	<script src="./chartjs/chart.umd.js"></script>
+	<script src="./chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
+	<script src="./luxon/chartjs-adapter-luxon.js"></script>
+	<!--script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script-->
+	<script src="./eruda/eruda.js"></script>
+	<script>eruda.init();</script>
+	<script src="./data.js"></script>
+	<script src="./commission.js"></script>
+	<script src="./peakdet.js"></script>
+	<script>
+		data = data.filter(function(elem) {
+				return elem.title == 'price';
+			}
+		);
+		var prices = data[0].data;
+	</script>
+	<script>
+		var config = {
+			type: 'line',
+		plugins: [ChartDataLabels],
+		options: {
+			animation: false,
+			normalized: true,
+		    plugins: {
+		      datalabels: {
+		        backgroundColor: function(context) {
+		          return context.dataset.backgroundColor;
+		        },
+		        borderRadius: 4,
+		        color: function(context) {
+		        	return labelattr(context, 'color');
+		        },
+		        //color: 'white',
+		        font: {
+		          weight: 'bold'
+		        },
+		        formatter: function(value, context) {
+		        	return labelattr(context, 'text');
+		        },
+		        padding: 1
+		      }
+		    },
+		/**/scales: {
+      	x: {
+            type: 'time',
+            adapters: {
+              date: {
+                //locale: enUS,
+              },
+            },
+      	},
+        },/**/
+		},
+		data: {
+			datasets: []
+		},
+	};
+	</script>
+
+	<script>
+	function labelattr(context, attr)
+	{
+		var label = context.chart.data.datasets[context.datasetIndex].data[context.dataIndex].label;
+		if (label) {
+			return label[attr];
+		}
+		return null;
+    }
+        
+	function chartfill(chart, prices, minprofit, capital, hidden)
+	{
+		var allev2 = [];
+		var delta = significant_delta(
+			capital=capital, 
+			price=prices[0].y, 
+			minprofit=minprofit
+		);
+		var [maxtab, mintab] = peakdet2(
+			prices, delta, {getv: v => v.y, allev: allev2});
+		allev2 = allev2.map(
+			row => {
+				row.label = maxtab.includes(row) ? {text: '+', color: 'green'} : {text: '-', color: 'red'};
+				return row;
+			}
+		);
+		//console.log(JSON.stringify(maxtab)),
+		chart.data.datasets[0] = {label: 'price', data: prices, hidden: hidden};
+		chart.data.datasets[1] = {label: 'ev', data: allev2};
+		chart.data.datasets[2] = {label: 'peaks', data: maxtab};
+		chart.data.datasets[3] = {label: 'valeys', data: mintab};
+	}
+	function inputNumber(id)
+	{
+		var elem = document.getElementById(id);
+		if (elem) {
+			var value = elem.value;
+			if (value) {
+				return parseFloat(value.replace(',', ''));
+			}
+		}
+		return null;
+	}
+		
+	var chart = new Chart(
+		document.getElementById('c1'),
+		config,
+	);
+	function chartupdate()
+	{
+		console.log(document.getElementById('hidden').checked);
+		chartfill(
+			chart, 
+			prices=prices, 
+			minprofit=inputNumber('minprofit'), 
+			capital=inputNumber('capital'),
+			show=document.getElementById('hidden').checked
+		);
+		chart.update();
+	}
+	chartupdate();
+	</script>
+</body>
+</html>

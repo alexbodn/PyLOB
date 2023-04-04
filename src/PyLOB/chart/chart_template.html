@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>${chart_title}</title>
+	<link rel="stylesheet" href="demo.css">
+</head>
+<body>
+	
+	<div class="header">
+		<button onClick="document.body.classList.add('dark');">Dark Theme</button>
+		<button onClick="document.body.classList.remove('dark');">Light Theme</button>
+		<div class="clear"></div>
+		<h1>${chart_title}</h1>
+	</div>
+	
+    <div><canvas id="c1"></canvas></div>
+	
+	<script src="./chartjs/chart.umd.js"></script>
+	<script src="./chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
+	<script src="./eruda/eruda.js"></script>
+	<script>eruda.init();</script>
+	<script src="./data.js"></script>
+	<script src="./commission.js"></script>
+	<script src="./peakdet.js"></script>
+	<script>
+		//data = peakdet_main();
+		data = ${data_layers};
+		var prices = data[0].data;
+		data = data.filter(function(elem) {
+				return elem.title == 'price';
+			}
+		);
+		var allev2 = [];
+		var delta = significant_delta(
+			capital=22000, 
+			price=prices[0].y, 
+			minprofit=10
+		);
+		//console.log(delta);
+		var [maxtab, mintab] = peakdet2(prices, delta, {getv: function (v) {return v.y;}, allev: allev2});
+		//console.log(JSON.stringify(allev2));
+		data.push({title: 'ev', data: allev2});
+		data.push({title: 'peaks', data: maxtab});
+		data.push({title: 'valeys', data: mintab});
+		//console.log(JSON.stringify(data));
+		//console.log(data);
+	var datasets = data.map(set => ({label: set.title, data: set.data}));
+	datasets[0].hidden = true;
+	//datasets[0].series = ['series a', 'series b'];
+	//console.log(datasets[0]);
+	//console.log(JSON.stringify(datasets));
+	var config = {
+			type: 'line',
+		plugins: [ChartDataLabels],
+		options: {
+			animation: false,
+			//parsing: false,
+			normalized: true,
+
+    plugins: {
+      datalabels: {
+        backgroundColor: function(context) {
+          return context.dataset.backgroundColor;
+        },
+        borderRadius: 4,
+        color: function(context) {
+          var label = context.chart.data.datasets[context.datasetIndex].data[context.dataIndex].label;
+          if (label) {
+          	return label.color;
+          }
+          return null;
+        },
+        //color: 'white',
+        font: {
+          weight: 'bold'
+        },
+        formatter: function(value, context) {
+          var label = context.chart.data.datasets[context.datasetIndex].data[context.dataIndex].label;
+          if (label) {
+          	return label.text;
+          }
+          return null;
+        },
+
+        padding: 6
+      }
+    },
+
+    // Core options
+    /*
+    aspectRatio: 5 / 3,
+    layout: {
+      padding: {
+        top: 32,
+        right: 16,
+        bottom: 16,
+        left: 8
+      }
+    },
+    elements: {
+      line: {
+        fill: false,
+        tension: 0.4
+      }
+    },
+    scales: {
+      y: {
+        stacked: true
+      }
+    }
+    */
+
+		},
+		data: {
+			datasets: datasets
+		},
+	};
+	</script>
+	<!--script src="./chartjs/utils.js"></script>
+	<script>
+// <block:setup:2>
+var DATA_COUNT = 8;
+var labels = [];
+
+Utils.srand(8);
+
+for (var i = 0; i < DATA_COUNT; ++i) {
+  labels.push('' + i);
+}
+// </block:setup>
+
+var config = /* <block:config:0> */ {
+  type: 'line',
+  plugins: [ChartDataLabels],
+  data: {
+    labels: labels,
+    datasets: [{
+      backgroundColor: Utils.color(0),
+      borderColor: Utils.color(0),
+      label: 'set 1',
+      data: Utils.numbers({
+        count: DATA_COUNT,
+        min: 0,
+        max: 100
+      }),
+      datalabels: {
+        align: 'start',
+        anchor: 'start',
+      }
+    }, {
+      backgroundColor: Utils.color(1),
+      borderColor: Utils.color(1),
+      label: 'set 2',
+      data: Utils.numbers({
+        count: DATA_COUNT,
+        min: 0,
+        max: 100
+      })
+    }, {
+      backgroundColor: Utils.color(2),
+      borderColor: Utils.color(2),
+      label: 'set 3',
+      data: Utils.numbers({
+        count: DATA_COUNT,
+        min: 0,
+        max: 100
+      }),
+      datalabels: {
+        align: 'end',
+        anchor: 'end'
+      }
+    }]
+  },
+  options: {
+    plugins: {
+      datalabels: {
+        backgroundColor: function(context) {
+          return context.dataset.backgroundColor;
+        },
+        borderRadius: 4,
+        color: 'white',
+        font: {
+          weight: 'bold'
+        },
+        formatter: Math.round,
+        //formatter: function(value, context) {
+        //  return context.chart.data.labels[context.dataIndex];
+        //},
+        //formatter: function(value, context) {
+        //  console.log(123);
+        //  return context.dataIndex + ': ' + Math.round(value*100) + '%';
+        //},
+
+        padding: 6
+      }
+    },
+
+    // Core options
+    aspectRatio: 5 / 3,
+    layout: {
+      padding: {
+        top: 32,
+        right: 16,
+        bottom: 16,
+        left: 8
+      }
+    },
+    elements: {
+      line: {
+        fill: false,
+        tension: 0.4
+      }
+    },
+    scales: {
+      y: {
+        stacked: true
+      }
+    }
+  }
+} /* </block:config> */;
+	</script-->
+
+	<script>
+	var chart = new Chart(
+		document.getElementById('c1'),
+		config,
+	);
+	</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<body>
+	<canvas id="myChart" height="120"></canvas>
+<!-- begin snippet: js hide: false console: true babel: null -->
+<script src="./luxon/luxon.min.js"></script>
+<script src="./chartjs/chart.umd.js"></script>
+<script src="./luxon/chartjs-adapter-luxon.js"></script>
+
+<!-- language: lang-js -->
+<script>
+    const chartData = {
+      type: "line",
+      data: {
+        datasets: [{
+            label: "Température",
+            borderColor: "red",
+            backgroundColor: "red",
+            fill: false,
+            data: [{
+                x: "2020-07-05T15:38:47.933711",
+                y: 2.8224692
+              },
+              {
+                x: "2020-07-05T15:48:47.490669",
+                y: 33.63129
+              },
+              {
+                x: "2020-07-05T15:58:48.182698",
+                y: 40.540405
+              },
+              {
+                x: "2020-07-05T16:08:47.829882",
+                y: 3.0312533
+              },
+              {
+                x: "2020-07-05T16:18:47.489026",
+                y: 49.145626
+              }
+            ],
+            id: "yAxeTemperature"
+          },
+          {
+            label: "Humidité",
+            borderColor: "blue",
+            backgroundColor: "blue",
+            fill: false,
+            data: [{
+                x: "2020-07-05T15:38:47.933711",
+                y: 33.980587
+              },
+              {
+                x: "2020-07-05T15:48:47.490669",
+                y: 2.0313625
+              },
+              {
+                x: "2020-07-05T15:58:48.182698",
+                y: 24.249685
+              },
+              {
+                x: "2020-07-05T16:08:47.829882",
+                y: 7.4426904
+              },
+              {
+                x: "2020-07-05T16:18:47.489026",
+                y: 2.6335742
+              },
+              {
+                x: "2020-07-05T16:28:48.175547",
+                y: 25.92827
+              }
+            ],
+            id: "yAxeHumidite"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        hoverMode: "index",
+        stacked: false,
+        title: null,
+        scales: {
+          x: {
+            type: "time",
+            adapters: {
+            	date: {}
+            },
+            display: true,
+            position: "bottom",
+            //id: "xAxeTime",
+            title: {
+              display: true,
+              text: "Temps",
+              color: "black"
+            },
+            time: {
+              unit: "minute",
+              // parser: "moment.ISO_8601", -> remove this line
+              tooltipFormat: "ll"
+            }
+          },
+          yAxeTemperature: {
+              type: "linear",
+              axis: 'y',
+              display: true,
+              position: "left",
+              //id: "yAxeTemperature",
+              title: {
+                display: true,
+                text: "Température",
+                color: "red"
+              },
+              ticks: {
+              	display: true,
+              },
+              bounds: 'data',
+            },
+            yAxeHumidite: {
+              type: "linear",
+              axis: 'y',
+              display: true,
+              position: "right",
+              //id: "yAxeHumidite",
+              title: {
+                display: true,
+                text: "Humidité",
+                color: "blue"
+              },
+              ticks: {
+              	display: true,
+              },
+              bounds: 'data',
+            }
+        }
+      }
+    }
+
+    const ctx = document.getElementById('myChart');
+    const myChart = new Chart(ctx, {
+      type: chartData.type,
+      data: chartData.data,
+      options: chartData.options,
+    });
+</script>
+<!-- language: lang-html -->
+
+    <!--script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.bundle.min.js"></script-->
+    
+
+<!-- end snippet -->
+</body>
+</html>

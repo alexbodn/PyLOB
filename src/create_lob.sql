@@ -84,7 +84,7 @@ create table if not exists trade_order (
     qty integer not null, -- required
     fulfilled integer default(0), -- accumulator of trades by :side _order
     price real, -- trigger price, null for market
-    idNum integer, -- external supplied, optional
+    idNum integer unique, -- externally supplied, optional
     trader integer, -- trader
     active integer default(1),
     cancel integer default(0),
@@ -125,13 +125,16 @@ select
     -- the commission in case the entire order would be executed
     case when active=1 
     then commission 
-    else min(
-    	commission_max_percnt * price * qty / 100, 
-    	max(commission_min, commission_per_unit * qty)) 
+    else round(
+		min(
+    		commission_max_percnt * price * qty / 100, 
+    		max(commission_min, commission_per_unit * qty)
+		), currency.rounder)
     end as commission, 
     instrument.currency as commission_currency
 from trade_order
 inner join instrument on trade_order.instrument=instrument.symbol
+inner join instrument as currency on currency.symbol=instrument.currency
 inner join trader on trader.tid=trade_order.trader
 ;
 
@@ -164,13 +167,18 @@ create trigger if not exists order_commission
     AFTER UPDATE OF cancel, fulfilled, fulfill_price ON trade_order
 BEGIN
     update trade_order
-    set commission=min(
-        trader.commission_max_percnt * new.fulfill_price / 100, 
-        max(trader.commission_min, trader.commission_per_unit * new.fulfilled)
-    )
+    set commission=round(
+		min(
+			trader.commission_max_percnt * new.fulfill_price / 100, 
+			max(trader.commission_min, trader.commission_per_unit * new.fulfilled)
+	), commission_rounder)
     from (
-        select commission_max_percnt, commission_min, commission_per_unit
+        select 
+			commission_max_percnt, commission_min, commission_per_unit, 
+			currency.rounder as commission_rounder
         from trader
+        inner join instrument on new.instrument=instrument.symbol
+		inner join instrument as currency on currency.symbol=instrument.currency
         where trader.tid=new.trader
     ) as trader
     where
@@ -368,6 +376,7 @@ create table if not exists event_arg (
 create table if not exists order_log (
 	event_dt integer default(CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)),
 	order_id integer,
+	label text,
 	info text
 );
 
@@ -378,7 +387,7 @@ BEGIN
     update order_log
     set event_dt=CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)
     where new.event_dt is null 
-        and order_log.order_id=new.order_id;
+        and order_log.rowid=new.rowid;
 END;
 
 commit;
