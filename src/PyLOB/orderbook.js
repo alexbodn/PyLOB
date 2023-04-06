@@ -252,36 +252,44 @@ class OrderBook {
 		return balance;
 	}
 	
+	quoteNum(idNum) {
+		if (!idNum) {
+			this.nextQuoteID += 1;
+			idNum = this.nextQuoteID;
+		}
+		return idNum;
+	}
+	
 	createQuote(tid, instrument, side, qty, price=null) {
 		let quote = {
-			'type' : price ? 'limit' : 'market', 
-			'side' : side, 
-			'instrument': instrument,
-			'qty' : qty, 
-			'price' : price,
-			'tid' : tid,
+			type: price ? 'limit' : 'market', 
+			side: side, 
+			instrument: instrument,
+			qty: qty, 
+			price: price,
+			tid: tid,
+			idNum: this.quoteNum(),
 			timestamp: this.updateTime(),
 		};
-		this.nextQuoteID += 1;
-		quote.idNum = this.nextQuoteID;
 		return [quote.idNum, quote];
 	}
 	
 	processOrder(quote, fromData, verbose=false, comment) {
 		quote.timestamp = this.updateTime(quote.timestamp);
 		if (!fromData) {
-			this.nextQuoteID += 1;
-			quote.idNum = this.nextQuoteID;
+			quote.idNum = this.quoteNum();
 		}
-		
+		if (!quote.instrument) {
+			throw new Error(`processOrder(${quote.idNum}) no instrument given`);
+		}
 		if (quote.qty <= 0) {
-			throw new Error('processOrder() given order of qty <= 0');
+			throw new Error(`processOrder(${quote.idNum}) given order of qty <= 0`);
 		}
 		if (!this.valid_types.includes(quote.type)) {
-			throw new Error(`processOrder() given ${quote.type}, not in ${this.valid_types}`);
+			throw new Error(`processOrder(${quote.idNum}) given ${quote.type}, not in ${this.valid_types}`);
 		}
 		if (!this.valid_sides.includes(quote.side)) {
-			throw new Error(`processOrder() given ${quote.side}, not in ${this.valid_sides}`);
+			throw new Error(`processOrder(${quote.idNum}) given ${quote.side}, not in ${this.valid_sides}`);
 		}
 		
 		let ret = null;
@@ -542,14 +550,22 @@ class OrderBook {
 	}
 	
 	setInstrument(instrument, db, field, value) {
-		(db || this.db).exec({
+		let query = {
 			sql: this.queries.instrument_set
 					.replaceAll(':field', field), 
 			bind: prepKeys({
 				instrument: instrument,
 				value: value
 			}),
-		});
+		};
+		if (db === undefined) {
+			this.db.transaction(
+				D => {D.exec(query)}
+			);
+		}
+		else {
+			db.exec(query);
+		}
 		if (!(instrument in this.instrument_cache)) {
 			this.instrument_cache[instrument] = {};
 		}
