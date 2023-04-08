@@ -1,18 +1,22 @@
-//console.log(1123);
-var mincom = 2;
-var unitcom = 0.01;
-var maxperc = 1;
 
-function commission_calc(qty, price=null)
+let commission_params = {
+	commission_min: 2.5,
+	commission_per_unit: 0.01,
+	commission_max_percnt: 1,
+	decimals: 4
+};
+
+function commission_calc(qty, price=null, params)
 {
-	var com = Math.max(mincom, qty * unitcom);
+	let rounder = 10 ** params.decimals;
+	let com = Math.max(params.commission_min, qty * params.commission_per_unit);
 	if (price) {
-		com = Math.min(com, maxperc * qty * price / 100);
+		com = Math.min(com, params.commission_max_percnt * qty * price / 100);
 	}
-	return com;
+	return Math.round(com * rounder) / rounder;
 }
 
-var optqty = mincom / unitcom;
+var optqty = commission_params.commission_min / commission_params.commission_per_unit;
 //console.log('optqty:', optqty);
 
 var middelta = 0.5;
@@ -40,9 +44,9 @@ delta = (minprofit + commission) / (midqty  * qty) / middelta;
 +++++++++
 */
 
-function significant_delta(capital, price, minprofit) {
-	var qty = capital / price;
-	var commission = commission_calc(qty, price);
+function significant_delta(capital, price, minprofit, commission_params) {
+	let qty = Math.floor(capital / price);
+	let commission = commission_calc(qty, price, commission_params);
 	//delta * middelta * qty * midqty = commission + minprofit
 	return (commission + minprofit) / (middelta * qty * midqty);
 }

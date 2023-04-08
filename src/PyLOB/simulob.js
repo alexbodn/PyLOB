@@ -1,7 +1,13 @@
 
 'use strict';
 
+let strcmp = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'}).compare;
+
 function cmp(a, b) {
+	if (typeof a === 'string' || a instanceof String) {
+		return strcmp(a, b);
+	}
+	// also try: (str1 > str2) - (str1 < str2),
 	if (a > b) return 1;
 	if (a < b) return -1;
 	return 0;
@@ -73,9 +79,73 @@ class SimuLOB extends OrderBook {
 	market_ask_id = undefined;
 	market_bid_id = undefined;
 	
-	data_branches = ['price', 'ask', 'bid'];
+	price_branch = ['price'];
+	market_orders = ['ask', 'bid'];
 	ev_branches = ['ev', 'peaks', 'valleys'];
-
+	trader_orders = ['sellall', 'sellhalf', 'buyhalf', 'buyall'];
+	
+	chartConfig = {
+		type: 'line',
+		plugins: [
+			ChartDataLabels,
+		],
+		options: {
+			animation: false,
+			normalized: true,
+			plugins: {
+				datalabels: {
+				backgroundColor: function(context) {
+					return context.dataset.backgroundColor;
+				},
+				borderRadius: 4,
+				color: function(context) {
+					return labelattr(context, 'color');
+				},
+				//color: 'white',
+				font: {
+					weight: 'bold'
+				},
+				formatter: function(value, context) {
+					//return value;
+					return labelattr(context, 'text');
+				},
+				padding: 1
+				}
+			},
+			scales: {
+				x: {
+					type: 'time',
+					time: {
+						unit: "minute",
+						tooltipFormat: "HH:mm:ss.SSS",
+						displayFormats: {
+							millisecond: 'HH:mm:ss.SSS',
+							'second': 'HH:mm:ss',
+							'minute': 'HH:mm:ss',
+							/*'hour': 'HH:mm:ss',
+							'day': 'HH:mm:ss',
+							'week': 'HH:mm:ss',
+							'month': 'HH:mm:ss',
+							'quarter': 'HH:mm:ss',
+							'year': 'HH:mm:ss',*/
+						},
+					},
+					adapters: {
+						date: {
+							zone: 'America/New_York',
+						},
+					},
+					ticks: {
+						source: 'data'
+					}
+				},
+			},
+		},
+		/*data: {
+			datasets: []
+		},*/
+	};
+	
 	constructor(
 			location, file_loader, db, 
 			tick_size=0.0001, verbose=false, 
@@ -89,10 +159,16 @@ class SimuLOB extends OrderBook {
 		this.capital = capital || inputNumber('capital');
 		this.minprofit = minprofit || inputNumber('minprofit');
 		this.nEvt = nEvt;
-		this.branches = this.data_branches.concat(this.ev_branches);
+		this.data_branches = this.price_branch
+			.concat(this.market_orders);
+		this.branches = this.data_branches
+			.concat(this.ev_branches)
+			.concat(this.trader_orders);
 		for (let ix in this.branches) {
 			this[`${this.branches[ix]}_ix`] = ix;
 		}
+		this.order_branches = this.trader_orders
+			.concat(this.market_orders);
 	}
 	
 	dataTicks(data) { // x, y, label,rowid
@@ -125,14 +201,17 @@ class SimuLOB extends OrderBook {
 		config.plugins.push(...[{
 			afterInit: (chart, args, options) => {
 				for (let ix in this.branches) {
+					let branch = this.branches[ix];
+					console.log(branch, this.order_branches, branch in this.order_branches);
 					chart.data.datasets[ix] = {
-						label: this.branches[ix],
+						label: branch,
 						data: [],
-						id: `id_${this.branches[ix]}`
+						id: `id_${branch}`,
+						stepped: (this.order_branches.includes(branch)),
 					};
 				}
-				chart.data.datasets[this.ask_ix].stepped = true;
-				chart.data.datasets[this.bid_ix].stepped = true;
+//				chart.data.datasets[this.ask_ix].stepped = true;
+//				chart.data.datasets[this.bid_ix].stepped = true;
 				this.chart = chart;
 				console.timeEnd('chart init');
 				let ticks = this.dataTicks(data);
@@ -155,7 +234,9 @@ class SimuLOB extends OrderBook {
 			'market', null, 'USD', 0.01, 2.5, 1);
 		this.trader_tid = this.createTrader(
 			'trader', null, 'USD', 0.01, 2.5, 1);
-		
+		this.commission_data = this.commissionData(
+			this.trader_tid, this.instrument);
+
 		let sent = 0, iter = 0;
 		let simu = this;
 		let current = {};
@@ -169,6 +250,10 @@ class SimuLOB extends OrderBook {
 				error('sent:', sent, '/ iter:', iter);
 				console.timeEnd('data process');
 				simu.chart.update();
+				let loading = document.getElementById('loading');
+				if (loading) {
+					loading.style.display = 'none';
+				}
 				return;
 			}
 			let tick = ticks.shift();
@@ -221,9 +306,11 @@ class SimuLOB extends OrderBook {
 	}
 	
 	setLastPrice(instrument, price, db) {
-		//console.time('setLastPrice');
-		super.setLastPrice(instrument, price, db);
-		this.setLastPrice_hook(this, instrument, price);
+		let ret = super.setLastPrice(instrument, price, db);
+		if ('setLastPrice_hook' in window) {
+			setLastPrice_hook(this, instrument, price);
+		}
+		return ret;
 	}
 	
 	
@@ -242,67 +329,5 @@ class SimuLOB extends OrderBook {
 		}
 		return super.updateTime(timestamp);
 	}
-	
-	chartConfig = {
-		type: 'line',
-		plugins: [
-			ChartDataLabels,
-		],
-		options: {
-			animation: false,
-			normalized: true,
-			plugins: {
-				datalabels: {
-				backgroundColor: function(context) {
-					return context.dataset.backgroundColor;
-				},
-				borderRadius: 4,
-				color: function(context) {
-					return labelattr(context, 'color');
-				},
-				//color: 'white',
-				font: {
-					weight: 'bold'
-				},
-				formatter: function(value, context) {
-					//return value;
-					return labelattr(context, 'text');
-				},
-				padding: 1
-				}
-			},
-			scales: {
-				x: {
-					type: 'time',
-					time: {
-						unit: "minute",
-						tooltipFormat: "HH:mm:ss.SSS",
-						displayFormats: {
-							millisecond: 'HH:mm:ss',
-							'second': 'HH:mm:ss',
-							'minute': 'HH:mm:ss',
-							'hour': 'HH:mm:ss',
-							'day': 'HH:mm:ss',
-							'week': 'HH:mm:ss',
-							'month': 'HH:mm:ss',
-							'quarter': 'HH:mm:ss',
-							'year': 'HH:mm:ss',
-						},
-					},
-					adapters: {
-						date: {
-							zone: 'America/New_York',
-						},
-					},
-					ticks: {
-						source: 'data'
-					}
-				},
-			},
-		},
-		/*data: {
-			datasets: []
-		},*/
-	};
 	
 };

@@ -1,9 +1,9 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en-us">
-	<head>
-	<meta charset="utf-8">
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-	<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
 	<title>simulob</title>
 	<style>
 		.warning, .error {color: red}
@@ -15,8 +15,8 @@
 			white-space: break-spaces;
 		}
 	</style>
-	</head>
-	<body>
+</head>
+<body>
 	<h1>simulob</h1>
 
 	<div>
@@ -31,7 +31,7 @@
 			</div>
 			<div style="display: flex;">
 				<div>
-					minimum profit
+					minimum&nbsp;profit
 				</div>
 				<div>
 					<input id="minprofit" value="10" type="text" />
@@ -43,11 +43,15 @@
 				</div>
 			</div>
 		</div>
-		<canvas id="c1"></canvas>
+		<div>
+			<canvas id="c1"></canvas>
+			<img id="loading" src="./ezgif.com-gif-maker.gif" />
+		</div>
 	</div>
 	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
+	<script src="./simuhooks.js"></script>
 	<script src="./PyLOB/simulob.js"></script>
 	<script src="./PyLOB/chart/luxon/luxon.min.js"></script>
 	<script src="./PyLOB/chart/chartjs/chart.umd.js"></script>
@@ -148,5 +152,5 @@
 		}
 	});
 	</script>
-	</body>
+</body>
 </html>

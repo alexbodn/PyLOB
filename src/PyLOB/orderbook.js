@@ -114,6 +114,8 @@ class OrderBook {
 		'instrument_get',
 		'instrument_set',
 		'volume_at_price',
+		'commission_calc',
+		'commission_data',
 		'commission_test',
 		'insert_order_log',
 		'select_order_log',
@@ -325,7 +327,39 @@ class OrderBook {
 		}
 		return [[], quote];
 	}
-
+	
+	commissionCalc(trader, instrument, qty, db) {
+		let ret = null;
+		(db || this.db).exec({
+			sql: this.queries.commission_calc, 
+			bind: prepKeys({
+				trader: trader,
+				instrument: instrument,
+				qty: qty,
+				price: null,
+			}),
+			rowMode: 'array',
+			callback: row => {ret = row[0]}
+		});
+		return ret;
+	}
+	
+	commissionData(trader, instrument, db) {
+		let ret = null;
+		(db || this.db).exec({
+			sql: this.queries.commission_data, 
+			bind: prepKeys({
+				trader: trader,
+				instrument: instrument,
+			}),
+			rowMode: 'object',
+			callback: row => {
+				ret = Object.assign({}, row);
+			}
+		});
+		return ret;
+	}
+	
 	processMatchesDB(quote, db, verbose) {
 		let instrument = quote.instrument;
 		quote.lastprice = this.getLastPrice(instrument, db);
@@ -475,9 +509,9 @@ class OrderBook {
 		}
 	}
 
-	orderGetSide(idNum) {
-		ret = null;
-		this.db.exec({
+	orderGetSide(idNum, db) {
+		let ret = null;
+		(db || this.db).exec({
 			sql: this.queries.find_order, 
 			bind: prepKeys([idNum]),
 			rowMode: 'array',
@@ -487,10 +521,9 @@ class OrderBook {
 	}
 
 	modifyOrder(idNum, orderUpdate, time, verbose=false, comment) {
-		this.updateTime(time);
 		let side = orderUpdate.side;
 		orderUpdate.idNum = idNum;
-		orderUpdate.timestamp = this.time;
+		orderUpdate.timestamp = this.updateTime(time);
 
 		let ret = null;
 		this.db.transaction(
