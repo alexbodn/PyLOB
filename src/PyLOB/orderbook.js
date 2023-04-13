@@ -1,6 +1,11 @@
 
 'use strict';
 
+let format10 = 10**10; // calc once
+function formatRounder(number) {
+	return Math.round(number * format10) / format10;
+}
+
 async function fetchText(name, url) {
 	// to be called in a browser
 	let ret = fetch(url).then(function(response) {
@@ -20,22 +25,20 @@ function createHTMLNode(htmlCode, tooltip) {
 	return htmlNode;
 }
 
-function syntaxHighlight(json, withCss=true) {
-	if (withCss) {
-		let css = document.getElementById('json-syntaxHighlight');
-		if (!css) {
-			const style = `
-			<style id='json-syntaxHighlight'>
-				pre.json {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
-				pre.json .string { color: green; }
-				pre.json .number { color: darkorange; }
-				pre.json .boolean { color: blue; }
-				pre.json .null { color: magenta; }
-				pre.json .key { color: red; }
+function syntaxHighlight(json, withCss=true, tag='pre', jsonClass='json') {
+	let styleId = 'json-syntaxHighlight';
+	if (withCss && !document.getElementById(styleId)) {
+		const style = `
+			<style id=${styleId}>
+				${tag}.z${jsonClass} {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
+				${tag}.${jsonClass} .string { color: green; }
+				${tag}.${jsonClass} .number { color: darkorange; }
+				${tag}.${jsonClass} .boolean { color: blue; }
+				${tag}.${jsonClass} .null { color: magenta; }
+				${tag}.${jsonClass} .key { color: red; }
 			</style>
 			`;
-			document.head.insertAdjacentHTML('beforeend', style);
-		}
+		document.head.insertAdjacentHTML('beforeend', style);
 	}
     json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
@@ -43,9 +46,15 @@ function syntaxHighlight(json, withCss=true) {
         if (/^"/.test(match)) {
             if (/:$/.test(match)) {
                 cls = 'key';
+                match += ' ';
             } else {
                 cls = 'string';
             }
+            match = match
+            	.replaceAll(',', '&comma;')
+            	.replaceAll('\\n', '<br />')
+            	.replaceAll('\\t', '&nbsp;&nbsp;')
+            	;
         } else if (/true|false/.test(match)) {
             cls = 'boolean';
         } else if (/null/.test(match)) {
@@ -55,8 +64,11 @@ function syntaxHighlight(json, withCss=true) {
     });
 }
 
-function logobj(args) {
-	log(args.map(arg => `<pre class='json'>${syntaxHighlight(JSON.stringify(arg, null, 2))}</pre>`));
+function stringify(arg, replacer, spacer, inPre, jsonClass='json') {
+	let tag = inPre ? 'pre' : 'span';
+	let json = syntaxHighlight(JSON.stringify(arg, replacer, spacer).replaceAll(/,\s*/g, ', '), true, tag);
+	json = `<${tag} class="${jsonClass}">${json}</${tag}>`;
+	return json;
 }
 
 function objectUpdate(dest, src) {
@@ -138,7 +150,8 @@ class OrderBook {
 		let result = new Promise((resolve, reject) => {
 		let query_promises = [];
 		for (let query of this.query_names) {
-			let promise = this.file_loader(query, this.location + '/sql/' + query + '.sql');
+			let promise = this.file_loader(
+				query, this.location + '/sql/' + query + '.sql');
 			query_promises.push(promise);
 		}
 		let allDone = Promise.allSettled(query_promises);
@@ -148,7 +161,12 @@ class OrderBook {
 					if (one.status != 'fulfilled') {
 						reject(`could not open {one.value[0]}`);
 					}
-					this.queries[one.value[0]] = '--<' + one.value[0] +'>--\n' + one.value[1];
+					let [name, text] = one.value;
+					this.queries[name] =
+						'--<' + name +'>--\n' +
+						text + '\n' +
+						'--</' + name +'>--\n'
+						;
 				}
 				this.queries.best_quotes_order_asc = 
 					this.queries.best_quotes_order.replaceAll(':direction', 'asc');
@@ -237,17 +255,27 @@ class OrderBook {
 		);
 	}
 	
+	traderBalance(instrument, amount, lastprice, value, liquidation) {
+		//to be overriden
+	}
+	
 	traderGetBalance(trader, instrument) {
 		// if !instrument, return an object for all
 		let balance = [];
 		this.db.exec({
 			sql: this.queries.trader_balance,
 			bind: prepKeys({
-				trader: quote.tid, 
+				trader: trader,
 				symbol: instrument,
 			}),
 			rowMode: 'object',
 			callback: row => {
+				this.traderBalance(
+					row.instrument,
+					row.amount,
+					row.lastprice,
+					row.value,
+					row.liquidation);
 				balance.push(row);
 			}
 		});
@@ -264,12 +292,12 @@ class OrderBook {
 	
 	createQuote(tid, instrument, side, qty, price=null) {
 		let quote = {
-			type: price ? 'limit' : 'market', 
-			side: side, 
+			tid: tid,
 			instrument: instrument,
+			side: side, 
 			qty: qty, 
 			price: price,
-			tid: tid,
+			type: price ? 'limit' : 'market', 
 			idNum: this.quoteNum(),
 			timestamp: this.updateTime(),
 		};
@@ -363,9 +391,11 @@ class OrderBook {
 	processMatchesDB(quote, db, verbose) {
 		let instrument = quote.instrument;
 		quote.lastprice = this.getLastPrice(instrument, db);
-		let trades = [];
 		let qtyToExec = quote.qty;
-		let sql_matches = this.queries.matches + this.queries.best_quotes_order_asc;
+		let sql_matches = this.queries.matches +
+			this.queries.best_quotes_order_asc;
+		
+		let trades = [];
 		let fulfills = [];
 		let balance_updates = [];
 		
@@ -394,7 +424,7 @@ class OrderBook {
 				db.exec({
 					sql: this.queries.trade_fulfills, 
 					bind: prepKeys({
-						bid_order: bid_order, 
+						bid_order: bid_order,
 						ask_order: ask_order,
 					}),
 					rowMode: 'object',
@@ -402,7 +432,8 @@ class OrderBook {
 						fulfills.push(row);
 						this.order_log(
 							this.time, row.order_id, 'fulfill_order',
-							`FULFILLED ${row.fulfilled} / ${row.qty}. commission: ${row.commission}`, db);
+							`FULFILLED ${row.fulfilled} / ${row.qty}. commission: ${row.commission}`, db
+						);
 					}
 				});
 				db.exec({
@@ -451,7 +482,10 @@ class OrderBook {
 		for (let trade of trades) {
 		}
 		for (let fulfill of fulfills) {
-			// send execution event mentioning qty ramaining
+			this.orderFulfill(
+				fulfill.idNum, fulfill.trader,
+				fulfill.qty, fulfill.fulfilled,
+				fulfill.commission);
 		}
 		for (let update of balance_updates) {
 			if (update.instrument == quote.instrument) {
@@ -464,6 +498,10 @@ class OrderBook {
 		}
 	}
 	
+	orderFulfill(idNum, trader, qty, fulfilled, commission) {
+		// to be overriden
+	}
+	
 	cancelOrder(idNum, time, comment) {
 		this.updateTime(time);
 		
@@ -474,13 +512,12 @@ class OrderBook {
 					bind: prepKeys([idNum]),
 					nodeMode: 'array',
 					callback: row => {
-						let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type] = row;
+						let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader] = row;
 						D.exec({
 							sql: this.queries.cancel_order, 
 							bind: prepKeys({
 								cancel: 1, 
 								order_id: order_id, 
-								//side: side
 							})
 						});
 						this.order_log(this.time, order_id, 'cancel_order', '<u>CANCEL ORDER</u>', D);
@@ -521,7 +558,6 @@ class OrderBook {
 	}
 
 	modifyOrder(idNum, orderUpdate, time, verbose=false, comment) {
-		let side = orderUpdate.side;
 		orderUpdate.idNum = idNum;
 		orderUpdate.timestamp = this.updateTime(time);
 
@@ -533,30 +569,36 @@ class OrderBook {
 					bind: prepKeys([idNum]),
 					rowMode: 'array',
 					callback: row => {
-						let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type] = row;
+						let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader] = row;
 						objectUpdate(orderUpdate, {
 							type: order_type,
 							order_id: order_id,
 							instrument: instrument,
+							side: side,
+							tid: trader,
 						});
 						let loginfo = 'MODIFY';
-						if ('price' in orderUpdate) {
-							loginfo += ' price: ' + orderUpdate.price + ';';
-						}
-						else {
-							orderUpdate.price = price;
-						}
-						if ('qty' in orderUpdate) {
-							loginfo += ' qty: ' + orderUpdate.qty + ';';
-						}
-						else {
-							orderUpdate.qty = qty;
-						}
 						if (orderUpdate.price) {
+							let logprice = formatRounder(orderUpdate.price);
+							loginfo += ` price: ${logprice};`;
 							orderUpdate.price = this.clipPrice(instrument, orderUpdate.price, D);
 							this.setInstrument(
 								instrument, D, 'last'+side, orderUpdate.price);
 						}
+						else {
+							orderUpdate.price = price;
+						}
+						if (orderUpdate.qty) {
+							loginfo += ` qty: ${orderUpdate.qty};`;
+						}
+						else {
+							orderUpdate.qty = qty;
+						}
+						/*if (orderUpdate.price) {
+							orderUpdate.price = this.clipPrice(instrument, orderUpdate.price, D);
+							this.setInstrument(
+								instrument, D, 'last'+side, orderUpdate.price);
+						}*/
 						D.exec({
 							sql: this.queries.modify_order,
 							bind: prepKeys({
@@ -593,7 +635,9 @@ class OrderBook {
 		};
 		if (db === undefined) {
 			this.db.transaction(
-				D => {D.exec(query)}
+				D => {
+					D.exec(query);
+				}
 			);
 		}
 		else {
@@ -606,6 +650,10 @@ class OrderBook {
 	}
 	
 	setLastPrice(instrument, lastprice, db) {
+		//this.logobj({instrument, lastprice, db})
+		if (db) {
+			let a= 1/0;
+		}
 		this.setInstrument(
 			instrument, db, 'lastprice', lastprice);
 	}
@@ -732,7 +780,7 @@ class OrderBook {
 			return;
 		}
 		if (this.verbose) {
-			log(`${event_dt}:${order_id}:<b>${info}</b>`);
+			this.logobj({event_dt, order_id, info});
 		}
 		db.exec({
 			sql: this.queries.insert_order_log, 
@@ -745,20 +793,40 @@ class OrderBook {
 		});
 	}
 	
-	order_log_show() {
+	order_log_show(callback) {
+		if (!callback) {
+			callback = row => {
+				this.logobj(row);
+			};
+		}
 		this.db.exec({
 			sql: this.queries.select_order_log,
 			rowMode: 'object',
-			callback: row => {
-				warn(JSON.stringify(row));
-			}
+			callback: callback,
 		});
 	}
 	
+	logReplacer(key, value) {
+		if (key === 'info') {
+			value = value.replace(/<.*?>/g, '');
+		}
+		else if (typeof value === "number") {
+			value = formatRounder(value);
+		}
+		return value;
+	}
+	
+	logobj(args) {
+		//if (!Array.isArray(args)) {
+			args = [args];
+		//}
+		log(args.map(arg => stringify(arg, this.logReplacer)));
+	}
+	
 	printQuote(quote) {
-		let action = quote.side == 'ask' ? 'SELL' : 'BUY';
+		let action = quote.side.toUpperCase();
 		let order_type = quote.type == 'limit' ? 'LMT' : 'MKT';
-		let price = quote.type == 'limit' ? ' ' + quote.price : '';
+		let price = quote.type == 'limit' ? ' ' + formatRounder(quote.price) : '';
 		let ret = `<u>${action} ${quote.qty} ${quote.instrument} @${order_type}${price}</u>`;
 		return ret;
 	}

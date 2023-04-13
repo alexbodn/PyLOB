@@ -22,29 +22,29 @@
 	<div>
 		<div>
 			<div style="display: flex;">
-				<div>
+				<span>
 					capital
-				</div>
+				</span>
 				<div>
 					<input id="capital" value="22,000" type="text" />
 				</div>
 			</div>
 			<div style="display: flex;">
-				<div>
-					minimum&nbsp;profit
-				</div>
+				<span>
+					minimum profit
+				</span>
 				<div>
 					<input id="minprofit" value="10" type="text" />
 				</div>
 			</div>
 			<div style="display: flex;">
-				<div>
-					<input value="chart update" id="update" type="button" onclick="chartupdate()" />
-				</div>
+				<input value="chart update" id="update" type="button" onclick="chartupdate()" />
+				<input value="study bid" id="study-bid" type="button" onclick="studyBid()" />
+				<input value="study ask" id="study-ask" type="button" onclick="studyAsk()" />				</div>
 			</div>
 		</div>
 		<div>
-			<canvas id="c1"></canvas>
+			<canvas id="c1" height="320px"></canvas>
 			<img id="loading" src="./ezgif.com-gif-maker.gif" />
 		</div>
 	</div>
@@ -61,6 +61,7 @@
 	<script src="./PyLOB/chart/data.js"></script>
 	<script src="./PyLOB/chart/commission.js"></script>
 	<script src="./PyLOB/chart/peakdet.js"></script>
+	<script src="./data.js"></script>
 	<script>
 	/**
 	Set up our output channel differently depending
@@ -74,8 +75,12 @@
 			const ln = document.createElement('div');
 			if(cssClass) ln.classList.add(cssClass);
 			//ln.append(document.createTextNode(args.join(' ')));
-			ln.append(createHTMLNode(args.join(' ')));
-			document.body.append(ln);
+			///ln.append(createHTMLNode(args.join(' ')));
+			///document.body.append(ln);
+			///const element = document.querySelector('body');
+			document.body.insertAdjacentHTML(
+				'beforeend', args.join(' ')
+			);
 		};
 	}
 	else{ /* Worker thread */
@@ -91,7 +96,6 @@
 	const warn = (...args)=>logHtml('warning',...args);
 	const error = (...args)=>logHtml('error',...args);
 	</script>
-	<script src="./data.js"></script>
 	<script>
 	if(self.window!==self) /*worker thread*/{
 		/*
@@ -136,7 +140,7 @@
 					sql: sql[1],
 				});
 				//finally
-				let sob = new SimuLOB(
+				sob = new SimuLOB(
 						mydir + '/PyLOB', fetchText, db, 
 						undefined, undefined, 'c1');
 				sob.init().then(
@@ -151,6 +155,26 @@
 			warn("Exception:",e.message);
 		}
 	});
+	</script>
+	<script>
+	function datasetIndex(chart, label) {
+		return chart.legend.legendItems.findIndex(item => item.text == label);
+	}
+	function chartupdate()
+	{
+		let index = datasetIndex(sob.chart, 'ask');
+		if (index >= 0) {
+			sob.chart.setDatasetVisibility(index, !sob.chart.isDatasetVisible(index));
+			sob.chart.update();
+		}
+	}
+	function studyBid() {
+		sob.studySide('bid');
+	}
+	function studyAsk() {
+		sob.studySide('ask');
+	}
+
 	</script>
 </body>
 </html>

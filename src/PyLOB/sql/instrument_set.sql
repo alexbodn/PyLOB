@@ -1,6 +1,4 @@
 insert into instrument (symbol, :field)
-values (:instrument, :value)
-on conflict do nothing;
-update instrument 
-set :field=:value 
-where symbol=:instrument;
+	values (:instrument, :value)
+on conflict(symbol) do 
+update set :field=:value;

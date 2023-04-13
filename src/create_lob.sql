@@ -17,13 +17,16 @@ create table if not exists trader (
 ;
 
 create table if not exists instrument (
-    symbol text unique,
+    symbol text primary key,
     currency text,
     rounder integer default(4),
     lastprice real default(1),
     lastbid real default(1),
 	lastask real default(1),
-	foreign key(currency) references instrument(symbol)
+	foreign key(currency)
+		references instrument(symbol)
+		on DELETE restrict
+		on UPDATE cascade
 ) -- strict
 ;
 

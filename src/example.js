@@ -126,23 +126,23 @@ function test_perform(lob) {
 	
 	//# Orders can be modified by submitting a new order with an old idNum
 	warn("Book after decrease amount. Will not move");
-	let decreaseOrder5 = {'side' : 'bid', 
+	let decreaseOrder5 = {
 					'qty' : 4, 
-					'tid' : 100};
+					};
 	lob.modifyOrder(5, decreaseOrder5);
 	lob.print(instrument);
 	
 	warn("Book after increase amount. Will be put as end of queue");
-	let increaseOrder5 = {'side' : 'bid', 
+	let increaseOrder5 = { 
 					'qty' : 14, 
-					'tid' : 100};
+					};
 	lob.modifyOrder(5, increaseOrder5);
 	lob.print(instrument);
 	
 	warn("Book after improve bid price. Will process the order");
-	let improveOrder5 = {'side' : 'bid', 
+	let improveOrder5 = {
 					'price' : 103.2,
-					'tid' : 100};
+					};
 	lob.modifyOrder(5, improveOrder5);
 	lob.print(instrument);
 
