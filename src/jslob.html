@@ -22,14 +22,6 @@
     <!--script src="./PyLOB/sqlitejs/demo-123.js"></script-->
 	<script src="./PyLOB/orderbook.js"></script>
     <script>
-		/*async function fetchText(name, url) {
-			let ret = fetch(url).then(function(response) {
-				return response.text().then(data => [name, data]);
-    		});
-    		return ret;
-		}*/
-    </script>
-    <script>
     /**
 	Set up our output channel differently depending
 	on whether we are running in a worker thread or
@@ -39,11 +31,14 @@
 	if(self.window === self /* UI thread */){
 		console.log("Running demo from main UI thread.");
 		logHtml = function(cssClass,...args){
-			const ln = document.createElement('div');
-			if(cssClass) ln.classList.add(cssClass);
+			//const ln = document.createElement('div');
+			//if(cssClass) ln.classList.add(cssClass);
 			//ln.append(document.createTextNode(args.join(' ')));
-			ln.append(createHTMLNode(args.join(' ')));
-			document.body.append(ln);
+			///ln.append(createHTMLNode(args.join(' ')));
+			///document.body.append(ln);
+			document.body.insertAdjacentHTML(
+				'beforeend', `<div class="${cssClass}">${args.join(' ')}</div>`
+			);
 		};
 	}
 	else{ /* Worker thread */

@@ -1,5 +1,5 @@
 
-select idNum, qty, fulfilled, price, event_dt, instrument
+select idNum, trader, qty, fulfilled, price, event_dt, instrument
 from best_quotes
 where 
 	side=:side 

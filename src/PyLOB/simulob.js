@@ -1,41 +1,6 @@
 
 'use strict';
 
-let strcmp = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'}).compare;
-
-function cmp(a, b) {
-	if (typeof a === 'string' || a instanceof String) {
-		return strcmp(a, b);
-	}
-	// also try: (str1 > str2) - (str1 < str2),
-	if (a > b) return 1;
-	if (a < b) return -1;
-	return 0;
-}
-
-function objCmp(a, b, fields) {
-	for (let field of fields) {
-		let ret = cmp(a[field], b[field]);
-		if (ret != 0) {
-			return ret;
-		}
-	}
-	return 0;
-}
-
-function arrayCmp(a, b) {
-	let ret = cmp(a.length, b.length);
-	if (!ret) {
-		for (let ix in a) {
-			ret = cmp(a[ix], b[ix]);
-			if (ret != 0) {
-				return ret;
-			}
-		}
-	}
-	return ret;
-}
-
 	function labelattr(context, attr)
 	{
 		let label = context.dataset.data[context.dataIndex].label;
@@ -181,14 +146,14 @@ class SimuLOB extends OrderBook {
 	};
 	
 	constructor(
-			location, file_loader, db, 
-			tick_size=0.0001, verbose=true, 
-			chartElem,
-			capital, 
-			minprofit,
-			nEvt=2,
-			instrument='IVE',
-			currency='USD',
+		location, file_loader, db, 
+		tick_size=0.0001, verbose=true, 
+		chartElem,
+		capital, 
+		minprofit,
+		nEvt=2,
+		instrument='IVE',
+		currency='USD',
 	) {
 		super(location, file_loader, db, tick_size, verbose);
 		this.chartElem = chartElem;
@@ -378,7 +343,7 @@ class SimuLOB extends OrderBook {
 		return ret;
 	}
 	
-	orderFulfill(idNum, trader, qty, fulfilled, commission) {
+	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {
 		let ret = super.orderFulfill(idNum, trader, qty, fulfilled, commission);
 		if (fulfilled == qty) {
 			this.dismissQuote(idNum);
@@ -389,27 +354,22 @@ class SimuLOB extends OrderBook {
 		return ret;
 	}
 	
-	traderBalance(instrument, amount, lastprice, value, liquidation) {
+	traderBalance(instrument, amount, amount_promissed, lastprice, value, liquidation) {
 		let ret = super.traderBalance(instrument, amount, lastprice, value, liquidation);
 		if ('traderBalance_hook' in window) {
-			traderBalance_hook(this, instrument, amount, lastprice, value, liquidation);
+			traderBalance_hook(this, instrument, amount, amount_promissed, lastprice, value, liquidation);
 		}
 		return ret;
 	}
 	
-	logReplacer(key, value) {
-		if (key === 'event_dt') {
-			let dt = luxon.DateTime.fromMillis(
-				value, {
-					zone: 'America/New_York',
-					setZone: true,
-				}
-			);
-			return dt.toFormat('HH:mm:ss.SSS');
-		}
-		else {
-			return super.logReplacer(key, value)
-		}
+	dtFormat(value) {
+		let dt = luxon.DateTime.fromMillis(
+			value, {
+				zone: 'America/New_York',
+				setZone: true,
+			}
+		);
+		return dt.toFormat('HH:mm:ss.SSS');
 	}
 	
 	order_log_filter(order_id, label, db) {
@@ -417,13 +377,12 @@ class SimuLOB extends OrderBook {
 		if (data.trader == this.market_tid) {
 			dolog = false;
 		}
-		else {
+		/*else {
 			dolog = [
 				//'fulfill_order',
-				'execute_order',
 				]
 				.includes(label);
-		}
+		}*/
 		return [dolog, data];
 	}
 	

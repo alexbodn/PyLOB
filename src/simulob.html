@@ -21,23 +21,15 @@
 
 	<div>
 		<div>
-			<div style="display: flex;">
-				<span>
-					capital
-				</span>
-				<div>
-					<input id="capital" value="22,000" type="text" />
-				</div>
+			<div style="display: flex; flex-direction: row;">
+				<div style="">capital</div>
+				<div style=""><input id="capital" value="22,000" type="text" /></div>
 			</div>
-			<div style="display: flex;">
-				<span>
-					minimum profit
-				</span>
-				<div>
-					<input id="minprofit" value="10" type="text" />
-				</div>
+			<div style="display: flex; flex-direction: row;">
+				<div style="">minimum profit</div>
+				<div style=""><input id="minprofit" value="10" type="text" /></div>
 			</div>
-			<div style="display: flex;">
+			<div style="display: flex; flex-direction: row;">
 				<input value="chart update" id="update" type="button" onclick="chartupdate()" />
 				<input value="study bid" id="study-bid" type="button" onclick="studyBid()" />
 				<input value="study ask" id="study-ask" type="button" onclick="studyAsk()" />				</div>
@@ -72,14 +64,13 @@
 	if(self.window === self /* UI thread */){
 		console.log("Running demo from main UI thread.");
 		logHtml = function(cssClass,...args){
-			const ln = document.createElement('div');
-			if(cssClass) ln.classList.add(cssClass);
+			//const ln = document.createElement('div');
+			//if(cssClass) ln.classList.add(cssClass);
 			//ln.append(document.createTextNode(args.join(' ')));
 			///ln.append(createHTMLNode(args.join(' ')));
 			///document.body.append(ln);
-			///const element = document.querySelector('body');
 			document.body.insertAdjacentHTML(
-				'beforeend', args.join(' ')
+				'beforeend', `<div class="${cssClass}">${args.join(' ')}</div>`
 			);
 		};
 	}

@@ -1,6 +1,41 @@
 
 'use strict';
 
+let strcmp = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'}).compare;
+
+function cmp(a, b) {
+	if (typeof a === 'string' || a instanceof String) {
+		return strcmp(a, b);
+	}
+	// also try: (str1 > str2) - (str1 < str2),
+	if (a > b) return 1;
+	if (a < b) return -1;
+	return 0;
+}
+
+function objCmp(a, b, fields) {
+	for (let field of fields) {
+		let ret = cmp(a[field], b[field]);
+		if (ret != 0) {
+			return ret;
+		}
+	}
+	return 0;
+}
+
+function arrayCmp(a, b) {
+	let ret = cmp(a.length, b.length);
+	if (!ret) {
+		for (let ix in a) {
+			ret = cmp(a[ix], b[ix]);
+			if (ret != 0) {
+				return ret;
+			}
+		}
+	}
+	return ret;
+}
+
 let format10 = 10**10; // calc once
 function formatRounder(number) {
 	return Math.round(number * format10) / format10;
@@ -13,6 +48,20 @@ async function fetchText(name, url) {
 	});
 	return ret;
 }
+
+const format = function () {
+  var args = arguments;
+  return args[0].replace(/{(\d+)}/g, function (match, number) {
+    return typeof args[number + 1] != "undefined" ? args[number + 1] : match;
+  });
+};
+
+const formats = function (fmt, args) {
+  return fmt.replace(/{([a-z_A-Z][a-z_A-Z0-9]*)}/g, function (match, text) {
+  	console.warn(text);
+    return typeof args[text] != "undefined" ? args[text] : text;
+  });
+};
 
 function createHTMLNode(htmlCode, tooltip) {
 	// create html node
@@ -83,16 +132,23 @@ objectUpdate(d, {c: 3, d: 4});
 log(d);
 */
 
-function prepKeys(obj, label) {
+function prepKeys(obj, query, label) {
 	let ret = obj;
 	if (false) warn(label);
 	if (Array.isArray(obj)) {
 		return obj;
 	}
+	let paramRe = /:[a-z_A-Z][a-z_A-Z0-9]*/g;
 	if (typeof(obj) == 'object') {
 		ret = {};
 		for (let [key, val] of Object.entries(obj)) {
 			ret[':' + key] = val;
+		}
+		let params = paramRe.exec(query);
+		for (let param of params) {
+			if (!(param in ret)) {
+				throw new Error(`parameter ${param} not defined for ${label}`);
+			}
 		}
 	}
 	return ret;
@@ -184,6 +240,21 @@ class OrderBook {
 		return result;
 	}
 	
+	printOrder (idNum, fmt, db) {
+		let ret;
+		(db || this.db).exec({
+			sql: this.queries.find_order,
+			bind: prepKeys(
+				{idNum: idNum},
+				this.queries.find_order),
+			rowMode: 'object',
+			callback: row => {
+				ret = formats(fmt, row);
+			}
+		});
+		return ret;
+	}
+	
 	clipPrice(instrument, price, db) {
 		// Clips the price according to the ticksize
 		let rounder = this.getRounder(instrument, db);
@@ -204,7 +275,7 @@ class OrderBook {
 			bind: prepKeys({
 				symbol: symbol,
 				currency: currency,
-			})
+			}, this.queries.instrument_insert)
 		});
 	}
 	
@@ -225,13 +296,13 @@ class OrderBook {
 						commission_max_percnt: commission_max_percnt,
 						commission_per_unit: commission_per_unit,
 						allow_self_matching: allow_self_matching
-					}),
+					}, this.queries.trader_insert),
 				});
 				D.exec({
 					sql: this.queries.lasttrader,
-					nodeMode: 'array',
+					rowMode: 'object',
 					callback: res => {
-						ret = res[0];
+						ret = res.lasttrader;
 					}
 				});
 			}
@@ -249,37 +320,38 @@ class OrderBook {
 						trader: trader,
 						instrument: instrument,
 						amount: amount,
-					}),
+					}, this.queries.trader_transfer),
 				});
 			}
 		);
 	}
 	
-	traderBalance(instrument, amount, lastprice, value, liquidation) {
+	traderBalance(instrument, amount, amount_promised, lastprice, value, liquidation) {
 		//to be overriden
+		/*if (this.verbose) {
+			this.logobj({instrument, amount, amount_promised, lastprice, value, liquidation});
+		}*/
 	}
 	
 	traderGetBalance(trader, instrument) {
-		// if !instrument, return an object for all
-		let balance = [];
+		// if !instrument, then all
 		this.db.exec({
 			sql: this.queries.trader_balance,
 			bind: prepKeys({
 				trader: trader,
 				symbol: instrument,
-			}),
+			}, this.queries.trader_balance),
 			rowMode: 'object',
 			callback: row => {
 				this.traderBalance(
 					row.instrument,
 					row.amount,
+					row.amount_promised,
 					row.lastprice,
 					row.value,
 					row.liquidation);
-				balance.push(row);
 			}
 		});
-		return balance;
 	}
 	
 	quoteNum(idNum) {
@@ -297,7 +369,7 @@ class OrderBook {
 			side: side, 
 			qty: qty, 
 			price: price,
-			type: price ? 'limit' : 'market', 
+			order_type: price ? 'limit' : 'market', 
 			idNum: this.quoteNum(),
 			timestamp: this.updateTime(),
 		};
@@ -315,8 +387,8 @@ class OrderBook {
 		if (quote.qty <= 0) {
 			throw new Error(`processOrder(${quote.idNum}) given order of qty <= 0`);
 		}
-		if (!this.valid_types.includes(quote.type)) {
-			throw new Error(`processOrder(${quote.idNum}) given ${quote.type}, not in ${this.valid_types}`);
+		if (!this.valid_types.includes(quote.order_type)) {
+			throw new Error(`processOrder(${quote.idNum}) given ${quote.order_type}, not in ${this.valid_types}`);
 		}
 		if (!this.valid_sides.includes(quote.side)) {
 			throw new Error(`processOrder(${quote.idNum}) given ${quote.side}, not in ${this.valid_sides}`);
@@ -335,14 +407,24 @@ class OrderBook {
 				}
 				D.exec({
 					sql: this.queries.insert_order,
-					bind: prepKeys(quote),
+					bind: prepKeys(
+						quote, this.queries.insert_order),
 				});
 				D.exec({
 					sql: this.queries.lastorder,
-					nodeMode: 'array',
+					rowMode: 'object',
 					callback: res => {
-						quote.order_id = res[0];
-						this.order_log(this.time, res[0], 'create_order', this.printQuote(quote), D);
+						quote.order_id = res.lastorder;
+						this.order_log(
+							this.time, res.lastorder, 'create_order',
+							this.printQuote(quote), D);
+						/*this.order_log(
+							this.time, res.lastorder, 'order_detail',
+							this.printOrder(quote.idNum, 'id: {order_id}, promise_price: {promise_price}', D), D);
+							*/
+						this.orderBalance(
+							quote.order_id, quote.order_id, quote.tid,
+							quote.tid, quote.instrument, undefined, D);
 						ret = this.processMatchesDB(quote, D, verbose);
 					}
 				});
@@ -365,9 +447,9 @@ class OrderBook {
 				instrument: instrument,
 				qty: qty,
 				price: null,
-			}),
-			rowMode: 'array',
-			callback: row => {ret = row[0]}
+			}, this.queries.commission_calc),
+			rowMode: 'object',
+			callback: row => {ret = row.commission}
 		});
 		return ret;
 	}
@@ -379,7 +461,7 @@ class OrderBook {
 			bind: prepKeys({
 				trader: trader,
 				instrument: instrument,
-			}),
+			}, this.queries.commission_data),
 			rowMode: 'object',
 			callback: row => {
 				ret = Object.assign({}, row);
@@ -407,13 +489,13 @@ class OrderBook {
 				price: quote.price,
 				lastprice: quote.lastprice,
 				tid: quote.tid,
-			}),
-			rowMode: 'array',
+			}, sql_matches),
+			rowMode: 'object',
 			callback: match => {
 				if (qtyToExec <= 0) {
 					return;
 				}
-				let [order_id, counterparty, price, available, currency] = match;
+				let {order_id, counterparty, price, available, currency} = match;
 				let bid_order = quote.side == 'bid' ? quote.order_id : order_id;
 				let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
 				let qty = Math.min(available, qtyToExec);
@@ -426,32 +508,49 @@ class OrderBook {
 					bind: prepKeys({
 						bid_order: bid_order,
 						ask_order: ask_order,
-					}),
+					}, this.queries.trade_fulfills),
 					rowMode: 'object',
 					callback: row => {
 						fulfills.push(row);
 						this.order_log(
 							this.time, row.order_id, 'fulfill_order',
-							`FULFILLED ${row.fulfilled} / ${row.qty}. commission: ${row.commission}`, db
+							`<u>FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
 						);
 					}
 				});
-				db.exec({
-					sql: this.queries.trade_balance,
-					bind: prepKeys({
-						trader: quote.tid, 
-						counterparty: counterparty,
-						symbol: instrument,
-						currency: currency
-					}),
-					rowMode: 'object',
-					callback: row => {
-						balance_updates.push(row);
-					}
-				});
+				balance_updates = this.orderBalance(
+					quote.order_id, order_id, quote.tid, counterparty, instrument, currency, db);
 			}
 		});
 		return [trades, fulfills, balance_updates];
+	}
+	
+	orderBalance(order_id, counter_order, trader, counterparty, instrument, currency, db) {
+		let balance_updates = [];
+		if (!db) {
+			db = this.db;
+		}
+		if (!currency) {
+			currency = this.getCurrency(instrument, db);
+		}
+		db.exec({
+			sql: this.queries.trade_balance,
+			bind: prepKeys({
+				trader: trader, 
+				counterparty: counterparty,
+				symbol: instrument,
+				currency: currency
+			}, this.queries.trade_balance),
+			rowMode: 'object',
+			callback: row => {
+				balance_updates.push(row);
+				this.order_log(
+					this.time, row.trader == trader ? order_id : counter_order, 'balance_update',
+					`<u>BALANCE_UPD</u> of ${row.instrument} amt:${formatRounder(row.amount)} promised:${formatRounder(row.amount_promised)}`, db
+				);
+			}
+		});
+		return balance_updates;
 	}
 	
 	tradeExecute(bid_order, ask_order, price, qty, instrument, db, verbose) {
@@ -464,11 +563,12 @@ class OrderBook {
 		};
 		db.exec({
 			sql: this.queries.insert_trade, 
-			bind: prepKeys(trade)
+			bind: prepKeys(
+				trade, this.queries.insert_trade)
 		});
-		this.order_log(this.time, ask_order, 'execute_order', `SOLD ${qty} @ ${price}`, db);
-		this.order_log(this.time, bid_order, 'execute_order', `BOUGHT ${qty} @ ${price}`, db);
-		this.setLastPrice(instrument, price, db);
+		//this.order_log(this.time, ask_order, 'execute_order', `<u>SOLD</u> ${qty} @ ${price}`, db);
+		//this.order_log(this.time, bid_order, 'execute_order', `<u>BOUGHT</u> ${qty} @ ${price}`, db);
+		///this.setLastPrice(instrument, price, db);
 		if (verbose) {
 			log(`>>> TRADE \nt=${this.time} ${price} n=${qty} p1=${counterparty} p2=${quote.tid}`);
 		}
@@ -485,7 +585,8 @@ class OrderBook {
 			this.orderFulfill(
 				fulfill.idNum, fulfill.trader,
 				fulfill.qty, fulfill.fulfilled,
-				fulfill.commission);
+				fulfill.commission,
+				formatRounder(fulfill.fulfill_price / fulfill.qty));
 		}
 		for (let update of balance_updates) {
 			if (update.instrument == quote.instrument) {
@@ -494,11 +595,14 @@ class OrderBook {
 			else {
 				// update balance
 			}
+			if (false && this.verbose) {
+				this.traderGetBalance(update.trader, update.instrument);
+			}
 			//error(JSON.stringify(update));
 		}
 	}
 	
-	orderFulfill(idNum, trader, qty, fulfilled, commission) {
+	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {
 		// to be overriden
 	}
 	
@@ -509,16 +613,18 @@ class OrderBook {
 			D => {
 				D.exec({
 					sql: this.queries.find_order,
-					bind: prepKeys([idNum]),
-					nodeMode: 'array',
+					bind: prepKeys(
+						{idNum: idNum},
+						this.queries.find_order),
+					rowMode: 'object',
 					callback: row => {
-						let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader] = row;
+						let {order_id} = row;
 						D.exec({
 							sql: this.queries.cancel_order, 
 							bind: prepKeys({
 								cancel: 1, 
 								order_id: order_id, 
-							})
+							}, this.queries.cancel_order)
 						});
 						this.order_log(this.time, order_id, 'cancel_order', '<u>CANCEL ORDER</u>', D);
 					}
@@ -550,9 +656,11 @@ class OrderBook {
 		let ret = null;
 		(db || this.db).exec({
 			sql: this.queries.find_order, 
-			bind: prepKeys([idNum]),
-			rowMode: 'array',
-			callback: row => {ret = row[0]}
+			bind: prepKeys(
+				{idNum: idNum},
+				this.queries.find_order),
+			rowMode: 'object',
+			callback: row => {ret = row.side}
 		});
 		return ret;
 	}
@@ -566,24 +674,26 @@ class OrderBook {
 			D => {
 				D.exec({
 					sql: this.queries.find_order,
-					bind: prepKeys([idNum]),
-					rowMode: 'array',
+					bind: prepKeys(
+						{idNum: idNum},
+						this.queries.find_order),
+					rowMode: 'object',
 					callback: row => {
-						let [side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader] = row;
+						let {side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader} = row;
 						objectUpdate(orderUpdate, {
-							type: order_type,
+							order_type: order_type,
 							order_id: order_id,
 							instrument: instrument,
 							side: side,
 							tid: trader,
 						});
-						let loginfo = 'MODIFY';
+						let loginfo = '<u>MODIFY</u>';
 						if (orderUpdate.price) {
 							let logprice = formatRounder(orderUpdate.price);
 							loginfo += ` price: ${logprice};`;
 							orderUpdate.price = this.clipPrice(instrument, orderUpdate.price, D);
-							this.setInstrument(
-								instrument, D, 'last'+side, orderUpdate.price);
+							//this.setInstrument(
+							//	instrument, D, 'last'+side, orderUpdate.price);
 						}
 						else {
 							orderUpdate.price = price;
@@ -594,11 +704,6 @@ class OrderBook {
 						else {
 							orderUpdate.qty = qty;
 						}
-						/*if (orderUpdate.price) {
-							orderUpdate.price = this.clipPrice(instrument, orderUpdate.price, D);
-							this.setInstrument(
-								instrument, D, 'last'+side, orderUpdate.price);
-						}*/
 						D.exec({
 							sql: this.queries.modify_order,
 							bind: prepKeys({
@@ -606,9 +711,12 @@ class OrderBook {
 								qty: orderUpdate.qty,
 								timestamp: orderUpdate.timestamp,
 								order_id: orderUpdate.order_id,
-							})
+							}, this.queries.modify_order)
 						});
-						this.order_log(this.time, order_id, 'modify_order', `<u>${loginfo}</u>`, D);
+						this.order_log(this.time, order_id, 'modify_order', `${loginfo}`, D);
+						this.orderBalance(
+							order_id, order_id, trader, trader,
+							instrument, undefined, D);
 						if (this.betterPrice(side, price, orderUpdate.price)) {
 							ret = this.processMatchesDB(orderUpdate, D, verbose);
 						}
@@ -625,13 +733,14 @@ class OrderBook {
 	}
 	
 	setInstrument(instrument, db, field, value) {
+		let sql = this.queries.instrument_set
+			.replaceAll(':field', field);
 		let query = {
-			sql: this.queries.instrument_set
-					.replaceAll(':field', field), 
+			sql: sql, 
 			bind: prepKeys({
 				instrument: instrument,
 				value: value
-			}),
+			}, sql),
 		};
 		if (db === undefined) {
 			this.db.transaction(
@@ -672,7 +781,9 @@ class OrderBook {
 		if (!this.instrument_cache[instrument] || force) {
 			(db || this.db).exec({
 				sql: this.queries.instrument_get, 
-				bind: prepKeys({instrument: instrument}),
+				bind: prepKeys({
+					instrument: instrument
+				}, this.queries.instrument_get),
 				rowMode: 'object',
 				callback: row => {
 					row.rounder = 10**row.rounder;
@@ -686,6 +797,11 @@ class OrderBook {
 	getRounder(instrument, db) {
 		let cache = this.getInstrument(instrument, db);
 		return (cache ? cache.rounder : null) || this.rounder;
+	}
+	
+	getCurrency(instrument, db) {
+		let cache = this.getInstrument(instrument, db);
+		return cache ? cache.currency : null;
 	}
 	
 	getLastPrice(instrument, db) {
@@ -714,10 +830,11 @@ class OrderBook {
 		let ret = null;
 		this.db.exec({
 			sql: this.queries.volume_at_price, 
-			bind: prepKeys(params),
-			rowMode: 'array',
+			bind: prepKeys(
+				params, this.queries.volume_at_price),
+			rowMode: 'object',
 			callback: row => {
-				ret = row[0];
+				ret = row.volume;
 			}
 		});
 		return ret;
@@ -735,9 +852,9 @@ class OrderBook {
 				instrument: instrument, 
 				side: side,
 				forWhom: forWhom
-			}),
+			}, sql_active_orders),
 			rowMode: 'object',
-			callback: row => {ret = row.price}
+			callback: row => {ret = row.price || 'MKT'}
 		});
 		return ret;
 	}
@@ -762,7 +879,7 @@ class OrderBook {
 			sql: this.queries.order_info, 
 			bind: prepKeys({
 				order_id: order_id,
-			}),
+			}, this.queries.order_info),
 			rowMode: 'object',
 			callback: row => {
 				data = row;
@@ -774,13 +891,17 @@ class OrderBook {
 		return [dolog, data];
 	}
 	
+	dtFormat(value) {
+		return value.toString();
+	}
+	
 	order_log(event_dt, order_id, label, info, db) {
 		let [dolog, data] = this.order_log_filter(order_id, label, db);
 		if (!dolog) {
 			return;
 		}
 		if (this.verbose) {
-			this.logobj({event_dt, order_id, info});
+			log(`id:${data.idNum}(tid:${data.trader})@${this.dtFormat(event_dt)} => ${info}`);
 		}
 		db.exec({
 			sql: this.queries.insert_order_log, 
@@ -789,7 +910,7 @@ class OrderBook {
 				order_id: order_id,
 				label: label,
 				info: info
-			})
+			}, this.queries.insert_order_log)
 		});
 	}
 	
@@ -807,7 +928,10 @@ class OrderBook {
 	}
 	
 	logReplacer(key, value) {
-		if (key === 'info') {
+		if (key === 'event_dt') {
+			return this.dtFormat(value);
+		}
+		else if (key === 'info') {
 			value = value.replace(/<.*?>/g, '');
 		}
 		else if (typeof value === "number") {
@@ -825,67 +949,145 @@ class OrderBook {
 	
 	printQuote(quote) {
 		let action = quote.side.toUpperCase();
-		let order_type = quote.type == 'limit' ? 'LMT' : 'MKT';
-		let price = quote.type == 'limit' ? ' ' + formatRounder(quote.price) : '';
-		let ret = `<u>${action} ${quote.qty} ${quote.instrument} @${order_type}${price}</u>`;
+		let order_type = quote.order_type == 'limit' ? 'LMT' : 'MKT';
+		let price = quote.order_type == 'limit' ? ' ' + formatRounder(quote.price) : '';
+		let ret = `<u>${action}</u> ${quote.qty} ${quote.instrument} @${order_type}${price}`;
 		return ret;
 	}
 	
-	print(instrument, forWhom=null) {
-		let sql_active_orders = 
-			this.queries.active_orders + this.queries.best_quotes_order_asc;
-
-		let fileStr = [];
-		fileStr.push(`<b>limit order book for ${instrument}</b>`);
-		function bidask(row) {
-			let [idNum, qty, fulfilled, price, event_dt, instrument] = row;
-			fileStr.push(`${idNum})${qty}-${fulfilled} @ ${price} t=${event_dt}`);
+	dump({instrument, forWhom, priceAsk, priceBid}) {
+		function side_activeOrders(lob, side) {
+			let sql_active_orders = 
+				lob.queries.active_orders +
+				lob.queries.best_quotes_order_asc;
+			let rows = [];
+			lob.db.exec({
+				sql: sql_active_orders,
+				bind: prepKeys({
+					instrument: instrument,
+					side: side,
+					forWhom: forWhom
+				}, sql_active_orders),
+				rowMode: 'object',
+				callback: row => {
+					rows.push(row);
+				},
+			});
+			return rows;
 		}
-		fileStr.push("------ Bids -------");
-		this.db.exec({
-			sql: sql_active_orders,
-			bind: prepKeys({
-				instrument: instrument,
-				side: 'bid',
-				forWhom: forWhom
-			}),
-			rowMode: 'array',
-			callback: bidask,
-		});
-		fileStr.push("");
-		fileStr.push("------ Asks -------");
-		this.db.exec({
-			sql: sql_active_orders,
-			bind: prepKeys({
-				instrument: instrument, 
-				side: 'ask',
-				forWhom: forWhom
-			}),
-			rowMode: 'array',
-			callback: bidask,
-		});
-		fileStr.push("");
-		
+		let obj = {
+			instrument: instrument,
+			forWhom: forWhom,
+			priceAsk: priceAsk,
+			priceBid: priceBid,
+			bids: side_activeOrders(this, 'bid'),
+			asks: side_activeOrders(this, 'ask'),
+			volumeBid: this.getVolumeAtPrice(instrument, 'bid', priceAsk),
+			volumeAsk: this.getVolumeAtPrice(instrument, 'ask', priceBid),
+			bestBid: this.getBestBid(instrument),
+			worstBid: this.getWorstBid(instrument),
+			bestAsk: this.getBestAsk(instrument),
+			worstAsk: this.getWorstAsk(instrument),
+		};
 		this.db.exec({
 			sql: this.queries.commission_test, 
 			rowMode: 'object',
 			callback: commission => {
-				fileStr.push(JSON.stringify(commission));
+				obj.commission_balance = commission.commission_balance;
 			}
 		});
+		return obj;
+	}
+	
+	dumpCmp(
+		{
+			instrument,
+			forWhom,
+			priceAsk,
+			priceBid,
+			bids,
+			asks,
+			volumeBid,
+			volumeAsk,
+			bestBid,
+			worstBid,
+			bestAsk,
+			worstAsk,
+		}
+	) {
+		let ret = 0;
+		let scalars = {
+			volumeBid,
+			volumeAsk,
+			bestBid,
+			worstBid,
+			bestAsk,
+			worstAsk,
+		};
+		let dumpParams = {
+			instrument,
+			forWhom,
+			priceAsk,
+			priceBid,
+		};
+		let dmp = this.dump(dumpParams);
+		for (let [key, value] of Object.entries(scalars)) {
+			ret = cmp(dmp[key], value);
+			if (ret) {
+				break;
+			}
+		}
+		let quoteLists = {bids, asks};
+		for (let [name, list] of Object.entries(quoteLists)) {
+			if (ret) {
+				break;
+			}
+			for (let ix in list) {
+				ret = objCmp(dmp[name][ix], list[ix], Object.keys(list[ix]));
+				if (ret) {
+					break;
+				}
+			}
+		}
+		if (!ret) {
+			log('cmp ok');
+		}
+		else {
+			log(stringify(dmp));
+		}
+		return ret;
+	}
+	
+	print(instrument, forWhom=null, priceAsk=98, priceBid=101) {
+		let obj = this.dump({instrument, forWhom, priceAsk, priceBid});
+		let fileStr = [];
+		fileStr.push(`<b>limit order book for ${obj.instrument}</b>`);
+		fileStr.push("------ Bids -------");
+		for (let row of obj.bids) {
+			let {idNum, trader, qty, fulfilled, price, event_dt, instrument} = row;
+			fileStr.push(`${idNum} of ${trader})${qty}-${fulfilled} @ ${price} t=${event_dt}`);
+		}
+		fileStr.push("");
+		fileStr.push("------ Asks -------");
+		for (let row of obj.asks) {
+			let {idNum, trader, qty, fulfilled, price, event_dt, instrument} = row;
+			fileStr.push(`${idNum} of ${trader})${qty}-${fulfilled} @ ${price} t=${event_dt}`);
+		}
+		fileStr.push("");
+		fileStr.push(`commission_balance: ${obj.commission_balance}`);
 		fileStr.push("");
 		
-		fileStr.push(`volume bid if i ask 98: ${this.getVolumeAtPrice(instrument, 'bid', 98)}`);
-		fileStr.push(`volume ask if i bid 101: ${this.getVolumeAtPrice(instrument, 'ask', 101)}`);
-		fileStr.push(`best bid: ${this.getBestBid(instrument)}`);
-		fileStr.push(`worst bid: ${this.getWorstBid(instrument)}`);
-		fileStr.push(`best ask: ${this.getBestAsk(instrument)}`);
-		fileStr.push(`worst ask: ${this.getWorstAsk(instrument)}`);
+		fileStr.push(`volume bid if i ask ${obj.priceAsk}: ${obj.volumeBid}`);
+		fileStr.push(`volume ask if i bid ${obj.priceBid}: ${obj.volumeAsk}`);
+		fileStr.push(`best bid: ${obj.bestBid}`);
+		fileStr.push(`worst bid: ${obj.worstBid}`);
+		fileStr.push(`best ask: ${obj.bestAsk}`);
+		fileStr.push(`worst ask: ${obj.worstAsk}`);
 		
 		fileStr.push("");
 		
 		let value = fileStr.join('\n');
 		log(value);
-		return value;
+		return obj;
 	}
 };
