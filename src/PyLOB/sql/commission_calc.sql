@@ -3,12 +3,10 @@ select
 	round(min(
 		max(commission_min, commission_per_unit * :qty),
 		commission_max_percnt / 100 * :qty *
-		case when :price is null then instrument.lastprice else :price end
-	), currency.rounder) as commission
+		coalesce(:price, instrument.lastprice)
+	), coalesce(currency.rounder, 4)) as commission
 from trader
-inner join instrument
-	on instrument.symbol=:instrument
-inner join instrument as currency
-	on instrument.currency=currency.symbol
+left outer join instrument as currency
+	on :currency=currency.symbol
 where tid=:trader
 

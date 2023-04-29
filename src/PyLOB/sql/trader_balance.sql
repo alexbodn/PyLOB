@@ -1,7 +1,6 @@
 select
 	instrument, 
 	amount,
-	amount_promised,
 	lastprice,
 	amount * lastprice as value,
 	-- should rather be: best bid

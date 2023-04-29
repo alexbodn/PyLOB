@@ -30,7 +30,15 @@
 				<div style=""><input id="minprofit" value="10" type="text" /></div>
 			</div>
 			<div style="display: flex; flex-direction: row;">
-				<input value="chart update" id="update" type="button" onclick="chartupdate()" />
+				<div style="">nEvt</div>
+				<div style=""><input id="nEvt" value="1" type="text" /></div>
+			</div>
+			<div style="display: flex; flex-direction: row;">
+				<div style="">nlevels</div>
+				<div style=""><input id="nlevels" value="1" type="text" /></div>
+			</div>
+			<div style="display: flex; flex-direction: row;">
+				<input value="run" id="run" type="button" onclick="simuRun();" />
 				<input value="study bid" id="study-bid" type="button" onclick="studyBid()" />
 				<input value="study ask" id="study-ask" type="button" onclick="studyAsk()" />				</div>
 			</div>
@@ -38,6 +46,8 @@
 		<div>
 			<canvas id="c1" height="320px"></canvas>
 			<img id="loading" src="./ezgif.com-gif-maker.gif" />
+		</div>
+		<div id="log">
 		</div>
 	</div>
 	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
@@ -67,9 +77,10 @@
 			//const ln = document.createElement('div');
 			//if(cssClass) ln.classList.add(cssClass);
 			//ln.append(document.createTextNode(args.join(' ')));
-			///ln.append(createHTMLNode(args.join(' ')));
-			///document.body.append(ln);
-			document.body.insertAdjacentHTML(
+			let element = document.querySelector("div#log");
+			//document.body.
+			element.
+			insertAdjacentHTML(
 				'beforeend', `<div class="${cssClass}">${args.join(' ')}</div>`
 			);
 		};
@@ -118,8 +129,6 @@
 	}).then(function(sqlite3){
 		//log("Done initializing. Running demo...");
 		try {
-			let myurl = window.location.href;
-			let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
 			const oo = sqlite3.oo1/*high-level OO API*/;
 			const db = new oo.DB("/mydb.sqlite3",'c');
 			// isolation_level: null
@@ -131,12 +140,14 @@
 					sql: sql[1],
 				});
 				//finally
+				let myurl = window.location.href;
+				let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
 				sob = new SimuLOB(
 						mydir + '/PyLOB', fetchText, db, 
 						undefined, undefined, 'c1');
 				sob.init().then(
 					obj => {
-						//log(obj);
+						//log(obj);						sob_initialized = true;
 						sob.run(data);
 					}
 				); 
@@ -157,6 +168,14 @@
 		if (index >= 0) {
 			sob.chart.setDatasetVisibility(index, !sob.chart.isDatasetVisible(index));
 			sob.chart.update();
+		}
+	}
+	function simuRun() {
+		if (sob.isInitialized()) {
+			let element = document.querySelector("div#log");
+			element.textContent = '';
+			sob.chartDestroy();
+			sob.run(data);
 		}
 	}
 	function studyBid() {

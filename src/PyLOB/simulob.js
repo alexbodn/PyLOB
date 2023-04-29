@@ -24,6 +24,9 @@
 	}
 	
 function parseDate(dt) {
+	if (dt instanceof Number) {
+		return dt;
+	}
 	let lx = luxon.DateTime.fromISO(
 		dt.replace('Z', ''), {
 				zone: 'America/New_York',
@@ -35,51 +38,41 @@ function parseDate(dt) {
 
 class SimuLOB extends OrderBook {
 	
-	lastTicks = [];
-	quotesQueue = [];
-	
+	simu_initialized = false;
 	market_tid = undefined;
 	trader_tid = undefined;
 
 	price_branch = ['price'];
+	balance_branch = ['balance'];
 	ev_branches = ['ev', 'peaks', 'valleys'];
 	market_orders = ['ask', 'bid'];
-	trader_orders = ['askall', 'askhalf', 'bidhalf', 'bidall'];
-	
+
 	chartStyle = {
 		price: {
 			borderColor: 'green',
+			pointStyle: false,
 		},
 		ev: {
 			borderColor: 'yellow',
+			pointStyle: false,
 		},
 		peaks: {
 			borderColor: 'lightblue',
+			pointStyle: false,
 		},
 		valleys: {
 			borderColor: 'maroon',
+			pointStyle: false,
+		},
+		balance: {
+			borderColor: 'gold',
+			pointStyle: 'star',
 		},
 		ask: {
 			borderColor: 'red',
 		},
 		bid: {
 			borderColor: 'blue',
-		},
-		askall: {
-			borderColor: 'red',
-			borderDash: [10, 5],
-		},
-		askhalf: {
-			borderColor: 'red',
-			borderDash: [5, 5],
-		},
-		bidhalf: {
-			borderColor: 'blue',
-			borderDash: [5, 5],
-		},
-		bidall: {
-			borderColor: 'blue',
-			borderDash: [10, 5],
 		},
 	};
 	
@@ -146,37 +139,43 @@ class SimuLOB extends OrderBook {
 	};
 	
 	constructor(
-		location, file_loader, db, 
-		tick_size=0.0001, verbose=true, 
+		location, file_loader, db,
+		tick_size=0.0001, verbose=true,
 		chartElem,
-		capital, 
-		minprofit,
-		nEvt=2,
-		instrument='IVE',
-		currency='USD',
 	) {
 		super(location, file_loader, db, tick_size, verbose);
 		this.chartElem = chartElem;
-		this.capital = capital || inputNumber('capital');
-		this.minprofit = minprofit || inputNumber('minprofit');
-		this.nEvt = nEvt;
 		this.data_branches = this.price_branch
 			.concat(this.market_orders);
-		this.branches = this.data_branches
+		this.core_branches = this.data_branches
 			.concat(this.ev_branches)
-			.concat(this.trader_orders);
-		for (let ix in this.branches) {
-			this[`${this.branches[ix]}_ix`] = ix;
+			.concat(this.balance_branch);
+		for (let ix in this.core_branches) {
+			this[`${this.core_branches[ix]}_ix`] = ix;
 		}
-		this.order_branches = this.trader_orders
-			.concat(this.market_orders);
-		this.orders_detail = {};
-		this.orders_detail[this.instrument] = {};
+		this.order_branches = [...this.market_orders];
 		this.trader_quotes = {};
 		this.order_names = {};
-		this.instrument = instrument;
-		this.currency = currency;
-		this.balance = {};
+	}
+	
+	async init() {
+		let result = new Promise((resolve, reject) => {
+		let initDone = super.init();
+		initDone.then(
+			value => {
+				if ('afterInit_hook' in window) {
+					afterInit_hook(this);
+				}
+				this.simu_initialized = true;
+				resolve(value);
+			}
+		);
+		});
+		return result;
+	}
+	
+	isInitialized() {
+		return this.simu_initialized;
 	}
 	
 	dataTicks(data) { // x, y, label,rowid
@@ -188,6 +187,7 @@ class SimuLOB extends OrderBook {
 				.data
 				.map(
 					(datum, rowid)=>{
+						datum = Object.assign({}, datum);
 						datum.label = branch.title;
 						datum.rowid = rowid;
 						return datum;
@@ -198,6 +198,16 @@ class SimuLOB extends OrderBook {
 			.sort((a, b)=>objCmp(a, b, ['x', 'rowid']))
 			;
 		console.timeEnd('data sort');
+		//cut consecutive duplicates
+		let current = {};
+		ticks = ticks.filter(
+			tick => {
+				let ret = tick.y && tick.y != current[tick.label];
+				current[tick.label] = tick.y;
+				return ret;
+				
+			});
+		
 		return ticks;
 	}
 	
@@ -207,10 +217,11 @@ class SimuLOB extends OrderBook {
 		let config = Object.assign({}, this.chartConfig);
 		config.plugins.push(...[{
 			afterInit: (chart, args, options) => {
-				for (let ix in this.branches) {
-					let branch = this.branches[ix];
+				for (let ix in this.core_branches) {
+					let branch = this.core_branches[ix];
 					let dataset = {
 						label: branch,
+						beginAtZero: false,
 						data: [],
 						id: `id_${branch}`,
 						stepped: (this.order_branches.includes(branch)),
@@ -220,6 +231,9 @@ class SimuLOB extends OrderBook {
 					chart.data.datasets[ix] = dataset;
 				}
 				this.chart = chart;
+				if ('afterDataSets_hook' in window) {
+					afterDataSets_hook(this);
+				}
 				console.timeEnd('chart init');
 				let ticks = this.dataTicks(data);
 				this.loadTicks(ticks);
@@ -230,35 +244,16 @@ class SimuLOB extends OrderBook {
 			}
 		}]);
 		new Chart(hostElem, config);
-
-		//this.loadTicks(ticks);
+	}
+	
+	chartDestroy() {
+		this.chart &&
+		this.chart.clear() &&
+		this.chart.destroy();
 	}
 	
 	loadTicks(ticks) {
 		console.time('data process');
-		this.createInstrument(
-			this.instrument, this.currency);
-		this.market_tid = this.createTrader(
-			'market', null, this.currency, 0.01, 2.5, 1);
-		this.trader_tid = this.createTrader(
-			'trader', null, this.currency, 0.01, 2.5, 1);
-		this.commission_data = this.commissionData(
-			this.trader_tid, this.instrument);
-		this.traderTransfer(
-			this.trader_tid, this.currency, this.capital);
-		this.traderTransfer(
-			this.trader_tid, this.instrument, 0);
-		this.traderGetBalance(this.trader_tid);
-		
-		let current = {};
-		ticks = ticks.filter(
-			tick => {
-				let ret = tick.y && tick.y != current[tick.label];
-				current[tick.label] = tick.y;
-				return ret;
-				
-			});
-		
 		let sent = 0;
 		let simu = this;
 		let tickInterval = setInterval ((simu, ticks) => {

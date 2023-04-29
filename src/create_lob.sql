@@ -38,7 +38,6 @@ create table if not exists trader_balance (
     trader integer, -- trader
     instrument text,
     amount real default(0),
-    amount_promised real default(0),
     primary key(trader, instrument),
     foreign key(trader) references trader(tid),
     foreign key(instrument) references instrument(symbol)
@@ -88,7 +87,6 @@ create table if not exists trade_order (
     qty integer not null, -- required
     fulfilled integer default(0), -- accumulator of trades by :side _order
     price real, -- trigger price, null for market
-    promise_price real, -- instrument.lastprice if null
     idNum integer unique, -- externally supplied, optional
     trader integer, -- trader
     active integer default(1),
@@ -161,15 +159,6 @@ BEGIN
     		then CAST(ROUND((julianday('now') - 2440587.5)*86400000) As INTEGER)
     		else event_dt
     	end,
-    	promise_price=
-	    coalesce(
-		    new.price,
-		    case 
-		    	when new.side='ask' then lastask
-		    	when new.side='bid' then lastbid
-		    	else lastprice
-		    end, 
-		    lastprice),
 		currency=instrument.currency
     from (
         select currency, lastask, lastbid, lastprice
@@ -181,74 +170,22 @@ BEGIN
     insert into trader_balance (trader, instrument) 
     select new.trader, new.instrument 
     on conflict(trader, instrument) do nothing;
-    update trader_balance
-    set amount_promised=
-    	amount_promised + (
-    	(case 
-	    	when new.side='ask' then -(1) 
-	    	when new.side='bid' then 1 
-	    	else 0 
-    	end) *
-    	new.qty)
-    where trader=new.trader and instrument=new.instrument
-    ;
     insert into trader_balance (trader, instrument) 
     select new.trader, instrument.currency
     from instrument 
     where instrument.symbol=new.instrument 
     on conflict(trader, instrument) do nothing;
-    update trader_balance
-    set amount_promised=
-    	amount_promised + (
-    	(case 
-	    	when new.side='ask' then 1 
-	    	when new.side='bid' then -1 
-	    	else 0 
-    	end) *
-    	new.qty * data.promise_price)
-    from (
-        select currency, promise_price
-        from trade_order
-	    where trade_order.order_id=new.order_id
-    ) as data
-    where trader=new.trader and trader_balance.instrument=data.currency
-    ;
 END;
 
 create trigger if not exists order_cancel_or_fulfill
     AFTER UPDATE OF cancel, fulfilled, fulfill_price ON trade_order
 BEGIN
-	update trader_balance 
-	set amount_promised=amount_promised - 
-	case 
-		when new.side='ask' then -1
-		when new.side='bid' then 1
-		else 0
-	end * (new.qty - new.fulfilled)
-	where 
-		new.cancel=1 and 
-		trader_balance.instrument=new.instrument and 
-		trader_balance.trader=new.trader
-		;
-	update trader_balance 
-	set amount_promised=amount_promised + 
-	case 
-		when new.side='ask' then -1
-		when new.side='bid' then 1
-		else 0
-	end * (new.qty - new.fulfilled) * new.promise_price
-	where 
-		new.cancel=1 and 
-		trader_balance.instrument=new.currency and 
-		trader_balance.trader=new.trader
-		;
     update trade_order
     set commission=round(
 		min(
 			trader.commission_max_percnt * new.fulfill_price / 100, 
 			max(trader.commission_min, trader.commission_per_unit * new.fulfilled)
 	), commission_rounder)
-	-- update amount_promised
     from (
         select 
 			commission_max_percnt, commission_min, commission_per_unit, 
@@ -262,19 +199,6 @@ BEGIN
     	trade_order.order_id=new.order_id
     	and old.cancel=0 -- not fulfilling anymore??
     	and new.fulfilled>0;
-END;
-
-create trigger if not exists order_commission
-    AFTER UPDATE OF qty, price ON trade_order
-BEGIN
-	select 1; -- place holder
-	-- reduce old amount_promised, of qty - fulfilled
-	-- recalculate promise_price and amount_promised
-    /*
-    update trader_balance
-    set amount_promised=amount_promised - (new.commission - old.commission)
-    where trader_balance.trader=new.trader and trader_balance.instrument=new.currency;
-    */
 END;
 
 create trigger if not exists trader_commission
@@ -323,8 +247,7 @@ BEGIN
     
     -- bid balance increases by qty instrument
     update trader_balance
-    set amount=trader_balance.amount + bid_order.amount,
-    	amount_promised=trader_balance.amount_promised - bid_order.amount 
+    set amount=trader_balance.amount + bid_order.amount
     from (
         select trader, instrument, new.qty as amount
         from trade_order 
@@ -336,12 +259,10 @@ BEGIN
     
     -- ask balance increases by qty * price instrument.currency
     update trader_balance
-    set amount=trader_balance.amount + ask_order.amount,
-    	amount_promised=trader_balance.amount_promised - ask_order.amount_promised 
+    set amount=trader_balance.amount + ask_order.amount
     from (
         select trader, currency,
-        	new.qty * new.price as amount,
-        	new.qty * trade_order.promise_price as amount_promised
+        	new.qty * new.price as amount
         from trade_order 
         where trade_order.order_id=new.ask_order
     ) as ask_order
@@ -351,8 +272,7 @@ BEGIN
     
     -- ask balance decreases by qty instrument
     update trader_balance
-    set amount=trader_balance.amount - ask_order.amount,
-    	amount_promised=trader_balance.amount_promised + ask_order.amount
+    set amount=trader_balance.amount - ask_order.amount
     from (
         select trader, instrument, new.qty as amount
         from trade_order 
@@ -364,12 +284,10 @@ BEGIN
     
     -- bid balance decreases by qty * price instrument.currency
     update trader_balance
-    set amount=trader_balance.amount - bid_order.amount,
-    	amount_promised=trader_balance.amount_promised + bid_order.amount_promised 
+    set amount=trader_balance.amount - bid_order.amount
     from (
         select trader, currency,
-        	new.qty * new.price as amount,
-        	new.qty * trade_order.promise_price as amount_promised
+        	new.qty * new.price as amount
         from trade_order 
         where trade_order.order_id=new.bid_order
     ) as bid_order

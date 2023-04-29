@@ -2,7 +2,6 @@ select
 	trader, 
 	instrument, 
 	amount, 
-	amount_promised,
 	lastprice,
 	amount * lastprice as value,
 	amount * lastbid as liquidation

@@ -1,4 +1,5 @@
 
+'use strict';
 /**
  * Determine whether the given `input` is iterable.
  *
@@ -12,8 +13,7 @@ function isIterable(input) {
   return typeof input[Symbol.iterator] === 'function';
 }
 
-function peakdet1(v, delta, allev)
-{
+function peakdet1(v, delta, allev) {
 	/*
 	this code was kindly provided  by it's original developer.
 	// Eli Billauer, 3.4.05 (Explicitly not copyrighted).
@@ -54,7 +54,7 @@ function peakdet1(v, delta, allev)
 	if (!isIterable(v)) {
 		throw new Error('values should be iterable');
 	}
-	if (!(typeof(delta) === 'number' && delta > 0)) {
+	if (typeof(delta) !== 'number' || delta <= 0) {
 		throw new Error('Input argument DELTA must be a positive number');
 	}
 	
@@ -66,7 +66,7 @@ function peakdet1(v, delta, allev)
 	var lastmn = null;
 	var lastmx = null;
 	
-	for ([thispos, _this] of v)
+	for (let [thispos, _this] of v)
 	{
 		if (_this > mx)
 		{
@@ -127,8 +127,7 @@ function peakdet1(v, delta, allev)
 	return resp;
 }
 
-function peakdet2(v, delta, {getv=function (v) {return v;}, maxtab=[], mintab=[], allev=[]}={})
-{
+function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 	/*
 	this code was kindly provided  by it's original developer.
 	// Eli Billauer, 3.4.05 (Explicitly not copyrighted).
@@ -140,8 +139,7 @@ function peakdet2(v, delta, {getv=function (v) {return v;}, maxtab=[], mintab=[]
 	  as being last is not being followed, 
 	  especially not by a direction breaking value.
 	my aim is to lessen the memory commitment, and provide iterables as input.
-	the original functionality may be obtained by using the 'original' parameter.
-	
+
 	this is the original doc:
 	//PEAKDET Detect peaks in a vector
 	// [MAXTAB, MINTAB] = PEAKDET(V, DELTA) finds the local
@@ -166,7 +164,7 @@ function peakdet2(v, delta, {getv=function (v) {return v;}, maxtab=[], mintab=[]
 	if (!isIterable(v)) {
 		throw new Error('values should be iterable');
 	}
-	if (!(typeof(delta) === 'number' && delta > 0)) {
+	if (typeof(delta) !== 'number' || delta <= 0) {
 		throw new Error('Input argument DELTA must be a positive number');
 	}
 	
@@ -174,8 +172,8 @@ function peakdet2(v, delta, {getv=function (v) {return v;}, maxtab=[], mintab=[]
 	
 	var lookformax = 1, firstmn = true, lastmn = null, lastmx = null;
 	
-	for (thisv of v) {
-		_this = getv(thisv);
+	for (let thisv of v) {
+		let _this = getv(thisv);
 		
 		if (_this > mx) {
 			mxpt = thisv; mx = _this;
@@ -184,8 +182,11 @@ function peakdet2(v, delta, {getv=function (v) {return v;}, maxtab=[], mintab=[]
 					// as lookformax is initially true, 
 					// the min that precedes the first max
 					// will be ignored
-					mintab.push(mnpt);
-					allev.push(mnpt);
+					if (mnpt) {
+						mintab.push(mnpt);
+						allev.push(mnpt);
+					}
+					mnpt = null;
 					firstmn = false;
 					lastmn = null;
 				}
@@ -201,8 +202,11 @@ function peakdet2(v, delta, {getv=function (v) {return v;}, maxtab=[], mintab=[]
 		
 		if (lookformax) {
 			if (_this < mx-delta) {
-				maxtab.push(mxpt);
-				allev.push(mxpt);
+				if (mxpt) {
+					maxtab.push(mxpt);
+					allev.push(mxpt);
+				}
+				mxpt = null;
 				mnpt = thisv; mn = _this;
 				lookformax = 0;
 				lastmx = null;
@@ -210,8 +214,11 @@ function peakdet2(v, delta, {getv=function (v) {return v;}, maxtab=[], mintab=[]
 		}
 		else {
 			if (_this > mn+delta) {
-				mintab.push(mnpt);
-				allev.push(mnpt);
+				if (mnpt) {
+					mintab.push(mnpt);
+					allev.push(mnpt);
+				}
+				mnpt = null;
 				firstmn = false;
 				mxpt = thisv; mx = _this;
 				lookformax = 1;
@@ -233,8 +240,7 @@ function peakdet2(v, delta, {getv=function (v) {return v;}, maxtab=[], mintab=[]
 	return [maxtab, mintab];
 }
 
-function peakdet(v, delta, x=undefined, xinit=1, original=false)
-{
+function peakdet(v, delta, x=undefined, xinit=1, original=false) {
 	/*
 	this code was kindly provided  by it's original developer.
 	// Eli Billauer, 3.4.05 (Explicitly not copyrighted).
@@ -304,9 +310,9 @@ function peakdet(v, delta, x=undefined, xinit=1, original=false)
 	var lastmn = null;
 	var lastmx = null;
 	
-	for (_this of v)
+	for (let _this of v)
 	{
-		thispos = x.next().value;
+		let thispos = x.next().value;
 		//console.log(_this, thispos);
 		
 		if (_this > mx)
@@ -373,7 +379,7 @@ from operator import itemgetter
 function split_tab(tab) {
 	var x = [];
 	var y = [];
-	for (row of tab){
+	for (let row of tab){
 		x.push(row[0]);
 		y.push(row[1]);
 	}

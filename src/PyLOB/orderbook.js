@@ -7,6 +7,12 @@ function cmp(a, b) {
 	if (typeof a === 'string' || a instanceof String) {
 		return strcmp(a, b);
 	}
+	if (a instanceof Array) {
+		return arrayCmp(a, b);
+	}
+	if (a instanceof Object) {
+		return objCmp(a, b);
+	}
 	// also try: (str1 > str2) - (str1 < str2),
 	if (a > b) return 1;
 	if (a < b) return -1;
@@ -14,6 +20,9 @@ function cmp(a, b) {
 }
 
 function objCmp(a, b, fields) {
+	if (!fields) {
+		fields = Object.keys(a);
+	}
 	for (let field of fields) {
 		let ret = cmp(a[field], b[field]);
 		if (ret != 0) {
@@ -50,7 +59,7 @@ async function fetchText(name, url) {
 }
 
 const format = function () {
-  var args = arguments;
+  let args = arguments;
   return args[0].replace(/{(\d+)}/g, function (match, number) {
     return typeof args[number + 1] != "undefined" ? args[number + 1] : match;
   });
@@ -62,17 +71,6 @@ const formats = function (fmt, args) {
     return typeof args[text] != "undefined" ? args[text] : text;
   });
 };
-
-function createHTMLNode(htmlCode, tooltip) {
-	// create html node
-	let htmlNode = document.createElement('span');
-	htmlNode.innerHTML = htmlCode;
-	//htmlNode.className = 'treehtml';
-	if (tooltip) {
-		htmlNode.setAttribute('title', tooltip);
-	}
-	return htmlNode;
-}
 
 function syntaxHighlight(json, withCss=true, tag='pre', jsonClass='json') {
 	let styleId = 'json-syntaxHighlight';
@@ -118,6 +116,18 @@ function stringify(arg, replacer, spacer, inPre, jsonClass='json') {
 	let json = syntaxHighlight(JSON.stringify(arg, replacer, spacer).replaceAll(/,\s*/g, ', '), true, tag);
 	json = `<${tag} class="${jsonClass}">${json}</${tag}>`;
 	return json;
+}
+
+function logReplacer(key, value) {
+	if (typeof value === "number") {
+		value = formatRounder(value);
+	}
+	return value;
+}
+
+function logobj(...args) {
+	log.apply(this, args.map(
+		arg => arg == undefined ? 'undefined' : stringify(arg, logReplacer)));
 }
 
 function objectUpdate(dest, src) {
@@ -176,6 +186,7 @@ class OrderBook {
 		'order_by_dt',
 		'matches',
 		'trade_balance',
+		'balance_reset',
 		'modify_order',
 		'trade_fulfills',
 		'select_trades',
@@ -189,6 +200,7 @@ class OrderBook {
 		'select_order_log',
 	];
 	queries = {};
+	initialized = false;
 	 
 	constructor(location, file_loader, db, tick_size=0.0001, verbose=false) {
 		this.tickSize = tick_size
@@ -232,12 +244,17 @@ class OrderBook {
 					desc: this.queries.best_quotes_order_desc,
 					asc: this.queries.best_quotes_order_asc,
 				};
+				this.initialized = true;
 				delete this.queries.best_quotes_order;
 				resolve('init done');
 			}
 		);
 		});
 		return result;
+	}
+	
+	isInitialized() {
+		return this.initialized;
 	}
 	
 	printOrder (idNum, fmt, db) {
@@ -279,11 +296,11 @@ class OrderBook {
 		});
 	}
 	
-	createTrader(name, tid, currency, 
-		commission_per_unit, commission_min, commission_max_percnt, 
+	createTrader(name, tid, currency, commission_data,
 		allow_self_matching=0)
 	{
 		let ret = null;
+		let {commission_per_unit, commission_min, commission_max_percnt} = commission_data;
 		this.db.transaction(
 			D => {
 				D.exec({
@@ -326,10 +343,10 @@ class OrderBook {
 		);
 	}
 	
-	traderBalance(instrument, amount, amount_promised, lastprice, value, liquidation) {
+	traderBalance(instrument, amount, lastprice, value, liquidation) {
 		//to be overriden
 		/*if (this.verbose) {
-			this.logobj({instrument, amount, amount_promised, lastprice, value, liquidation});
+			this.logobj({instrument, amount, lastprice, value, liquidation});
 		}*/
 	}
 	
@@ -346,12 +363,25 @@ class OrderBook {
 				this.traderBalance(
 					row.instrument,
 					row.amount,
-					row.amount_promised,
 					row.lastprice,
 					row.value,
 					row.liquidation);
 			}
 		});
+	}
+	
+	traderBalanceReset(trader, instrument) {
+		this.db.transaction(
+			D => {
+				D.exec({
+					sql: this.queries.balance_reset,
+					bind: prepKeys({
+						trader: trader,
+						instrument: instrument,
+					}, this.queries.balance_reset),
+				});
+			}
+		);
 	}
 	
 	quoteNum(idNum) {
@@ -420,12 +450,12 @@ class OrderBook {
 							this.printQuote(quote), D);
 						/*this.order_log(
 							this.time, res.lastorder, 'order_detail',
-							this.printOrder(quote.idNum, 'id: {order_id}, promise_price: {promise_price}', D), D);
+							this.printOrder(quote.idNum, 'id: {order_id}', D), D);
 							*/
 						this.orderBalance(
 							quote.order_id, quote.order_id, quote.tid,
 							quote.tid, quote.instrument, undefined, D);
-						ret = this.processMatchesDB(quote, D, verbose);
+						ret = this.processMatchesDB(quote, false, D, verbose);
 					}
 				});
 			}
@@ -438,15 +468,15 @@ class OrderBook {
 		return [[], quote];
 	}
 	
-	commissionCalc(trader, instrument, qty, db) {
+	commissionCalc(trader, qty, price, currency, db) {
 		let ret = null;
 		(db || this.db).exec({
 			sql: this.queries.commission_calc, 
 			bind: prepKeys({
 				trader: trader,
-				instrument: instrument,
 				qty: qty,
-				price: null,
+				price: price || null,
+				currency: currency || null,
 			}, this.queries.commission_calc),
 			rowMode: 'object',
 			callback: row => {ret = row.commission}
@@ -454,13 +484,13 @@ class OrderBook {
 		return ret;
 	}
 	
-	commissionData(trader, instrument, db) {
+	commissionData(trader, currency, db) {
 		let ret = null;
 		(db || this.db).exec({
 			sql: this.queries.commission_data, 
 			bind: prepKeys({
 				trader: trader,
-				instrument: instrument,
+				currency: currency || null,
 			}, this.queries.commission_data),
 			rowMode: 'object',
 			callback: row => {
@@ -470,7 +500,7 @@ class OrderBook {
 		return ret;
 	}
 	
-	processMatchesDB(quote, db, verbose) {
+	processMatchesDB(quote, justquery, db, verbose) {
 		let instrument = quote.instrument;
 		quote.lastprice = this.getLastPrice(instrument, db);
 		let qtyToExec = quote.qty;
@@ -480,48 +510,66 @@ class OrderBook {
 		let trades = [];
 		let fulfills = [];
 		let balance_updates = [];
+		let totalprice = 0;
+		let loopBreak = 'loopBreak';
 		
-		db.exec({
-			sql: sql_matches, 
-			bind: prepKeys({
-				instrument: quote.instrument,
-				side: quote.side,
-				price: quote.price,
-				lastprice: quote.lastprice,
-				tid: quote.tid,
-			}, sql_matches),
-			rowMode: 'object',
-			callback: match => {
-				if (qtyToExec <= 0) {
-					return;
-				}
-				let {order_id, counterparty, price, available, currency} = match;
-				let bid_order = quote.side == 'bid' ? quote.order_id : order_id;
-				let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
-				let qty = Math.min(available, qtyToExec);
-				qtyToExec -= qty;
-				let trade = this.tradeExecute(
-					bid_order, ask_order, price, qty, instrument, db, verbose);
-				trades.push(trade);
-				db.exec({
-					sql: this.queries.trade_fulfills, 
-					bind: prepKeys({
-						bid_order: bid_order,
-						ask_order: ask_order,
-					}, this.queries.trade_fulfills),
-					rowMode: 'object',
-					callback: row => {
-						fulfills.push(row);
-						this.order_log(
-							this.time, row.order_id, 'fulfill_order',
-							`<u>FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
-						);
+		try {
+			db.exec({
+				sql: sql_matches, 
+				bind: prepKeys({
+					instrument: quote.instrument,
+					side: quote.side,
+					price: quote.price,
+					lastprice: quote.lastprice,
+					tid: quote.tid,
+				}, sql_matches),
+				rowMode: 'object',
+				callback: match => {
+					if (qtyToExec <= 0) {
+						throw new Error(loopBreak);
 					}
-				});
-				balance_updates = this.orderBalance(
-					quote.order_id, order_id, quote.tid, counterparty, instrument, currency, db);
+					let {order_id, counterparty, price, available, currency} = match;
+					let qty = Math.min(available, qtyToExec);
+					qtyToExec -= qty;
+					if (justquery) {
+						totalprice += qty * price;
+						return;
+					}
+					let bid_order = quote.side == 'bid' ? quote.order_id : order_id;
+					let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
+					let trade = this.tradeExecute(
+						bid_order, ask_order, price, qty, instrument, db, verbose);
+					trades.push(trade);
+					db.exec({
+						sql: this.queries.trade_fulfills, 
+						bind: prepKeys({
+							bid_order: bid_order,
+							ask_order: ask_order,
+						}, this.queries.trade_fulfills),
+						rowMode: 'object',
+						callback: row => {
+							fulfills.push(row);
+							this.order_log(
+								this.time, row.order_id, 'fulfill_order',
+								`<u style="color: ${row.side == 'ask' ? 'red' : 'blue'}">FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
+							);
+						}
+					});
+					balance_updates = this.orderBalance(
+						quote.order_id, order_id, quote.tid, counterparty, instrument, currency, db);
+				}
+			});
+		}
+		catch (catched) {
+			if (catched.message != loopBreak) {
+				throw catched;
 			}
-		});
+			console.warn(loopBreak);
+		}
+		if (justquery) {
+			let volume = quote.qty - qtyToExec;
+			return [volume, totalprice];
+		}
 		return [trades, fulfills, balance_updates];
 	}
 	
@@ -546,7 +594,7 @@ class OrderBook {
 				balance_updates.push(row);
 				this.order_log(
 					this.time, row.trader == trader ? order_id : counter_order, 'balance_update',
-					`<u>BALANCE_UPD</u> of ${row.instrument} amt:${formatRounder(row.amount)} promised:${formatRounder(row.amount_promised)}`, db
+					`<u>BALANCE</u> of ${row.instrument} amt:${formatRounder(row.amount)}`, db
 				);
 			}
 		});
@@ -718,7 +766,7 @@ class OrderBook {
 							order_id, order_id, trader, trader,
 							instrument, undefined, D);
 						if (this.betterPrice(side, price, orderUpdate.price)) {
-							ret = this.processMatchesDB(orderUpdate, D, verbose);
+							ret = this.processMatchesDB(orderUpdate, false, D, verbose);
 						}
 					}
 				});
@@ -872,6 +920,11 @@ class OrderBook {
 		return this.getPrice(instrument, 'ask', 'desc', forWhom);
 	}
 	
+	getLiquidationPrice(instrument, side, qty, forWhom) {
+		let quote = this.createQuote(forWhom, instrument, side, qty);
+		return this.processMatchesDB(quote, true, this.db);
+	}
+	
 	order_log_filter(order_id, label, db) {
 		let dolog = true;
 		let data = null;
@@ -940,11 +993,9 @@ class OrderBook {
 		return value;
 	}
 	
-	logobj(args) {
-		//if (!Array.isArray(args)) {
-			args = [args];
-		//}
-		log(args.map(arg => stringify(arg, this.logReplacer)));
+	logobj(...args) {
+		log.apply(this, args.map(
+			arg => arg == undefined ? 'undefined' : stringify(arg, this.logReplacer)));
 	}
 	
 	printQuote(quote) {
