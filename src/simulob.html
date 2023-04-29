@@ -45,7 +45,7 @@
 		</div>
 		<div>
 			<canvas id="c1" height="320px"></canvas>
-			<img id="loading" src="./ezgif.com-gif-maker.gif" />
+			<img id="loading" src="./ezgif.com-gif-maker.gif" style="display: none" />
 		</div>
 		<div id="log">
 		</div>
@@ -129,29 +129,9 @@
 	}).then(function(sqlite3){
 		//log("Done initializing. Running demo...");
 		try {
-			const oo = sqlite3.oo1/*high-level OO API*/;
-			const db = new oo.DB("/mydb.sqlite3",'c');
-			// isolation_level: null
-			fetchText('create_db', mydir + '/create_lob.sql')
-			.then(function(sql) {
-				//sql[1] = sql[1].replaceAll('begin transaction;', '').replaceAll('commit;');
-				//try
-				db.exec({
-					sql: sql[1],
-				});
-				//finally
-				let myurl = window.location.href;
-				let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
-				sob = new SimuLOB(
-						mydir + '/PyLOB', fetchText, db, 
-						undefined, undefined, 'c1');
-				sob.init().then(
-					obj => {
-						//log(obj);						sob_initialized = true;
-						sob.run(data);
-					}
-				); 
-			});
+			//const 
+			oo = sqlite3.oo1/*high-level OO API*/;
+			sob = runlob(oo);
 		}
 		catch(e){
 			warn("Exception:",e.message);
@@ -171,12 +151,10 @@
 		}
 	}
 	function simuRun() {
-		if (sob.isInitialized()) {
 			let element = document.querySelector("div#log");
 			element.textContent = '';
-			sob.chartDestroy();
-			sob.run(data);
-		}
+			sob.close();
+			sob = runlob(oo);
 	}
 	function studyBid() {
 		sob.studySide('bid');
@@ -184,7 +162,35 @@
 	function studyAsk() {
 		sob.studySide('ask');
 	}
-
+	function runlob(oo) {
+		let dbname = "/mydb.sqlite3";
+		dbname = ':memory:';
+			const db = new oo.DB(dbname,'c');
+			// isolation_level: null
+			let sob;
+			let myurl = window.location.href;
+			let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
+			fetchText('create_db', mydir + '/create_lob.sql')
+			.then(function(sql) {
+				//sql[1] = sql[1].replaceAll('begin transaction;', '').replaceAll('commit;');
+				//try
+				db.exec({
+					sql: sql[1],
+				});
+				//finally
+				window.sob = new SimuLOB(
+					mydir + '/PyLOB', fetchText, db, 
+					undefined, undefined, 'c1');
+				window.sob.init().then(
+					obj => {
+						//log(obj);
+						//sob_initialized = true;
+						window.sob.run(data);
+					}
+				);
+			});
+			return sob;
+	}
 	</script>
 </body>
 </html>

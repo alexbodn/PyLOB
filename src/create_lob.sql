@@ -66,7 +66,8 @@ END;
 create trigger if not exists SIDE_INSERT_LOCK
     BEFORE INSERT ON side
 BEGIN
-    select RAISE (ABORT, 'side may not be inserted');
+    select RAISE (ABORT, 'side may not be inserted')
+    where new.side not in ('ask', 'bid');
 END;
 
 create trigger if not exists SIDE_UPDATE_LOCK

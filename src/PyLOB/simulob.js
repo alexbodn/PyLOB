@@ -178,6 +178,17 @@ class SimuLOB extends OrderBook {
 		return this.simu_initialized;
 	}
 	
+	close() {
+		super.close();
+		this.chartDestroy();
+	}
+	
+	chartDestroy() {
+		this.chart &&
+		this.chart.clear() &&
+		this.chart.destroy();
+	}
+	
 	dataTicks(data) { // x, y, label,rowid
 		console.time('data sort');
 		let ticks = data
@@ -244,12 +255,6 @@ class SimuLOB extends OrderBook {
 			}
 		}]);
 		new Chart(hostElem, config);
-	}
-	
-	chartDestroy() {
-		this.chart &&
-		this.chart.clear() &&
-		this.chart.destroy();
 	}
 	
 	loadTicks(ticks) {

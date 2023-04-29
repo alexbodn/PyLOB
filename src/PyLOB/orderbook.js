@@ -257,6 +257,11 @@ class OrderBook {
 		return this.initialized;
 	}
 	
+	close() {
+		this.db &&
+		this.db.close();
+	}
+	
 	printOrder (idNum, fmt, db) {
 		let ret;
 		(db || this.db).exec({
