@@ -8,7 +8,7 @@
 	<style>
 		.warning, .error {color: red}
 		.error {background-color: yellow}
-		body {
+		div#log {
 			display: flex;
 			flex-direction: column;
 			font-family: monospace;
@@ -18,37 +18,46 @@
 </head>
 <body>
 	<h1>simulob</h1>
-
+	
+	<table>
+		<tr>
+			<td>capital</td>
+			<td><input id="capital" value="22,000" type="text" /></td>
+		</tr>
+		<tr>
+			<td>minimum profit per trade</td>
+			<td><input id="minprofit" value="10" type="text" /></td>
+		</tr>
+		<tr>
+			<td>nEvt</td>
+			<td><input id="nEvt" value="2" type="text" /></td>
+		</tr>
+		<tr>
+			<td>nlevels</td>
+			<td><input id="nlevels" value="2" type="text" /></td>
+		</tr>
+		<tr>
+			<td>avg Change Treshold</td>
+			<td><input id="avgChangeTreshold" value="0.1" type="text" /></td>
+		</tr>
+		<tr>
+			<td>qty Change Treshold</td>
+			<td><input id="qtyChangeTreshold" value="0.1" type="text" /></td>
+		</tr>
+	</table>
+	<table>
+		<tr>
+			<td><input value="run" id="run" type="button" onclick="simuRun();" /></td>
+			<td><input value="study bid" id="study-bid" type="button" onclick="studyBid();" /></td>
+			<td><input value="study ask" id="study-ask" type="button" onclick="studyAsk();" /></td>
+			<td><img id="loading" src="./loading.gif" style="display: none; height: 20px;" /></td>
+			<td><div id="nlv" /></td>
+		</tr>
+	</table>
 	<div>
-		<div>
-			<div style="display: flex; flex-direction: row;">
-				<div style="">capital</div>
-				<div style=""><input id="capital" value="22,000" type="text" /></div>
-			</div>
-			<div style="display: flex; flex-direction: row;">
-				<div style="">minimum profit</div>
-				<div style=""><input id="minprofit" value="10" type="text" /></div>
-			</div>
-			<div style="display: flex; flex-direction: row;">
-				<div style="">nEvt</div>
-				<div style=""><input id="nEvt" value="1" type="text" /></div>
-			</div>
-			<div style="display: flex; flex-direction: row;">
-				<div style="">nlevels</div>
-				<div style=""><input id="nlevels" value="1" type="text" /></div>
-			</div>
-			<div style="display: flex; flex-direction: row;">
-				<input value="run" id="run" type="button" onclick="simuRun();" />
-				<input value="study bid" id="study-bid" type="button" onclick="studyBid()" />
-				<input value="study ask" id="study-ask" type="button" onclick="studyAsk()" />				</div>
-			</div>
-		</div>
-		<div>
-			<canvas id="c1" height="320px"></canvas>
-			<img id="loading" src="./ezgif.com-gif-maker.gif" style="display: none" />
-		</div>
-		<div id="log">
-		</div>
+		<canvas id="c1" height="320px"></canvas>
+	</div>
+	<div id="log">
 	</div>
 	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
@@ -131,7 +140,7 @@
 		try {
 			//const 
 			oo = sqlite3.oo1/*high-level OO API*/;
-			sob = runlob(oo);
+			runsob(oo);
 		}
 		catch(e){
 			warn("Exception:",e.message);
@@ -151,10 +160,10 @@
 		}
 	}
 	function simuRun() {
-			let element = document.querySelector("div#log");
-			element.textContent = '';
-			sob.close();
-			sob = runlob(oo);
+		let element = document.querySelector("div#log");
+		element.textContent = '';
+		sob.close();
+		runsob(oo);
 	}
 	function studyBid() {
 		sob.studySide('bid');
@@ -162,34 +171,31 @@
 	function studyAsk() {
 		sob.studySide('ask');
 	}
-	function runlob(oo) {
+	function runsob(oo) {
 		let dbname = "/mydb.sqlite3";
 		dbname = ':memory:';
-			const db = new oo.DB(dbname,'c');
-			// isolation_level: null
-			let sob;
-			let myurl = window.location.href;
-			let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
-			fetchText('create_db', mydir + '/create_lob.sql')
-			.then(function(sql) {
-				//sql[1] = sql[1].replaceAll('begin transaction;', '').replaceAll('commit;');
-				//try
-				db.exec({
-					sql: sql[1],
-				});
-				//finally
-				window.sob = new SimuLOB(
-					mydir + '/PyLOB', fetchText, db, 
-					undefined, undefined, 'c1');
-				window.sob.init().then(
-					obj => {
-						//log(obj);
-						//sob_initialized = true;
-						window.sob.run(data);
-					}
-				);
+		const db = new oo.DB(dbname,'c');
+		// isolation_level: null
+		let myurl = window.location.href;
+		let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
+		fetchText('create_db', mydir + '/create_lob.sql')
+		.then(function(sql) {
+			//sql[1] = sql[1].replaceAll('begin transaction;', '').replaceAll('commit;');
+			//try
+			db.exec({
+				sql: sql[1],
 			});
-			return sob;
+			//finally
+			window.sob = new SimuLOB(
+				mydir + '/PyLOB', fetchText, db, 
+				undefined, undefined, 'c1');
+			window.sob.init().then(
+				obj => {
+					//log(obj);
+					window.sob.run(data);
+				}
+			);
+		});
 	}
 	</script>
 </body>

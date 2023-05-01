@@ -41,12 +41,14 @@ class SimuLOB extends OrderBook {
 	simu_initialized = false;
 	market_tid = undefined;
 	trader_tid = undefined;
-
+	
+	tickGap = 10;
+	
 	price_branch = ['price'];
 	balance_branch = ['balance'];
 	ev_branches = ['ev', 'peaks', 'valleys'];
 	market_orders = ['ask', 'bid'];
-
+	
 	chartStyle = {
 		price: {
 			borderColor: 'green',
@@ -179,47 +181,17 @@ class SimuLOB extends OrderBook {
 	}
 	
 	close() {
-		super.close();
-		this.chartDestroy();
+		this.stop = true;
+		setTimeout(() => {
+			super.close();
+			this.chartDestroy();
+		}, 10 * this.tickGap);
 	}
 	
 	chartDestroy() {
 		this.chart &&
 		this.chart.clear() &&
 		this.chart.destroy();
-	}
-	
-	dataTicks(data) { // x, y, label,rowid
-		console.time('data sort');
-		let ticks = data
-			.filter(branch=>this.data_branches.includes(branch.title))
-			.map(
-				branch=>branch
-				.data
-				.map(
-					(datum, rowid)=>{
-						datum = Object.assign({}, datum);
-						datum.label = branch.title;
-						datum.rowid = rowid;
-						return datum;
-					}
-				)
-			)
-			.reduce((a, b)=>a.concat(b))
-			.sort((a, b)=>objCmp(a, b, ['x', 'rowid']))
-			;
-		console.timeEnd('data sort');
-		//cut consecutive duplicates
-		let current = {};
-		ticks = ticks.filter(
-			tick => {
-				let ret = tick.y && tick.y != current[tick.label];
-				current[tick.label] = tick.y;
-				return ret;
-				
-			});
-		
-		return ticks;
 	}
 	
 	run(data) { // x, y, label,rowid
@@ -246,7 +218,7 @@ class SimuLOB extends OrderBook {
 					afterDataSets_hook(this);
 				}
 				console.timeEnd('chart init');
-				let ticks = this.dataTicks(data);
+				let ticks = dataTicks(this, data);
 				this.loadTicks(ticks);
 			},
 			beforeDraw: (chart, args, options) => {
@@ -261,14 +233,15 @@ class SimuLOB extends OrderBook {
 		console.time('data process');
 		let sent = 0;
 		let simu = this;
+		simu.stop = false;
 		let tickInterval = setInterval ((simu, ticks) => {
 			let label, price, quote;
-			if (this.quotesQueue.length) {
+			if (this.quotesQueue.length && !simu.stop) {
 				quote = this.quotesQueue.shift();
 				label = quote[2];
 				//this.logobj(quote);
 			}
-			else if (ticks.length) {
+			else if (ticks.length && !simu.stop) {
 				let tick = ticks.shift();
 				tick.x = simu.updateTime(parseDate(tick.x));
 				label = tick.label;
@@ -298,20 +271,19 @@ class SimuLOB extends OrderBook {
 				simu.processQuote(...quote);
 			}
 		}
-		, 10, simu, ticks);
+		, simu.tickGap, simu, ticks);
 	}
 	
 	processQuote(trader, instrument, label, side, qty, price) {
-		if (!side) {
-			side = label.slice(0, 3);
-		}
-		let idNum = this.trader_quotes[label];
-		if (idNum === undefined) {
-			let quote;
-			[idNum, quote] = this.createQuote(
+		let quote = this.trader_quotes[instrument][label];
+		if (quote === undefined) {
+			if (!side) {
+				side = label.slice(0, 3);
+			}
+			quote = this.createQuote(
 				trader, instrument, side, qty, price);
-			this.trader_quotes[label] = idNum;
-			this.order_names[idNum.toString()] = label;
+			this.trader_quotes[instrument][label] = quote;
+			this.order_names[quote.idNum.toString()] = [instrument, label];
 			this.processOrder(quote, true, false);
 		}
 		else {
@@ -319,18 +291,20 @@ class SimuLOB extends OrderBook {
 				price: price,
 				qty: qty,
 			};
-			this.modifyOrder(idNum, update);
+			this.modifyOrder(quote.idNum, update);
+			objectUpdate(quote, update);
 		}
+		quote.fulfilled = 0;
 		let thinTick = {x: this.time, y: price};
 		let dset = this[`${label}_ix`];
 		this.chart.data.datasets[dset].data.push(thinTick);
-		return idNum;
+		return quote.idNum;
 	}
 	
 	dismissQuote(idNum) {
-		let label = this.order_names[idNum.toString()];
-		if (label) {
-			delete this.trader_quotes[label];
+		let [instrument, label] = this.order_names[idNum.toString()];
+		if (instrument && label) {
+			delete this.trader_quotes[instrument][label];
 			delete this.order_names[idNum.toString()];
 		}
 	}
@@ -348,16 +322,22 @@ class SimuLOB extends OrderBook {
 		if (fulfilled == qty) {
 			this.dismissQuote(idNum);
 		}
+		else {
+			let [instrument, label] = this.order_names[idNum.toString()];
+			if (instrument && label) {
+				this.trader_quotes[instrument][label]['fulfilled'] = fulfilled;
+			}
+		}
 		if ('orderFulfill_hook' in window) {
 			orderFulfill_hook(this, idNum, trader, qty, fulfilled, commission);
 		}
 		return ret;
 	}
 	
-	traderBalance(instrument, amount, amount_promissed, lastprice, value, liquidation) {
-		let ret = super.traderBalance(instrument, amount, lastprice, value, liquidation);
+	traderBalance({instrument, amount, lastprice, value, liquidation}) {
+		let ret = super.traderBalance({instrument, amount, lastprice, value, liquidation});
 		if ('traderBalance_hook' in window) {
-			traderBalance_hook(this, instrument, amount, amount_promissed, lastprice, value, liquidation);
+			traderBalance_hook(this, instrument, amount, lastprice, value, liquidation);
 		}
 		return ret;
 	}

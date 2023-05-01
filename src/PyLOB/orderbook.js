@@ -136,11 +136,6 @@ function objectUpdate(dest, src) {
 	}
 	return dest;
 }
-/*
-let d = {a: 1, b: 2};
-objectUpdate(d, {c: 3, d: 4});
-log(d);
-*/
 
 function prepKeys(obj, query, label) {
 	let ret = obj;
@@ -348,7 +343,7 @@ class OrderBook {
 		);
 	}
 	
-	traderBalance(instrument, amount, lastprice, value, liquidation) {
+	traderBalance({instrument, amount, lastprice, value, liquidation}) {
 		//to be overriden
 		/*if (this.verbose) {
 			this.logobj({instrument, amount, lastprice, value, liquidation});
@@ -361,16 +356,11 @@ class OrderBook {
 			sql: this.queries.trader_balance,
 			bind: prepKeys({
 				trader: trader,
-				symbol: instrument,
+				symbol: instrument || null,
 			}, this.queries.trader_balance),
 			rowMode: 'object',
 			callback: row => {
-				this.traderBalance(
-					row.instrument,
-					row.amount,
-					row.lastprice,
-					row.value,
-					row.liquidation);
+				this.traderBalance(row);
 			}
 		});
 	}
@@ -408,7 +398,7 @@ class OrderBook {
 			idNum: this.quoteNum(),
 			timestamp: this.updateTime(),
 		};
-		return [quote.idNum, quote];
+		return quote;
 	}
 	
 	processOrder(quote, fromData, verbose=false, comment) {
