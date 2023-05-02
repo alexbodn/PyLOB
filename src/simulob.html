@@ -21,33 +21,8 @@
 	
 	<table>
 		<tr>
-			<td>capital</td>
-			<td><input id="capital" value="22,000" type="text" /></td>
-		</tr>
-		<tr>
-			<td>minimum profit per trade</td>
-			<td><input id="minprofit" value="10" type="text" /></td>
-		</tr>
-		<tr>
-			<td>nEvt</td>
-			<td><input id="nEvt" value="2" type="text" /></td>
-		</tr>
-		<tr>
-			<td>nlevels</td>
-			<td><input id="nlevels" value="2" type="text" /></td>
-		</tr>
-		<tr>
-			<td>avg Change Treshold</td>
-			<td><input id="avgChangeTreshold" value="0.1" type="text" /></td>
-		</tr>
-		<tr>
-			<td>qty Change Treshold</td>
-			<td><input id="qtyChangeTreshold" value="0.1" type="text" /></td>
-		</tr>
-	</table>
-	<table>
-		<tr>
 			<td><input value="run" id="run" type="button" onclick="simuRun();" /></td>
+			<td><input value="stop" id="stop" type="button" onclick="sob.stop();" /></td>
 			<td><input value="study bid" id="study-bid" type="button" onclick="studyBid();" /></td>
 			<td><input value="study ask" id="study-ask" type="button" onclick="studyAsk();" /></td>
 			<td><img id="loading" src="./loading.gif" style="display: none; height: 20px;" /></td>
@@ -57,6 +32,8 @@
 	<div>
 		<canvas id="c1" height="320px"></canvas>
 	</div>
+	<table id="config">
+	</table>
 	<div id="log">
 	</div>
 	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>

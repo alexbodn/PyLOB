@@ -17,7 +17,14 @@
 		if (elem) {
 			value = elem.value;
 			if (value) {
+				let last = value.slice(-1);
+				if (last == '%') {
+					value = value.slice(0, -1);
+				}
 				value = parseFloat(value.replace(',', ''));
+				if (last == '%') {
+					value /= 100;
+				}
 			}
 		}
 		return value;
@@ -46,7 +53,7 @@ class SimuLOB extends OrderBook {
 	
 	price_branch = ['price'];
 	balance_branch = ['balance'];
-	ev_branches = ['ev', 'peaks', 'valleys'];
+	fulfills_branch = ['fulfills'];
 	market_orders = ['ask', 'bid'];
 	
 	chartStyle = {
@@ -54,21 +61,14 @@ class SimuLOB extends OrderBook {
 			borderColor: 'green',
 			pointStyle: false,
 		},
-		ev: {
-			borderColor: 'yellow',
-			pointStyle: false,
-		},
-		peaks: {
-			borderColor: 'lightblue',
-			pointStyle: false,
-		},
-		valleys: {
-			borderColor: 'maroon',
-			pointStyle: false,
-		},
 		balance: {
 			borderColor: 'gold',
 			pointStyle: 'star',
+		},
+		fulfills: {
+			borderColor: 'violet',
+			pointStyle: 'star',
+			scattered: true,
 		},
 		ask: {
 			borderColor: 'red',
@@ -151,7 +151,8 @@ class SimuLOB extends OrderBook {
 			.concat(this.market_orders);
 		this.core_branches = this.data_branches
 			.concat(this.ev_branches)
-			.concat(this.balance_branch);
+			.concat(this.balance_branch)
+			.concat(this.fulfills_branch);
 		for (let ix in this.core_branches) {
 			this[`${this.core_branches[ix]}_ix`] = ix;
 		}
@@ -180,8 +181,12 @@ class SimuLOB extends OrderBook {
 		return this.simu_initialized;
 	}
 	
+	stop() {
+		this.dostop = true;
+	}
+	
 	close() {
-		this.stop = true;
+		this.stop();
 		setTimeout(() => {
 			super.close();
 			this.chartDestroy();
@@ -189,9 +194,10 @@ class SimuLOB extends OrderBook {
 	}
 	
 	chartDestroy() {
-		this.chart &&
-		this.chart.clear() &&
-		this.chart.destroy();
+		if (this.chart) {
+			this.chart.clear();
+			this.chart.destroy();
+		}
 	}
 	
 	run(data) { // x, y, label,rowid
@@ -233,15 +239,15 @@ class SimuLOB extends OrderBook {
 		console.time('data process');
 		let sent = 0;
 		let simu = this;
-		simu.stop = false;
+		simu.dostop = false;
 		let tickInterval = setInterval ((simu, ticks) => {
 			let label, price, quote;
-			if (this.quotesQueue.length && !simu.stop) {
+			if (this.quotesQueue.length && !simu.dostop) {
 				quote = this.quotesQueue.shift();
 				label = quote[2];
 				//this.logobj(quote);
 			}
-			else if (ticks.length && !simu.stop) {
+			else if (ticks.length && !simu.dostop) {
 				let tick = ticks.shift();
 				tick.x = simu.updateTime(parseDate(tick.x));
 				label = tick.label;
@@ -328,6 +334,8 @@ class SimuLOB extends OrderBook {
 				this.trader_quotes[instrument][label]['fulfilled'] = fulfilled;
 			}
 		}
+		simu.chart.data.datasets[fulfills_ix].data
+			.push({x: this.time, y: avgPrice});
 		if ('orderFulfill_hook' in window) {
 			orderFulfill_hook(this, idNum, trader, qty, fulfilled, commission);
 		}
