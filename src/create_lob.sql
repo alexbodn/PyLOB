@@ -244,7 +244,7 @@ BEGIN
     update trade_order 
     set fulfilled=fulfilled + new.qty,
     	fulfill_price=fulfill_price + new.qty * new.price
-    where idNum in (new.bid_order, new.ask_order);
+    where order_id in (new.bid_order, new.ask_order);
     
     -- bid balance increases by qty instrument
     update trader_balance

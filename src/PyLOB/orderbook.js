@@ -13,7 +13,7 @@ function cmp(a, b) {
 	if (a instanceof Object) {
 		return objCmp(a, b);
 	}
-	// also try: (str1 > str2) - (str1 < str2),
+	// elegant: (a > b) - (a < b),
 	if (a > b) return 1;
 	if (a < b) return -1;
 	return 0;
@@ -59,17 +59,17 @@ async function fetchText(name, url) {
 }
 
 const format = function () {
-  let args = arguments;
-  return args[0].replace(/{(\d+)}/g, function (match, number) {
-    return typeof args[number + 1] != "undefined" ? args[number + 1] : match;
-  });
+	let args = arguments;
+	return args[0].replace(/{(\d+)}/g, function (match, number) {
+		return typeof args[number + 1] != "undefined" ? args[number + 1] : match;
+	});
 };
 
 const formats = function (fmt, args) {
-  return fmt.replace(/{([a-z_A-Z][a-z_A-Z0-9]*)}/g, function (match, text) {
-  	console.warn(text);
-    return typeof args[text] != "undefined" ? args[text] : text;
-  });
+	return fmt.replace(/{([a-z_A-Z][a-z_A-Z0-9]*)}/g, function (match, text) {
+		//console.warn(text);
+		return typeof args[text] != "undefined" ? args[text] : text;
+	});
 };
 
 function syntaxHighlight(json, withCss=true, tag='pre', jsonClass='json') {
@@ -87,28 +87,28 @@ function syntaxHighlight(json, withCss=true, tag='pre', jsonClass='json') {
 			`;
 		document.head.insertAdjacentHTML('beforeend', style);
 	}
-    json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-        var cls = 'number';
-        if (/^"/.test(match)) {
-            if (/:$/.test(match)) {
-                cls = 'key';
-                match += ' ';
-            } else {
-                cls = 'string';
-            }
-            match = match
-            	.replaceAll(',', '&comma;')
-            	.replaceAll('\\n', '<br />')
-            	.replaceAll('\\t', '&nbsp;&nbsp;')
-            	;
-        } else if (/true|false/.test(match)) {
-            cls = 'boolean';
-        } else if (/null/.test(match)) {
-            cls = 'null';
-        }
-        return '<span class="' + cls + '">' + match + '</span>';
-    });
+	json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+	return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+		var cls = 'number';
+		if (/^"/.test(match)) {
+			if (/:$/.test(match)) {
+				cls = 'key';
+				match += ' ';
+			} else {
+				cls = 'string';
+			}
+			match = match
+				.replaceAll(',', '&comma;')
+				.replaceAll('\\n', '<br />')
+				.replaceAll('\\t', '&nbsp;&nbsp;')
+				;
+		} else if (/true|false/.test(match)) {
+			cls = 'boolean';
+		} else if (/null/.test(match)) {
+			cls = 'null';
+		}
+		return '<span class="' + cls + '">' + match + '</span>';
+	});
 }
 
 function stringify(arg, replacer, spacer, inPre, jsonClass='json') {
@@ -196,6 +196,7 @@ class OrderBook {
 	];
 	queries = {};
 	initialized = false;
+	debug = false;
 	 
 	constructor(location, file_loader, db, tick_size=0.0001, verbose=false) {
 		this.tickSize = tick_size
@@ -283,6 +284,10 @@ class OrderBook {
 			timestamp = this.time + 1;
 		}
 		this.time = timestamp;
+		return this.time;
+	}
+	
+	getTime() {
 		return this.time;
 	}
 	
@@ -455,7 +460,7 @@ class OrderBook {
 				});
 			}
 		);
-		if (ret) {
+		if (ret != null) {
 			let [trades, trade_fulfills, balance_updates] = ret;
 			this.matchesEvents(trades, trade_fulfills, balance_updates, quote, comment);
 			return [trades, quote];
@@ -521,9 +526,10 @@ class OrderBook {
 				rowMode: 'object',
 				callback: match => {
 					if (qtyToExec <= 0) {
+						//stop the loop
 						throw new Error(loopBreak);
 					}
-					let {order_id, counterparty, price, available, currency} = match;
+					let {order_id, idNum, counterparty, price, available, currency} = match;
 					let qty = Math.min(available, qtyToExec);
 					qtyToExec -= qty;
 					if (justquery) {
@@ -534,6 +540,10 @@ class OrderBook {
 					let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
 					let trade = this.tradeExecute(
 						bid_order, ask_order, price, qty, instrument, db, verbose);
+					trade.bid_trader = quote.side == 'bid' ? quote.tid : counterparty;
+					trade.ask_trader = quote.side == 'ask' ? quote.tid : counterparty;
+					trade.bid_idNum = quote.side == 'bid' ? quote.idNum : idNum;
+					trade.ask_idNum = quote.side == 'ask' ? quote.idNum : idNum;
 					trades.push(trade);
 					db.exec({
 						sql: this.queries.trade_fulfills, 
@@ -623,13 +633,15 @@ class OrderBook {
 			this.order_log(quote.timestamp, quote.order_id, comment);
 		}
 		for (let trade of trades) {
+			this.orderExecute(trade.ask_idNum, trade.ask_trader, trade.time, trade.qty, trade.price);
+			this.orderExecute(trade.bid_idNum, trade.bid_trader, trade.time, trade.qty, trade.price);
 		}
 		for (let fulfill of fulfills) {
 			this.orderFulfill(
 				fulfill.idNum, fulfill.trader,
 				fulfill.qty, fulfill.fulfilled,
 				fulfill.commission,
-				formatRounder(fulfill.fulfill_price / fulfill.qty));
+				formatRounder(fulfill.fulfill_price / fulfill.fulfilled));
 		}
 		for (let update of balance_updates) {
 			if (update.instrument == quote.instrument) {
@@ -646,6 +658,10 @@ class OrderBook {
 	}
 	
 	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {
+		// to be overriden
+	}
+	
+	orderExecute(idNum, trader, time, qty, price) {
 		// to be overriden
 	}
 	
@@ -711,7 +727,7 @@ class OrderBook {
 	modifyOrder(idNum, orderUpdate, time, verbose=false, comment) {
 		orderUpdate.idNum = idNum;
 		orderUpdate.timestamp = this.updateTime(time);
-
+		
 		let ret = null;
 		this.db.transaction(
 			D => {
@@ -767,7 +783,7 @@ class OrderBook {
 				});
 			}
 		);
-		if (ret) {
+		if (ret != null) {
 			let [trades, fulfills, balance_updates] = ret;
 			this.matchesEvents(trades, fulfills, balance_updates, orderUpdate, comment);
 			return [trades, orderUpdate];
@@ -803,11 +819,9 @@ class OrderBook {
 	
 	setLastPrice(instrument, lastprice, db) {
 		//this.logobj({instrument, lastprice, db})
-		if (db) {
-			let a= 1/0;
-		}
 		this.setInstrument(
 			instrument, db, 'lastprice', lastprice);
+		//this.logobj(this.getLastPrice(instrument, db));
 	}
 	
 	setLastBid(instrument, lastbid, db) {
@@ -821,7 +835,7 @@ class OrderBook {
 	}
 	
 	getInstrument(instrument, db, force) {
-		if (!this.instrument_cache[instrument] || force) {
+		if (!(instrument in this.instrument_cache) || force) {
 			(db || this.db).exec({
 				sql: this.queries.instrument_get, 
 				bind: prepKeys({
@@ -949,7 +963,7 @@ class OrderBook {
 			return;
 		}
 		if (this.verbose) {
-			log(`id:${data.idNum}(tid:${data.trader})@${this.dtFormat(event_dt)} => ${info}`);
+			log(`id:${data.idNum}${data.order_label ? '/' + data.order_label : ''}(tid:${data.trader})@${this.dtFormat(event_dt)} => ${info}`);
 		}
 		db.exec({
 			sql: this.queries.insert_order_log, 
@@ -1135,5 +1149,9 @@ class OrderBook {
 		let value = fileStr.join('\n');
 		log(value);
 		return obj;
+	}
+	
+	setDebug(value=true) {
+		this.debug = value;
 	}
 };

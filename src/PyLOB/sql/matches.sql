@@ -1,6 +1,6 @@
 
 select 
-    order_id, trader as counterparty, 
+    order_id, idNum, trader as counterparty, 
     coalesce(price, :price, :lastprice) as price, 
     available, currency
 from best_quotes

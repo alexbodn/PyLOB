@@ -21,10 +21,12 @@
 	
 	<table>
 		<tr>
-			<td><input value="run" id="run" type="button" onclick="simuRun();" /></td>
-			<td><input value="stop" id="stop" type="button" onclick="sob.stop();" /></td>
-			<td><input value="study bid" id="study-bid" type="button" onclick="studyBid();" /></td>
-			<td><input value="study ask" id="study-ask" type="button" onclick="studyAsk();" /></td>
+			<td><input value="▶️" title="run" id="run" type="button" onclick="simuRun();" /></td>
+			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="sob.stop();" /></td>
+			<td><input value="👾" title="debug" id="debug" type="button" onclick="sob.setDebug();" /></td>
+			<td><button title="stop debug" id="stop-debug" onclick="sob.setDebug(false);"><strike>👾</strike></button></td>
+			<td><input value="🧐 bid" title="study bid" id="study-bid" type="button" onclick="studyBid();" /></td>
+			<td><input value="🧐 ask" title="study ask" id="study-ask" type="button" onclick="studyAsk();" /></td>
 			<td><img id="loading" src="./loading.gif" style="display: none; height: 20px;" /></td>
 			<td><div id="nlv" /></td>
 		</tr>
@@ -32,8 +34,10 @@
 	<div>
 		<canvas id="c1" height="320px"></canvas>
 	</div>
+	<form onsubmit="simuRun()">
 	<table id="config">
 	</table>
+	</form>
 	<div id="log">
 	</div>
 	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
@@ -173,6 +177,18 @@
 				}
 			);
 		});
+		/*let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M5 3l3.057-3 11.943 12-11.943 12-3.057-3 9-9z"/></svg>';
+		svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 500" height="200" width="500">
+			<polyline points="20,20 40,25 60,40 80,120 120,140 200,180"
+			style="fill:none;stroke:white;stroke-width:3" />
+		</svg>`;
+		function createSVGElement(data) {
+			var parser = new DOMParser();
+			var doc = parser.parseFromString(data, "image/svg+xml");
+			document.body.appendChild(doc.lastChild);
+		}
+		
+		createSVGElement(svg);*/
 	}
 	</script>
 </body>
