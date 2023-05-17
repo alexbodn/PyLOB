@@ -1,6 +1,19 @@
 <!DOCTYPE html>
 <html lang="en-us">
 <head>
+	<script>
+			let dates = [
+				'2009-09-28',
+				'2009-09-29',
+				/*
+				'2009-09-30',
+				'2009-10-01',
+				'2009-10-02',
+				'2009-10-05',
+				'2009-10-06',
+				*/
+			];
+	</script>
 	<meta charset="utf-8" />
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
@@ -14,32 +27,67 @@
 			font-family: monospace;
 			white-space: break-spaces;
 		}
+		.lob-header * {
+			float: left;
+		}
 	</style>
 </head>
 <body>
 	<h1>simulob</h1>
 	
+	<h3 class="lob-header">
+		<img id="loading" src="./loading.gif" style="display: none; height: 20px;" />
+		<span>NLV</span>
+		<span id="nlv"></span>
+	</h3>
+	<div>
+		<canvas id="c1" height="320px"></canvas>
+	</div>
 	<table>
+		<tbody>
 		<tr>
-			<td><input value="▶️" title="run" id="run" type="button" onclick="simuRun();" /></td>
-			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="sob.stop();" /></td>
 			<td><input value="👾" title="debug" id="debug" type="button" onclick="sob.setDebug();" /></td>
 			<td><button title="stop debug" id="stop-debug" onclick="sob.setDebug(false);"><strike>👾</strike></button></td>
 			<td><input value="🧐 bid" title="study bid" id="study-bid" type="button" onclick="studyBid();" /></td>
 			<td><input value="🧐 ask" title="study ask" id="study-ask" type="button" onclick="studyAsk();" /></td>
-			<td><img id="loading" src="./loading.gif" style="display: none; height: 20px;" /></td>
-			<td><div id="nlv" /></td>
+			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="sob.stop();" /></td>
+			<td><input value="▶️" title="run" id="run" type="button" onclick="simuRun();" /></td>
 		</tr>
+		<tr>
+			<td colspan="6">
+				<div>
+					<label for="configFile" class="btn">Select config</label>
+					<input id="configFile" style="visibility:hidden;" type="file" accept=".json" />
+				</div>
+			</td>
+		</tr>
+		</tbody>
 	</table>
-	<div>
-		<canvas id="c1" height="320px"></canvas>
-	</div>
-	<form onsubmit="simuRun()">
-	<table id="config">
+	<table>
+		<tbody id="status"></tbody>
 	</table>
-	</form>
-	<div id="log">
-	</div>
+	<table>
+		<tbody id="config"></tbody>
+	</table>
+	<div id="log"></div>
+
+<!-- The `multiple` attribute lets users select multiple files. -->
+	<script>
+		const cfgSelector = document.querySelector('#configFile');
+		cfgSelector.addEventListener('change', (event) => {
+			const file = event.target.files[0];
+			let reader = new FileReader();
+			reader.readAsText(file);
+			reader.onload = function(event) {
+				var cfgData = event.target.result;
+				simuDefaults = JSON.parse(cfgData);
+				console.log(simuDefaults);
+			};
+			reader.onerror = function() {
+				alert('Unable to read ' + file.fileName);
+			};
+		});
+	</script>
 	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
@@ -50,10 +98,16 @@
 	<script src="./PyLOB/chart/chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
 	<!--script src="./PyLOB/chart/chartjs-streaming/chartjs-plugin-streaming.min.js"></script-->
 	<script src="./PyLOB/chart/luxon/chartjs-adapter-luxon.js"></script>
-	<script src="./PyLOB/chart/data.js"></script>
 	<script src="./PyLOB/chart/commission.js"></script>
 	<script src="./PyLOB/chart/peakdet.js"></script>
-	<script src="./data.js"></script>
+	<script src="./PyLOB/csv/papaparse.min.js"></script>
+	<script src="./PyLOB/file-saver/FileSaver.js"></script>
+	<script src="./loaddata.js"></script>
+	<!--script>
+		//var FileSaver = require('file-saver');
+		var file = new File(["Hello, world!"], "hello world.txt", {type: "text/plain;charset=utf-8"});
+		saveAs(file);
+	</script-->
 	<script>
 	/**
 	Set up our output channel differently depending
@@ -173,7 +227,7 @@
 			window.sob.init().then(
 				obj => {
 					//log(obj);
-					window.sob.run(data);
+					window.sob.run(dates);
 				}
 			);
 		});

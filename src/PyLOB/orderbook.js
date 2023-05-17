@@ -273,6 +273,21 @@ class OrderBook {
 		return ret;
 	}
 	
+	findOrder (idNum, db) {
+		let ret;
+		(db || this.db).exec({
+			sql: this.queries.find_order,
+			bind: prepKeys(
+				{idNum: idNum},
+				this.queries.find_order),
+			rowMode: 'object',
+			callback: row => {
+				ret = row;
+			}
+		});
+		return ret;
+	}
+	
 	clipPrice(instrument, price, db) {
 		// Clips the price according to the ticksize
 		let rounder = this.getRounder(instrument, db);
@@ -348,6 +363,10 @@ class OrderBook {
 		);
 	}
 	
+	orderCancelled(idNum) {
+		//to be overriden
+	}
+		
 	traderBalance({instrument, amount, lastprice, value, liquidation}) {
 		//to be overriden
 		/*if (this.verbose) {
@@ -407,7 +426,10 @@ class OrderBook {
 	}
 	
 	processOrder(quote, fromData, verbose=false, comment) {
-		quote.timestamp = this.updateTime(quote.timestamp);
+		quote = {
+			...quote,
+			timestamp: this.updateTime(quote.timestamp),
+		};
 		if (!fromData) {
 			quote.idNum = this.quoteNum();
 		}
@@ -461,6 +483,7 @@ class OrderBook {
 			}
 		);
 		if (ret != null) {
+			this.orderSent(quote.idNum, quote);
 			let [trades, trade_fulfills, balance_updates] = ret;
 			this.matchesEvents(trades, trade_fulfills, balance_updates, quote, comment);
 			return [trades, quote];
@@ -494,7 +517,7 @@ class OrderBook {
 			}, this.queries.commission_data),
 			rowMode: 'object',
 			callback: row => {
-				ret = Object.assign({}, row);
+				ret = {...row};
 			}
 		});
 		return ret;
@@ -633,8 +656,8 @@ class OrderBook {
 			this.order_log(quote.timestamp, quote.order_id, comment);
 		}
 		for (let trade of trades) {
-			this.orderExecute(trade.ask_idNum, trade.ask_trader, trade.time, trade.qty, trade.price);
-			this.orderExecute(trade.bid_idNum, trade.bid_trader, trade.time, trade.qty, trade.price);
+			this.orderExecuted(trade.ask_idNum, trade.ask_trader, trade.time, trade.qty, trade.price);
+			this.orderExecuted(trade.bid_idNum, trade.bid_trader, trade.time, trade.qty, trade.price);
 		}
 		for (let fulfill of fulfills) {
 			this.orderFulfill(
@@ -657,11 +680,18 @@ class OrderBook {
 		}
 	}
 	
+	//openOrder on IB
+	//todo should provide order_id
+	orderSent(idNum, quote) {
+		// to be overriden
+	}
+	
+	//the following two may be orderStatus/completedOrder on IB
 	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {
 		// to be overriden
 	}
 	
-	orderExecute(idNum, trader, time, qty, price) {
+	orderExecuted(idNum, trader, time, qty, price) {
 		// to be overriden
 	}
 	
@@ -690,8 +720,13 @@ class OrderBook {
 				});
 			}
 		);
+		this.orderCancelled(idNum);
 	}
 
+	orderCancelled(idNum) {
+		// to be overriden
+	}
+	
 	betterPrice(side, price, comparedPrice) {
 		// return whether comparedPrice has better matching chance than price
 		if (price === null && comparedPrice !== null) {
@@ -725,9 +760,6 @@ class OrderBook {
 	}
 
 	modifyOrder(idNum, orderUpdate, time, verbose=false, comment) {
-		orderUpdate.idNum = idNum;
-		orderUpdate.timestamp = this.updateTime(time);
-		
 		let ret = null;
 		this.db.transaction(
 			D => {
@@ -739,18 +771,22 @@ class OrderBook {
 					rowMode: 'object',
 					callback: row => {
 						let {side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader} = row;
-						objectUpdate(orderUpdate, {
+						orderUpdate = {
+							...orderUpdate,
+							idNum: idNum,
+							timestamp: this.updateTime(time),
 							order_type: order_type,
 							order_id: order_id,
 							instrument: instrument,
 							side: side,
 							tid: trader,
-						});
+						};
 						let loginfo = '<u>MODIFY</u>';
 						if (orderUpdate.price) {
 							let logprice = formatRounder(orderUpdate.price);
 							loginfo += ` price: ${logprice};`;
-							orderUpdate.price = this.clipPrice(instrument, orderUpdate.price, D);
+							orderUpdate.price = this.clipPrice(
+								instrument, orderUpdate.price, D);
 							//this.setInstrument(
 							//	instrument, D, 'last'+side, orderUpdate.price);
 						}
@@ -772,10 +808,11 @@ class OrderBook {
 								order_id: orderUpdate.order_id,
 							}, this.queries.modify_order)
 						});
-						this.order_log(this.time, order_id, 'modify_order', `${loginfo}`, D);
-						this.orderBalance(
-							order_id, order_id, trader, trader,
-							instrument, undefined, D);
+						this.order_log(this.time, order_id, 'modify_order', this.printQuote(orderUpdate), D);
+						this.order_log(this.time, order_id, 'modify_detail', `${loginfo}`, D);
+						//this.orderBalance(
+						//	order_id, order_id, trader, trader,
+						//	instrument, undefined, D);
 						if (this.betterPrice(side, price, orderUpdate.price)) {
 							ret = this.processMatchesDB(orderUpdate, false, D, verbose);
 						}
@@ -784,6 +821,7 @@ class OrderBook {
 			}
 		);
 		if (ret != null) {
+			this.orderSent(idNum, orderUpdate);
 			let [trades, fulfills, balance_updates] = ret;
 			this.matchesEvents(trades, fulfills, balance_updates, orderUpdate, comment);
 			return [trades, orderUpdate];

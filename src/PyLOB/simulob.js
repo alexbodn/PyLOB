@@ -7,41 +7,18 @@
 //var scriptDirectory = _scriptDir.substr(0, _scriptDir.replace(/[?#].*/, "").lastIndexOf('/')+1);
 //console.log(scriptDirectory);
 
-	function labelattr(context, attr)
-	{
-		let label = context.dataset.data[context.dataIndex].label;
-		if (label) {
-			return label[attr];
-		}
-		return null;
+function labelattr(context, attr)
+{
+	let label = context.dataset.data[context.dataIndex].label;
+	if (label) {
+		return label[attr];
 	}
-		
-	function inputNumber(id)
-	{
-		let value = null;
-		let elem = document.getElementById(id);
-		if (elem) {
-			value = elem.value;
-			if (value) {
-				let last = value.slice(-1);
-				if (last == '%') {
-					value = value.slice(0, -1);
-				}
-				value = parseFloat(value.replace(',', ''));
-				if (last == '%') {
-					value /= 100;
-				}
-			}
-		}
-		return value;
-	}
-	
+	return null;
+}
+
 function parseDate(dt) {
-	if (dt instanceof Number) {
-		return dt;
-	}
 	let lx = luxon.DateTime.fromISO(
-		dt.replace('Z', ''), {
+		dt, {
 				zone: 'America/New_York',
 				setZone: true,
 			}
@@ -53,6 +30,7 @@ class SimuLOB extends OrderBook {
 	
 	simu_initialized = false;
 	derailedLabels = {};
+	quotesQueue = [];
 	quotesQueueLocked = false;
 	
 	market_tid = undefined;
@@ -116,6 +94,13 @@ class SimuLOB extends OrderBook {
 						return labelattr(context, 'text');
 					},
 					padding: 1
+				},
+				title: {
+					display: true,
+					text: 'initial title',
+					fontSize: 14,
+					fontFamily: 'Roboto',
+					fontColor: '#474747',
 				},
 				legend: {
 					title: {
@@ -197,18 +182,19 @@ class SimuLOB extends OrderBook {
 	async init() {
 		let result = new Promise((resolve, reject) => {
 		let initDone = super.init();
+		this.ticks = [];
 		initDone.then(
 			value => {
-				if ('afterInit_hook' in window) {
-					result = afterInit_hook(this).then(
-						() => {
-						this.simu_initialized = true;
-						resolve(value);
-					});
-				}
-				else {
+				const initialized = () => {
 					this.simu_initialized = true;
 					resolve(value);
+				}
+				if ('afterInit_hook' in window) {
+					result = afterInit_hook(this).then(
+						initialized());
+				}
+				else {
+					initialized();
 				}
 			}
 		);
@@ -220,8 +206,9 @@ class SimuLOB extends OrderBook {
 		return this.simu_initialized;
 	}
 	
-	stop() {
-		this.dostop = true;
+	stop(value=true) {
+		//todo implement hook to hide loading
+		this.dostop = value;
 	}
 	
 	close() {
@@ -239,11 +226,17 @@ class SimuLOB extends OrderBook {
 		}
 	}
 	
-	run(data) { // x, y, label,rowid
+	chartDataset(label) {
+		let ix = this[`${label}_ix`];
+		return this.chart.datasets[ix];
+	}
+	
+	run(dates) { // x, y, label,rowid
+		//this.ticks = dataTicks(this, data);
 		console.time('chart init');
 		let hostElem = document.getElementById(this.chartElem);
-		let config = Object.assign({}, this.chartConfig);
-		config.plugins.push(...[{
+		let chartConfig = Object.assign({}, this.chartConfig);
+		chartConfig.plugins.push(...[{
 			afterInit: (chart, args, options) => {
 				for (let ix in this.core_branches) {
 					let branch = this.core_branches[ix];
@@ -254,7 +247,7 @@ class SimuLOB extends OrderBook {
 						data: [],
 						id: `id_${branch}`,
 						stepped: (this.order_branches.includes(branch)),
-						hidden: (!this.order_branches.includes(branch)),
+						hidden: (0 && !this.order_branches.includes(branch)),
 					};
 					objectUpdate(dataset, this.chartStyle[branch] || {});
 					chart.data.datasets[ix] = dataset;
@@ -264,52 +257,69 @@ class SimuLOB extends OrderBook {
 					afterDataSets_hook(this);
 				}
 				console.timeEnd('chart init');
-				let ticks = dataTicks(this, data);
-				this.loadTicks(ticks);
+				this.dataComing = true;
+				this.loadTicks();
+				for (let day of dates) {
+					csvLoad(this, day);
+				}
 			},
 			afterDatasetUpdate: (chart, args, pluginOptions) => {
 				//const { ctx } = chart;
 				//ctx.save();
-				/*let ds = args.meta.dataset;
-				if (ds) {
-					console.log('here', args.meta.label, ds.active);
-				}*/
-			},
-			beforeDraw: (chart, args, options) => {
-				//let lastprice = chart.data.datasets[this.price_ix].data.slice(-1)[0];
-				//console.log('last drawn price', lastprice.x);
+				//let ds = args.meta.dataset;
 			},
 		}]);
-		new Chart(hostElem, config);
+		new Chart(hostElem.getContext("2d"), chartConfig);
 	}
 	
-	loadTicks(ticks) {
+	loadTicks() {
 		console.time('data process');
 		let sent = 0;
 		let simu = this;
 		simu.dostop = false;
-		let tickInterval = setInterval ((simu, ticks) => {
+		simu.newChartStart = false;
+		let tickInterval = setInterval ((simu) => {
+			if (simu.dostop) {
+				return;
+			}
 			let label, price, quote;
-			if (this.quotesQueue.length && !simu.dostop) {
+			if (this.quotesQueue.length) {
 				if (this.quotesQueueLocked) {
 					return;
 				}
 				quote = this.quotesQueue.shift();
 				label = quote[2];
-				if (label in this.derailedLabels) {
+				let instrument = quote[1];
+				if (label in this.derailedLabels[instrument]) {
 					return;
 				}
 				//this.logobj(quote);
 			}
-			else if (ticks.length && !simu.dostop) {
-				let tick = ticks.shift();
-				tick.x = simu.updateTime(parseDate(tick.x));
+			else if (this.ticks.length) {
+				let tick = this.ticks.shift();
+				if (tick.label == 'chartReset') {
+					this.chart.options.plugins.title.text = tick.title;
+					simu.newChartStart = true;
+					return;
+				}
+				tick.x = simu.updateTime(tick.x);
+				if (simu.newChartStart) {
+					this.chart.options.scales.x.min = tick.x;
+					if ('newChartStart_hook' in window) {
+						newChartStart_hook(simu);
+					}
+					simu.newChartStart = false;
+					this.chart.update('none');
+				}
 				label = tick.label;
 				price = tick.y;
 				quote = [
 					simu.market_tid, simu.instrument,
 					label, undefined, 1000000, price
 				];
+			}
+			else if (this.dataComing) {
+				console.log('dataComing');
 			}
 			else {
 				clearInterval(tickInterval);
@@ -331,7 +341,7 @@ class SimuLOB extends OrderBook {
 				simu.processQuote(...quote);
 			}
 		}
-		, simu.tickGap, simu, ticks);
+		, simu.tickGap, simu);
 	}
 	
 	processQuote(trader, instrument, label, side, qty, price) {
@@ -355,17 +365,35 @@ class SimuLOB extends OrderBook {
 			objectUpdate(quote, update);
 		}
 		quote.fulfilled = 0;
-		let thinTick = {x: quote.timestamp, y: price};
-		let dset = this[`${label}_ix`];
-		this.chart.data.datasets[dset].data.push(thinTick);
 		return quote.idNum;
 	}
 	
+	//todo take and use order_id
+	orderSent(idNum, quote) {
+		let [instrument, label] = this.order_names[idNum.toString()];
+		if (instrument && label) {
+			let thinTick = {x: quote.timestamp, y: quote.price};
+			let label_ix = this[`${label}_ix`];
+			let data = this.chart.data.datasets[label_ix].data;
+			data.push(thinTick);
+		}
+	}
+	
+	//todo use order_id
 	dismissQuote(idNum) {
 		let [instrument, label] = this.order_names[idNum.toString()];
 		if (instrument && label) {
 			delete this.trader_quotes[instrument][label];
 			delete this.order_names[idNum.toString()];
+console.warn(`dismissing ${label}`);
+			let label_ix = this[`${label}_ix`];
+			let data = this.chart.data.datasets[label_ix].data;
+			let tick = {
+				x: this.updateTime(),
+				y: null,
+			};
+			data.push(tick);
+console.warn(label, idNum, data[data.length - 1]);
 		}
 	}
 	
@@ -384,21 +412,26 @@ class SimuLOB extends OrderBook {
 		}
 		let [instrument, label] = this.order_names[idNum];
 		if (fulfilled == qty) {
+			let label_ix = this[`${label}_ix`];
+			let data = this.chart.data.datasets[label_ix].data;
+			let tick = {
+				x: this.updateTime(),
+				y: avgPrice,
+			};
+			data.push(tick);
 			this.dismissQuote(idNum);
 		}
 		else if (instrument && label) {
 			this.trader_quotes[instrument][label].fulfilled = fulfilled;
 		}
-		//approuval needed again
-		this.derailedLabels[label] = true;
 		if ('orderFulfill_hook' in window) {
-			orderFulfill_hook(this, idNum, trader, qty, fulfilled, commission, avgPrice);
+			orderFulfill_hook(this, idNum, trader, qty, fulfilled, commission, avgPrice, instrument, label);
 		}
 		return ret;
 	}
 	
-	orderExecute(idNum, trader, time, qty, price) {
-		let ret = super.orderExecute(idNum, trader, time, qty, price);
+	orderExecuted(idNum, trader, time, qty, price) {
+		let ret = super.orderExecuted(idNum, trader, time, qty, price);
 		if (trader != this.trader_tid) {
 			return;
 		}
@@ -407,14 +440,29 @@ class SimuLOB extends OrderBook {
 			x: time,
 			y: price,
 			label: {
-				text: `${side == 'ask' ? 'SOLD' : 'BOUGHT'} ${qty}`,
+				text: `${side == 'ask' ? 'S' : 'B'} ${qty}`,
 				color: side == 'ask' ? 'red' : 'blue',
 				backgroundColor: 'yellow',
 			},
 		};
 		this.chart.data.datasets[this.executions_ix].data.push(tick);
-		if ('orderExecute_hook' in window) {
-			orderExecute_hook(this, idNum, trader, time, qty, price);
+		if ('orderExecuted_hook' in window) {
+			orderExecuted_hook(this, idNum, trader, time, qty, price);
+		}
+		return ret;
+	}
+	
+	orderCancelled(idNum) {
+		let ret = super.orderCancelled(idNum);
+		if (trader != this.trader_tid) {
+			return;
+		}
+		this.dismissQuote(idNum);
+		//approuval needed again
+		let [instrument, label] = this.order_names[idNum];
+		this.derailedLabels[instrument][label] = true;
+		if ('orderCancelled_hook' in window) {
+			orderCancelled_hook(this, idNum);
 		}
 		return ret;
 	}
@@ -440,14 +488,11 @@ class SimuLOB extends OrderBook {
 	order_log_filter(order_id, label, db) {
 		let [dolog, data] = super.order_log_filter(order_id, label, db);
 		dolog = (data.trader == this.trader_tid);
+		if (['balance_update', 'modify_detail'].includes(label)) {
+			dolog = false;
+		}
 		let [instrument, order_label] = this.order_names[data.idNum];
 		data.order_label = order_label;
-		/*else {
-			dolog = [
-				//'fulfill_order',
-				]
-				.includes(label);
-		}*/
 		return [dolog, data];
 	}
 	

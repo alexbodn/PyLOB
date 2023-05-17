@@ -77,7 +77,7 @@ BEGIN
 END;
 
 create table if not exists trade_order (
-    order_id integer primary key,
+    order_id integer primary key, -- permId on IB
     instrument text,
     order_type text, -- currently limit / market
     side text, -- bid/ask

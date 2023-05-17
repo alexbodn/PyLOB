@@ -17,7 +17,7 @@ function peakdet1(v, delta, allev) {
 	/*
 	this code was kindly provided  by it's original developer.
 	// Eli Billauer, 3.4.05 (Explicitly not copyrighted).
-	my humble additions were aimed to catch more peaks and values, 
+	my humble additions were aimed to catch more peaks and valleys, 
 	in the following 2 cases:
 	* record the first extreme when it is a minimum. 
 	  since lookformax is initially true, the original misses this case.
@@ -131,14 +131,14 @@ function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 	/*
 	this code was kindly provided  by it's original developer.
 	// Eli Billauer, 3.4.05 (Explicitly not copyrighted).
-	my humble additions were aimed to catch more peaks and values, 
+	my humble additions were aimed to catch more peaks and valleys, 
 	in the following 2 cases:
 	* record the first extreme when it is a minimum. 
 	  since lookformax is initially true, the original misses this case.
 	* record the last extreme. the original missed it, 
 	  as being last is not being followed, 
 	  especially not by a direction breaking value.
-	my aim is to lessen the memory commitment, and provide iterables as input.
+	to lessen the memory commitment, you may provide iterables as input.
 
 	this is the original doc:
 	//PEAKDET Detect peaks in a vector
@@ -185,8 +185,8 @@ function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 					if (mnpt) {
 						mintab.push(mnpt);
 						allev.push(mnpt);
+						mnpt = null;
 					}
-					mnpt = null;
 					firstmn = false;
 					lastmn = null;
 				}
@@ -205,8 +205,8 @@ function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 				if (mxpt) {
 					maxtab.push(mxpt);
 					allev.push(mxpt);
+					mxpt = null;
 				}
-				mxpt = null;
 				mnpt = thisv; mn = _this;
 				lookformax = 0;
 				lastmx = null;
@@ -217,8 +217,8 @@ function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 				if (mnpt) {
 					mintab.push(mnpt);
 					allev.push(mnpt);
+					mnpt = null;
 				}
-				mnpt = null;
 				firstmn = false;
 				mxpt = thisv; mx = _this;
 				lookformax = 1;
@@ -244,7 +244,7 @@ function peakdet(v, delta, x=undefined, xinit=1, original=false) {
 	/*
 	this code was kindly provided  by it's original developer.
 	// Eli Billauer, 3.4.05 (Explicitly not copyrighted).
-	my humble additions were aimed to catch more peaks and values, 
+	my humble additions were aimed to catch more peaks and valleys, 
 	in the following 2 cases:
 	* record the first extreme when it is a minimum. 
 	  since lookformax is initially true, the original misses this case.

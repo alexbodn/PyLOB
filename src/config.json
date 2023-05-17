@@ -1,0 +1,44 @@
+{
+	capital: 22000,
+	bidPercent: [
+			"percent of capital to be initially invested",
+			"90%",
+		],
+	minProfit: [
+			"minimum profit for a trade",
+			6,
+		],
+	nEvt: [
+			"number of evt to check",
+			1,
+		],
+	nSteps: 3,
+	avgChangeTreshold: [
+			"avg change needed to change quote",
+			0.1,
+		],
+	quoteModifyTreshold: [
+			"percent of template change to justify quote modification",
+			0.1,
+		],
+	fulfillRecycle: [
+			"recycle fulfilled quote if no other plan",
+			0,
+		],
+	qtyChangeTolerance: [
+			"qty change toleration if needed for position",
+			0.1,
+		],
+	stepsInDelta: [
+			"ratio of the ev delta to one step",
+			2,
+		],
+	templateCreator: [
+			"quote template creator",
+			"qtySpreadEven*",
+		],
+	stickToLast: [
+			"stick the avg to the last value",
+			"no*",
+		],
+}

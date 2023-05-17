@@ -1,4 +1,4 @@
 
-select side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader--, promise_price 
+select side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader 
 from trade_order 
 where idNum=:idNum
