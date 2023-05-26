@@ -3,10 +3,10 @@
 <head>
 	<script>
 			let dates = [
-				'2009-09-28',
+				//'2009-09-28',
 				'2009-09-29',
+				//'2009-09-30',
 				/*
-				'2009-09-30',
 				'2009-10-01',
 				'2009-10-02',
 				'2009-10-05',
@@ -36,7 +36,8 @@
 	<h1>simulob</h1>
 	
 	<h3 class="lob-header">
-		<img id="loading" src="./loading.gif" style="display: none; height: 20px;" />
+		<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
+		<img id="paused" src="./paused.png" style="display: none; height: 20px;" />
 		<span>NLV</span>
 		<span id="nlv"></span>
 	</h3>
@@ -50,8 +51,9 @@
 			<td><button title="stop debug" id="stop-debug" onclick="sob.setDebug(false);"><strike>👾</strike></button></td>
 			<td><input value="🧐 bid" title="study bid" id="study-bid" type="button" onclick="studyBid();" /></td>
 			<td><input value="🧐 ask" title="study ask" id="study-ask" type="button" onclick="studyAsk();" /></td>
-			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="sob.stop();" /></td>
-			<td><input value="▶️" title="run" id="run" type="button" onclick="simuRun();" /></td>
+			<td><input value="⏸️" title="pause" id="pause" type="button" onclick="sob.pause();" /></td>
+			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="simuStop();" /></td>
+			<td><input value="▶️" title="run" id="run" type="button" onclick="simuPlay();" /></td>
 		</tr>
 		<tr>
 			<td colspan="6">
@@ -92,14 +94,20 @@
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
 	<script src="./simuhooks.js"></script>
+	<script src="./commission.js"></script>
+	<script src="./peakdet.js"></script>
 	<script src="./PyLOB/simulob.js"></script>
-	<script src="./PyLOB/chart/luxon/luxon.min.js"></script>
+	
 	<script src="./PyLOB/chart/chartjs/chart.umd.js"></script>
 	<script src="./PyLOB/chart/chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
+	
+	<script src="./PyLOB/hammerjs/hammer.min.js"></script>
+	<script src="./PyLOB/chart/chartjs-zoom/chartjs-plugin-zoom.min.js"></script>
 	<!--script src="./PyLOB/chart/chartjs-streaming/chartjs-plugin-streaming.min.js"></script-->
-	<script src="./PyLOB/chart/luxon/chartjs-adapter-luxon.js"></script>
-	<script src="./PyLOB/chart/commission.js"></script>
-	<script src="./PyLOB/chart/peakdet.js"></script>
+	<script src="./PyLOB/luxon/luxon.min.js"></script>
+	<script src="./PyLOB/chart/chartjs-luxon/chartjs-adapter-luxon.js"></script>
+	
+	<!--script src="./PyLOB/eruda/eruda.js"></script-->
 	<script src="./PyLOB/csv/papaparse.min.js"></script>
 	<script src="./PyLOB/file-saver/FileSaver.js"></script>
 	<script src="./loaddata.js"></script>
@@ -194,10 +202,18 @@
 			sob.chart.update();
 		}
 	}
-	function simuRun() {
+	function simuStop() {
 		let element = document.querySelector("div#log");
 		element.textContent = '';
 		sob.close();
+	}
+	function simuPlay() {
+		if (sob.dopause) {
+			sob.pause(false);
+		}
+		else {
+			simuStop();
+		}
 		runsob(oo);
 	}
 	function studyBid() {
@@ -245,5 +261,6 @@
 		createSVGElement(svg);*/
 	}
 	</script>
+	<!--script>eruda.init();</script-->
 </body>
 </html>

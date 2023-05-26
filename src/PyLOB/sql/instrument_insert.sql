@@ -1,3 +1,3 @@
 
-insert into instrument (symbol, currency) 
-values (:symbol, :currency)
+insert into instrument (symbol, currency, modification_fee, execution_credit) 
+values (:symbol, :currency, :modification_fee, :execution_credit)

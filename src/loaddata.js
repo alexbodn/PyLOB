@@ -2,52 +2,65 @@
 
 function csvLoad(simu, label) {
 	let fieldTransforms = [
-		null,
-		parseInt,
-		null,
+		(val) => val,
+		(ts) => parseInt(ts) * 1000,
+		(val) => val,
 		parseFloat,
 	];
+	let fieldsNames = [
+		'instrument',
+		'timestamp',
+		'label',
+		'price',
+	];
 	
-	let parserConfig = {
-		delimiter: "\t",	// empty auto-detect
-		newline: "\n",	// empty auto-detect
-		quoteChar: '',
-		escapeChar: '',
-		header: false,
-		step: function(results, parser) {
-			if (results.errors.length) {
-				console.log("Row data:", results.data);
-				console.log("Row errors:", results.errors);
-				return;
-			}
+	let resp = new Promise(
+		(resolve, reject) => {
+		let parserConfig = {
+			delimiter: "\t",	// empty auto-detect
+			newline: "\n",	// empty auto-detect
+			quoteChar: '',
+			escapeChar: '',
+			header: false,
+			step: function(results, parser) {
+				if (results.errors.length) {
+					console.log("Row data:", results.data);
+					console.log("Row errors:", results.errors);
+					reject();
+					return;
+				}
+				let tick = results.data
+					.reduce((obj, field, ix) => {obj[fieldsNames[ix]] = field; return obj;}, {})
+				simu.pushTick(tick);
+			},
+			complete: function(results, file) {
+				simu.dataComing = false;
+				console.timeEnd('loading csv')
+				resolve();
+			},
+			skipEmptyLines: true,
+			transform: (value, index) => {
+				return fieldTransforms[index](value);
+			},
+		};
+		console.time('loading csv')
+		simu.dataComing = true;
+		simu.file_loader(
+			label, simu.location + '/data/lobdata/' + label + '.csv'
+		).then(result => {
+			let [label, csv] = result;
 			simu.ticks.push({
-				x: results.data[1] * 1000,
-				label: results.data[2],
-				y: results.data[3],
+				label: 'chartReset',
+				title: label,
 			});
-		},
-		complete: function(results, file) {
-			simu.dataComing = false;
-		},
-		skipEmptyLines: true,
-		transform: (value, index) => {
-			let func = fieldTransforms[index];
-			return func === null ? value : func(value);
-		},
-	};
-	simu.dataComing = true;
-	simu.file_loader(
-		label, simu.location + '/data/lobdata/' + label + '.csv'
-	).then(result => {
-		let [label, csv] = result;
-		simu.ticks.push({
-			label: 'chartReset',
-			title: label,
+			Papa.parse(csv, parserConfig);
 		});
-		Papa.parse(csv, parserConfig);
 	});
+	return resp.then(() => `loaded ${label}`);
 }
 
+	// x, y, label,rowid
+	//this.ticks = dataTicks(this, data);
 	/*
 	function dataTicks(simu, data) { // x, y, label,rowid
 		console.time('data sort');

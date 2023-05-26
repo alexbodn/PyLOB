@@ -8,13 +8,22 @@ let commission_params = {
 	decimals: 4
 };
 
+let instrument_execution = {
+	FAKE: {
+		modification_fee: 0.01, 
+		execution_credit: 0.25,
+	}
+};
+
 function test_perform(lob) {
 	console.time('test');
 	let expected, nerrors = 0;
 	let forWhom=null, priceAsk=98, priceBid=101;
 	// Initialize
 	let instrument = 'FAKE';
-	lob.createInstrument(instrument, 'USD');
+	lob.createInstrument(
+		instrument, 'USD',
+		instrument_execution[instrument]);
 	for (let tid=100; tid<112; ++tid) {
 		lob.createTrader(
 			tid.toString(), tid, 

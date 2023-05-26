@@ -35,7 +35,7 @@
 		],
 	templateCreator: [
 			"quote template creator",
-			"qtySpreadEven*",
+			"arithmeticSequence*",
 		],
 	stickToLast: [
 			"stick the avg to the last value",

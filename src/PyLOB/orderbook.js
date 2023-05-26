@@ -1,6 +1,18 @@
 
 'use strict';
 
+function range(start, end, step=1) {
+	if (typeof end === 'undefined') {
+		end = start, start = 0;
+	}
+	let len = Math.round((end - start) / step);
+	let arr = [];
+	while ( len-- ) {
+		arr[len] = start + (len * step);
+	}
+	return arr;
+}
+
 let strcmp = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'}).compare;
 
 function cmp(a, b) {
@@ -52,9 +64,14 @@ function formatRounder(number) {
 
 async function fetchText(name, url) {
 	// to be called in a browser
-	let ret = fetch(url).then(function(response) {
-		return response.text().then(data => [name, data]);
-	});
+	let ret = fetch(url)
+		.then(
+			reply => {
+				return reply.text()
+					.then(
+						data => [name, data]
+						);
+			});
 	return ret;
 }
 
@@ -149,13 +166,29 @@ function prepKeys(obj, query, label) {
 		for (let [key, val] of Object.entries(obj)) {
 			ret[':' + key] = val;
 		}
-		let params = paramRe.exec(query);
+		let params = paramRe.exec(query) || [];
 		for (let param of params) {
 			if (!(param in ret)) {
 				throw new Error(`parameter ${param} not defined for ${label}`);
 			}
 		}
 	}
+	return ret;
+}
+
+function showQuery(query, db, params={}) {
+	let ret = [];
+	db.exec({
+		sql: query,
+		bind: prepKeys(
+			params,
+			query),
+		rowMode: 'object',
+		callback: row => {
+			ret.push(row);
+		}
+	});
+	console.table(ret);
 	return ret;
 }
 
@@ -191,6 +224,7 @@ class OrderBook {
 		'commission_calc',
 		'commission_data',
 		'commission_test',
+		'modification_fee_test',
 		'insert_order_log',
 		'select_order_log',
 	];
@@ -306,12 +340,16 @@ class OrderBook {
 		return this.time;
 	}
 	
-	createInstrument(symbol, currency) {
+	createInstrument(
+		symbol, currency, {modification_fee=0, execution_credit=0}={})
+	{
 		this.db.exec({
 			sql: this.queries.instrument_insert,
 			bind: prepKeys({
-				symbol: symbol,
-				currency: currency,
+				symbol,
+				currency,
+				modification_fee,
+				execution_credit,
 			}, this.queries.instrument_insert)
 		});
 	}
@@ -592,7 +630,7 @@ class OrderBook {
 			if (catched.message != loopBreak) {
 				throw catched;
 			}
-			console.warn(loopBreak);
+			//console.warn(loopBreak);
 		}
 		if (justquery) {
 			let volume = quote.qty - qtyToExec;
@@ -773,12 +811,12 @@ class OrderBook {
 						let {side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader} = row;
 						orderUpdate = {
 							...orderUpdate,
-							idNum: idNum,
+							idNum,
 							timestamp: this.updateTime(time),
-							order_type: order_type,
-							order_id: order_id,
-							instrument: instrument,
-							side: side,
+							order_type,
+							order_id,
+							instrument,
+							side,
 							tid: trader,
 						};
 						let loginfo = '<u>MODIFY</u>';
@@ -1186,6 +1224,9 @@ class OrderBook {
 		
 		let value = fileStr.join('\n');
 		log(value);
+		
+		showQuery(this.queries.modification_fee_test, this.db)
+		
 		return obj;
 	}
 	

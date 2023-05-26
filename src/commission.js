@@ -1,9 +1,16 @@
 
 let commission_params = {
-	commission_min: 2.5,
+	commission_min: 0.35,
 	commission_per_unit: 0.01,
 	commission_max_percnt: 1,
 	decimals: 4
+};
+
+let instrument_execution = {
+	IVE: {
+		modification_fee: 0.01, 
+		execution_credit: 0.25,
+	}
 };
 
 function commission_calc(qty, price=null, params)

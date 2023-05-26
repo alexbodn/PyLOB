@@ -23,6 +23,8 @@ create table if not exists instrument (
     lastprice real default(1),
     lastbid real default(1),
 	lastask real default(1),
+	modification_fee real default(0),
+	execution_credit real default(0),
 	foreign key(currency)
 		references instrument(symbol)
 		on DELETE restrict
@@ -38,6 +40,8 @@ create table if not exists trader_balance (
     trader integer, -- trader
     instrument text,
     amount real default(0),
+	modification_fee real default(0), -- grow on modify/cancel
+	execution_credit real default(0), -- grow on execution, only if 0
     primary key(trader, instrument),
     foreign key(trader) references trader(tid),
     foreign key(instrument) references instrument(symbol)
@@ -94,6 +98,8 @@ create table if not exists trade_order (
     cancel integer default(0),
     fulfill_price real default(0),
     commission real not null default(0), -- calculate on fulfill or on cancel, else nullify
+	modification_fee real default(0), -- grow on modify/cancel
+	execution_credit real default(0), -- grow on execution, only if 0
     currency text, -- redundant, but frequently used
     foreign key(side) references side(side),
     foreign key(trader) references trader(tid),
@@ -178,6 +184,20 @@ BEGIN
     on conflict(trader, instrument) do nothing;
 END;
 
+create trigger if not exists order_modify
+    AFTER UPDATE OF qty, price ON trade_order
+BEGIN
+    update trade_order
+    set modification_fee=trade_order.modification_fee+fee.modification_fee
+    from (
+        select instrument.modification_fee
+        from instrument
+        where new.instrument=instrument.symbol
+    ) as fee
+    where
+    	trade_order.order_id=new.order_id;
+END;
+
 create trigger if not exists order_cancel_or_fulfill
     AFTER UPDATE OF cancel, fulfilled, fulfill_price ON trade_order
 BEGIN
@@ -186,11 +206,15 @@ BEGIN
 		min(
 			trader.commission_max_percnt * new.fulfill_price / 100, 
 			max(trader.commission_min, trader.commission_per_unit * new.fulfilled)
-	), commission_rounder)
+		), commission_rounder),
+		modification_fee=trade_order.modification_fee + case when new.cancel>old.cancel then trader.modification_fee else 0 end,
+		execution_credit=case when new.fulfilled>0 then trader.execution_credit else 0 end
     from (
         select 
 			commission_max_percnt, commission_min, commission_per_unit, 
-			currency.rounder as commission_rounder
+			currency.rounder as commission_rounder,
+			instrument.modification_fee,
+			instrument.execution_credit
         from trader
         inner join instrument on new.instrument=instrument.symbol
 		inner join instrument as currency on currency.symbol=instrument.currency
@@ -208,6 +232,15 @@ BEGIN
     update trader_balance
     set amount=amount - (new.commission - old.commission)
     where trader_balance.trader=new.trader and trader_balance.instrument=new.currency;
+END;
+
+create trigger if not exists trader_modification_fee
+    AFTER UPDATE OF modification_fee, execution_credit ON trade_order
+BEGIN
+    update trader_balance
+	set modification_fee=trader_balance.modification_fee+new.modification_fee-old.modification_fee,
+		execution_credit=trader_balance.execution_credit+new.execution_credit-old.execution_credit
+    where trader_balance.trader=new.trader and trader_balance.instrument=new.instrument;
 END;
 
 create table if not exists trade (
