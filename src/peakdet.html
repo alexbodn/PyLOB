@@ -1,7 +1,14 @@
 <!doctype html>
 <html>
 <body>
-	<script src="./PyLOB/chart/peakdet.js"></script>
+	<div>
+		<canvas id="c1" height="320px"></canvas>
+	</div>
+	<script src="./peakdet.js"></script>
+	<script src="./PyLOB/luxon/luxon.min.js"></script>
+	<script src="./PyLOB/chart/chartjs/chart.umd.js"></script>
+	<script src="./PyLOB/chart/chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
+	<script src="./PyLOB/chart/chartjs-luxon/chartjs-adapter-luxon.js"></script>
 	<script>
 	let input = [{
 		"x": 1254233778000, "y": 51.778
@@ -224,12 +231,124 @@
 	}, {
 		"x": 1254235520000, "y": 51.65
 	}];
+	</script>
+	<script>
+		var config = {
+			type: 'line',
+		plugins: [ChartDataLabels],
+		options: {
+			animation: false,
+			normalized: true,
+		    plugins: {
+		      datalabels: {
+		        backgroundColor: function(context) {
+		          return context.dataset.backgroundColor;
+		        },
+		        borderRadius: 4,
+		        color: function(context) {
+		        	return labelattr(context, 'color');
+		        },
+		        //color: 'white',
+		        font: {
+		          weight: 'bold'
+		        },
+		        formatter: function(value, context) {
+		        	return labelattr(context, 'text');
+		        },
+		        padding: 1
+		      }
+		    },
+		/**/scales: {
+      	x: {
+            type: 'time',
+					time: {
+						unit: "minute",
+						tooltipFormat: "HH:mm:ss.SSS",
+						tooltipFormat0: "x",
+						displayFormats: {
+							millisecond: 'HH:mm:ss.SSS',
+							second: 'HH:mm:ss',
+							minute: 'HH:mm:ss',
+							millisecond0: 'x',
+							second0: 'x',
+							minute0: 'x',
+							/*'hour': 'HH:mm:ss',
+							'day': 'HH:mm:ss',
+							'week': 'HH:mm:ss',
+							'month': 'HH:mm:ss',
+							'quarter': 'HH:mm:ss',
+							'year': 'HH:mm:ss',*/
+						},
+					},
+					adapters: {
+						date: {
+							zone: 'America/New_York',
+						},
+					},
+					ticks: {
+						source: 'data'
+					}
+      	},
+        },/**/
+		},
+		data: {
+			datasets: []
+		},
+	};
+	</script>
+
+	<script>
+	function labelattr(context, attr)
+	{
+		var label = context.chart.data.datasets[context.datasetIndex].data[context.dataIndex].label;
+		if (label) {
+			return label[attr];
+		}
+		return null;
+	}
+
+	function chartfill(chart, prices, minprofit, capital, hidden)
+	{
 	let allev2 = [];
 	let delta = 0.1343396226;
 	let [maxtab, mintab] = peakdet2(
 		input, delta, {getv: v => v.y, allev: allev2});
 	console.log(delta, allev2, maxtab, mintab)
 
+		//console.log(JSON.stringify(maxtab)),
+		chart.data.datasets[0] = {label: 'price', data: input, hidden: hidden};
+		chart.data.datasets[1] = {label: 'ev', data: allev2};
+		chart.data.datasets[2] = {label: 'peaks', data: maxtab};
+		chart.data.datasets[3] = {label: 'valeys', data: mintab};
+	}
+	function inputNumber(id)
+	{
+		var elem = document.getElementById(id);
+		if (elem) {
+			var value = elem.value;
+			if (value) {
+				return parseFloat(value.replace(',', ''));
+			}
+		}
+		return null;
+	}
+		
+	var chart = new Chart(
+		document.getElementById('c1'),
+		config,
+	);
+	function chartupdate()
+	{
+		chartfill(
+			chart, 
+			prices=input, 
+			minprofit=inputNumber('minprofit'), 
+			capital=inputNumber('capital'),
+			show=true,
+		);
+		chart.update();
+	}
+	chartupdate();
 	</script>
 </body>
 </html>
