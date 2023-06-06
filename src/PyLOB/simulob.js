@@ -61,6 +61,7 @@ const zoomOptions = {
     }
   }
 };
+
 class SimuLOB extends OrderBook {
 	
 	simu_initialized = false;
@@ -250,7 +251,7 @@ class SimuLOB extends OrderBook {
 	close() {
 		this.pause();
 		setTimeout(() => {
-			//super.close();
+			super.close();
 			this.chartDestroy();
 		}, 10 * this.tickGap);
 	}
@@ -314,10 +315,20 @@ class SimuLOB extends OrderBook {
 		for (let day of dates) {
 			chain = chain.then(
 				msg => {
-					console.error(msg);
+					if (msg) {
+						console.error(msg);
+					}
 					return csvLoad(this, day);
-				});
+				}
+			);
 		}
+		chain = chain.then(
+			msg => {
+				if (msg) {
+					console.error(msg);
+				}
+			}
+		);
 	}
 	
 	loadTicks() {
@@ -353,7 +364,8 @@ class SimuLOB extends OrderBook {
 				}
 				tick.timestamp = simu.updateTime(tick.timestamp);
 				if (simu.newChartStart) {
-					this.chart.options.scales.x.min = tick.timestamp;
+					this.modificationsCharge();
+					///this.chart.options.scales.x.min = tick.timestamp;
 					if ('newChartStart_hook' in window) {
 						newChartStart_hook(simu);
 					}
@@ -417,6 +429,19 @@ class SimuLOB extends OrderBook {
 		}
 		quote.fulfilled = 0;
 		return quote.idNum;
+	}
+	
+	cancelQuote(trader, instrument, label) {
+		let quote = this.trader_quotes[instrument][label];
+		if (quote) {
+			super.cancelOrder(quote.idNum);
+		}
+	}
+	
+	cancelAllQuotes(trader, instrument) {
+		for (let label of this.trader_quotes[instrument]) {
+			this.cancelQuote(trader, instrument, label);
+		}
 	}
 	
 	//todo take and use order_id
@@ -509,6 +534,7 @@ class SimuLOB extends OrderBook {
 		this.dismissQuote(idNum);
 		//approuval needed again
 		let [instrument, label] = this.order_names[idNum];
+		//todo put label in executions
 		this.derailedLabels[instrument][label] = true;
 		if ('orderCancelled_hook' in window) {
 			orderCancelled_hook(this, idNum);

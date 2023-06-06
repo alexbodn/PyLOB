@@ -225,6 +225,7 @@ class OrderBook {
 		'commission_data',
 		'commission_test',
 		'modification_fee_test',
+		'modifications_charge',
 		'insert_order_log',
 		'select_order_log',
 	];
@@ -464,6 +465,7 @@ class OrderBook {
 	}
 	
 	processOrder(quote, fromData, verbose=false, comment) {
+		//todo implement condition as event, and fire at event
 		quote = {
 			...quote,
 			timestamp: this.updateTime(quote.timestamp),
@@ -617,7 +619,7 @@ class OrderBook {
 							fulfills.push(row);
 							this.order_log(
 								this.time, row.order_id, 'fulfill_order',
-								`<u style="color: ${row.side == 'ask' ? 'red' : 'blue'}">FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
+								`<u style="color: ${row.side == 'ask' ? 'red' : 'mediumblue'}">FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
 							);
 						}
 					});
@@ -865,6 +867,20 @@ class OrderBook {
 			return [trades, orderUpdate];
 		}
 		return [[], orderUpdate];
+	}
+	
+	modificationsCharge() {
+		//todo test again
+		this.db.transaction(
+			D => {
+				D.exec({
+					sql: this.queries.modifications_charge, 
+					bind: prepKeys(
+						{},
+						this.queries.modifications_charge),
+				});
+			}
+		);
 	}
 	
 	setInstrument(instrument, db, field, value) {
@@ -1228,6 +1244,22 @@ class OrderBook {
 		showQuery(this.queries.modification_fee_test, this.db)
 		
 		return obj;
+	}
+	
+	printBalance(trader, symbol) {
+		let ret = [];
+		this.db.exec({
+			sql: this.queries.trader_balance,
+			bind: prepKeys({
+				trader: trader,
+				symbol: symbol,
+			}, this.queries.trader_balance),
+			rowMode: 'object',
+			callback: row => {
+				ret.push(row);
+			}
+		});
+		console.table(ret);
 	}
 	
 	setDebug(value=true) {

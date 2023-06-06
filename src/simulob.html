@@ -3,9 +3,9 @@
 <head>
 	<script>
 			let dates = [
-				//'2009-09-28',
+				'2009-09-28',
 				'2009-09-29',
-				//'2009-09-30',
+				'2009-09-30',
 				/*
 				'2009-10-01',
 				'2009-10-02',
@@ -35,16 +35,21 @@
 <body>
 	<h1>simulob</h1>
 	
-	<h3 class="lob-header">
-		<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
-		<img id="paused" src="./paused.png" style="display: none; height: 20px;" />
-		<span>NLV</span>
-		<span id="nlv"></span>
-	</h3>
+	<div>
+		<h3 class="lob-header">
+			<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
+			<img id="paused" src="./paused.png" style="display: none; height: 20px;" />
+			<span>NLV</span>
+			<span id="nlv"></span>
+		</h3>
+		<table>
+			<tbody id="balance"></tbody>
+		</table>
+	</div>
 	<div>
 		<canvas id="c1" height="320px"></canvas>
 	</div>
-	<table>
+	<table id="buttons" style="display: none">
 		<tbody>
 		<tr>
 			<td><input value="👾" title="debug" id="debug" type="button" onclick="sob.setDebug();" /></td>
@@ -129,10 +134,8 @@
 			//const ln = document.createElement('div');
 			//if(cssClass) ln.classList.add(cssClass);
 			//ln.append(document.createTextNode(args.join(' ')));
-			let element = document.querySelector("div#log");
-			//document.body.
-			element.
-			insertAdjacentHTML(
+			let logDiv = document.querySelector("div#log");
+			logDiv.insertAdjacentHTML(
 				'beforeend', `<div class="${cssClass}">${args.join(' ')}</div>`
 			);
 		};
@@ -183,9 +186,13 @@
 		try {
 			//const 
 			oo = sqlite3.oo1/*high-level OO API*/;
-			runsob(oo);
+			let buttons = document.querySelector("#buttons");
+			buttons.style.display = 'block';
+			showConfig();
+			//runsob(oo);
 		}
 		catch(e){
+			oo = null;
 			warn("Exception:",e.message);
 		}
 	});
@@ -203,18 +210,21 @@
 		}
 	}
 	function simuStop() {
-		let element = document.querySelector("div#log");
-		element.textContent = '';
-		sob.close();
+		let logDiv = document.querySelector("div#log");
+		logDiv.textContent = '';
+		if (window.sob) {
+			sob.close();
+			window.sob = undefined;
+		}
 	}
 	function simuPlay() {
-		if (sob.dopause) {
+		if (window.sob && sob.dopause) {
 			sob.pause(false);
 		}
 		else {
 			simuStop();
+			runsob(oo);
 		}
-		runsob(oo);
 	}
 	function studyBid() {
 		sob.studySide('bid');
@@ -261,6 +271,6 @@
 		createSVGElement(svg);*/
 	}
 	</script>
-	<!--script>eruda.init();</script-->
+	<script>eruda._isInit || eruda.init();</script>
 </body>
 </html>

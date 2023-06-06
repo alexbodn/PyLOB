@@ -48,10 +48,22 @@ create table if not exists trader_balance (
 ) -- strict
 ;
 
+-- todo change of commission should update balance
+create table if not exists commission (
+	id integer primary key,
+	order_id integer,
+	name text not null,
+	amount real,
+	unique(order_id, name) on conflict replace,
+	foreign key (order_id) references trade_order(order_id)
+) -- strict
+;
+
 create table if not exists side (
-    side text primary key,
+    side text primary key check (side in ('bid', 'ask')),
     matching text,
-    matching_order integer
+    matching_order integer,
+    foreign key (matching) references side(side)
 ) -- strict
 ;
 
@@ -65,13 +77,6 @@ create trigger if not exists SIDE_DELETE_LOCK
     BEFORE DELETE ON side
 BEGIN
     select RAISE (ABORT, 'side may not be deleted');
-END;
-
-create trigger if not exists SIDE_INSERT_LOCK
-    BEFORE INSERT ON side
-BEGIN
-    select RAISE (ABORT, 'side may not be inserted')
-    where new.side not in ('ask', 'bid');
 END;
 
 create trigger if not exists SIDE_UPDATE_LOCK
@@ -96,6 +101,7 @@ create table if not exists trade_order (
     trader integer, -- trader
     active integer default(1),
     cancel integer default(0),
+    condition integer, -- optional
     fulfill_price real default(0),
     commission real not null default(0), -- calculate on fulfill or on cancel, else nullify
 	modification_fee real default(0), -- grow on modify/cancel
@@ -103,6 +109,7 @@ create table if not exists trade_order (
     currency text, -- redundant, but frequently used
     foreign key(side) references side(side),
     foreign key(trader) references trader(tid),
+    foreign key(condition) references order_condition(condition),
     foreign key(instrument) references instrument(symbol),
     foreign key(currency) references instrument(symbol)
 ) -- STRICT
@@ -412,6 +419,18 @@ create table if not exists event_arg (
     convertor text,
     unique(reqId, arg) on conflict replace,
     foreign key(reqId) references event(reqId) on delete cascade
+);
+
+create table if not exists order_condition (
+	condition integer primary key,
+	instrument text,
+	field text,
+	field_relation text check (field_relation in ('lt', 'gt', 'le', 'ge', 'eq')),
+	value real,
+	condition_relation text check (condition_relation in ('and', 'or')),
+	condition_related integer,
+	foreign key (instrument) references instrument(symbol),
+	foreign key (condition_related) references condition(condition)
 );
 
 create table if not exists order_log (

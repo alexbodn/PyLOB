@@ -8,27 +8,39 @@ let commission_params = {
 	decimals: 4
 };
 
-let instrument_execution = {
+let instrument_info = {
 	FAKE: {
 		modification_fee: 0.01, 
 		execution_credit: 0.25,
-	}
+	},
+	FAKE2: {
+		modification_fee: 0.01, 
+		execution_credit: 0.25,
+	},
 };
 
 function test_perform(lob) {
 	console.time('test');
-	let expected, nerrors = 0;
-	let forWhom=null, priceAsk=98, priceBid=101;
 	// Initialize
-	let instrument = 'FAKE';
-	lob.createInstrument(
-		instrument, 'USD',
-		instrument_execution[instrument]);
 	for (let tid=100; tid<112; ++tid) {
 		lob.createTrader(
 			tid.toString(), tid, 
 			'USD', commission_params);
 	}
+	for (let [instrument, info] of Object.entries(instrument_info)) {
+		lob.createInstrument(instrument, 'USD', info);
+		test_lob(lob, instrument);
+	}
+	lob.printBalance();
+	lob.modificationsCharge();
+	lob.printBalance();
+}
+
+function test_lob(lob, instrument) {
+	let expected, nerrors = 0;
+	let forWhom=null, priceAsk=98, priceBid=101;
+	let firstIdNum = lob.nextQuoteID;
+	let firstTime = lob.getTime();
 	//########### Limit Orders #############
 	
 	//# Create some limit orders
@@ -95,22 +107,22 @@ function test_perform(lob) {
 	expected = {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 5, "trader": 100, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 5
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 5
 		}, {
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}, {
-			"idNum": 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": 8
+			"idNum": firstIdNum + 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": firstTime + 8
 		}], 
 		"asks": [{
-			"idNum": 1, "trader": 100, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": 1
+			"idNum": firstIdNum + 1, "trader": 100, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": firstTime + 1
 		}, {
-			"idNum": 3, "trader": 102, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": 3
+			"idNum": firstIdNum + 3, "trader": 102, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": firstTime + 3
 		}, {
-			"idNum": 4, "trader": 103, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": 4
+			"idNum": firstIdNum + 4, "trader": 103, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": firstTime + 4
 		}, {
-			"idNum": 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": 2
+			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
 		"volumeBid": 15, "volumeAsk": 15, "bestBid": 99, "worstBid": 97, "bestAsk": 101, "worstAsk": 103, "commission_balance": 0
 	};
@@ -135,22 +147,22 @@ function test_perform(lob) {
 	expected = {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 5, "trader": 100, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 5
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 5
 		}, {
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}, {
-			"idNum": 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": 8
+			"idNum": firstIdNum + 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": firstTime + 8
 		}], 
 		"asks": [{
-			"idNum": 1, "trader": 100, "qty": 5, "fulfilled": 2, "price": 101, "event_dt": 1
+			"idNum": firstIdNum + 1, "trader": 100, "qty": 5, "fulfilled": 2, "price": 101, "event_dt": firstTime + 1
 		}, {
-			"idNum": 3, "trader": 102, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": 3
+			"idNum": firstIdNum + 3, "trader": 102, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": firstTime + 3
 		}, {
-			"idNum": 4, "trader": 103, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": 4
+			"idNum": firstIdNum + 4, "trader": 103, "qty": 5, "fulfilled": 0, "price": 101, "event_dt": firstTime + 4
 		}, {
-			"idNum": 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": 2
+			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
 		"volumeBid": 15, "volumeAsk": 13, "bestBid": 99, "worstBid": 97, "bestAsk": 101, "worstAsk": 103, "commission_balance": 0
 	};
@@ -174,18 +186,18 @@ function test_perform(lob) {
 	expected = {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 10, "trader": 110, "qty": 50, "fulfilled": 13, "price": 102, "event_dt": 10
+			"idNum": firstIdNum + 10, "trader": 110, "qty": 50, "fulfilled": 13, "price": 102, "event_dt": firstTime + 10
 		}, {
-			"idNum": 5, "trader": 100, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 5
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 5
 		}, {
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}, {
-			"idNum": 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": 8
+			"idNum": firstIdNum + 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": firstTime + 8
 		}], 
 		"asks": [{
-			"idNum": 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": 2
+			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
 		"volumeBid": 52, "volumeAsk": 0, "bestBid": 102, "worstBid": 97, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
 	};
@@ -210,15 +222,15 @@ function test_perform(lob) {
 	expected = 	{
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 5, "trader": 100, "qty": 5, "fulfilled": 3, "price": 99, "event_dt": 5
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 5, "fulfilled": 3, "price": 99, "event_dt": firstTime + 5
 		}, {
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}, {
-			"idNum": 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": 8
+			"idNum": firstIdNum + 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": firstTime + 8
 		}], "asks": [{
-			"idNum": 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": 2
+			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], "volumeBid": 12, "volumeAsk": 0, "bestBid": 99, "worstBid": 97, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
 	};
 	if (lob.dumpCmp(expected)) {
@@ -229,19 +241,19 @@ function test_perform(lob) {
 	
 	//# Order can be cancelled simply by submitting an order idNum
 	warn("cancelling bid for 5 @ 97..");
-	lob.cancelOrder(8);
+	lob.cancelOrder(firstIdNum + 8);
 	lob.print(instrument);
 	expected = {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 5, "trader": 100, "qty": 5, "fulfilled": 3, "price": 99, "event_dt": 5
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 5, "fulfilled": 3, "price": 99, "event_dt": firstTime + 5
 		}, {
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}], 
 		"asks": [{
-			"idNum": 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": 2
+			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
 		"volumeBid": 12, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
 	};
@@ -256,18 +268,18 @@ function test_perform(lob) {
 	let decreaseOrder5 = {
 					'qty' : 4, 
 					};
-	lob.modifyOrder(5, decreaseOrder5);
+	lob.modifyOrder(firstIdNum + 5, decreaseOrder5);
 	lob.print(instrument);
 	expected = 	{
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 5, "trader": 100, "qty": 4, "fulfilled": 3, "price": 99, "event_dt": 5
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 4, "fulfilled": 3, "price": 99, "event_dt": firstTime + 5
 		}, {
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}], "asks": [{
-			"idNum": 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": 2
+			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], "volumeBid": 11, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
 	};
 	if (lob.dumpCmp(expected)) {
@@ -278,19 +290,19 @@ function test_perform(lob) {
 	let increaseOrder5 = { 
 					'qty' : 14, 
 					};
-	lob.modifyOrder(5, increaseOrder5);
+	lob.modifyOrder(firstIdNum + 5, increaseOrder5);
 	lob.print(instrument);
 	expected = {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 5, "trader": 100, "qty": 14, "fulfilled": 3, "price": 99, "event_dt": 14
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 14, "fulfilled": 3, "price": 99, "event_dt": firstTime + 14
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}], 
 		"asks": [{
-			"idNum": 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": 2
+			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
 		"volumeBid": 21, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
 	};
@@ -302,17 +314,17 @@ function test_perform(lob) {
 	let improveOrder5 = {
 					'price' : 103.2,
 					};
-	lob.modifyOrder(5, improveOrder5);
+	lob.modifyOrder(firstIdNum + 5, improveOrder5);
 	lob.print(instrument);
 	
 	expected = {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 5, "trader": 100, "qty": 14, "fulfilled": 8, "price": 103.2, "event_dt": 14
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 14, "fulfilled": 8, "price": 103.2, "event_dt": firstTime + 14
 		}, {
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}], 
 		"asks": [], 
 		"volumeBid": 16, "volumeAsk": 0, "bestBid": 103.2, "worstBid": 98, "bestAsk": null, "worstAsk": null, "commission_balance": 0
@@ -335,13 +347,13 @@ function test_perform(lob) {
 	expected = {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [{
-			"idNum": 12, "trader": 103, "qty": 10, "fulfilled": 0, "price": null, "event_dt": 16
+			"idNum": firstIdNum + 12, "trader": 103, "qty": 10, "fulfilled": 0, "price": null, "event_dt": firstTime + 16
 		}, {
-			"idNum": 5, "trader": 100, "qty": 14, "fulfilled": 8, "price": 103.2, "event_dt": 14
+			"idNum": firstIdNum + 5, "trader": 100, "qty": 14, "fulfilled": 8, "price": 103.2, "event_dt": firstTime + 14
 		}, {
-			"idNum": 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": 7
+			"idNum": firstIdNum + 7, "trader": 102, "qty": 5, "fulfilled": 0, "price": 99, "event_dt": firstTime + 7
 		}, {
-			"idNum": 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": 6
+			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}], 
 		"asks": [], 
 		"volumeBid": 26, "volumeAsk": 0, "bestBid": "MKT", "worstBid": 98, "bestAsk": null, "worstAsk": null, "commission_balance": 0
@@ -365,14 +377,13 @@ function test_perform(lob) {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 
 		"bids": [], 
 		"asks": [{
-			"idNum": 13, "trader": 111, "qty": 40, "fulfilled": 26, "price": null, "event_dt": 17
+			"idNum": firstIdNum + 13, "trader": 111, "qty": 40, "fulfilled": 26, "price": null, "event_dt": firstTime + 17
 		}], 
 		"volumeBid": 0, "volumeAsk": 14, "bestBid": null, "worstBid": null, "bestAsk": "MKT", "worstAsk": "MKT", "commission_balance": 0
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
 	}
-	log(`${nerrors} errors`);
-	console.timeEnd('test');
+	log(`${nerrors} errors for ${instrument}`);
 	//lob.order_log_show();
 }

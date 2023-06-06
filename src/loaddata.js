@@ -22,7 +22,7 @@ function csvLoad(simu, label) {
 			quoteChar: '',
 			escapeChar: '',
 			header: false,
-			step: function(results, parser) {
+			step: (results, parser) => {
 				if (results.errors.length) {
 					console.log("Row data:", results.data);
 					console.log("Row errors:", results.errors);
@@ -30,10 +30,14 @@ function csvLoad(simu, label) {
 					return;
 				}
 				let tick = results.data
-					.reduce((obj, field, ix) => {obj[fieldsNames[ix]] = field; return obj;}, {})
+					.reduce(
+						(obj, field, ix) => {
+							obj[fieldsNames[ix]] = field;
+							return obj;
+						}, {});
 				simu.pushTick(tick);
 			},
-			complete: function(results, file) {
+			complete: (results, file) => {
 				simu.dataComing = false;
 				console.timeEnd('loading csv')
 				resolve();
@@ -43,7 +47,6 @@ function csvLoad(simu, label) {
 				return fieldTransforms[index](value);
 			},
 		};
-		console.time('loading csv')
 		simu.dataComing = true;
 		simu.file_loader(
 			label, simu.location + '/data/lobdata/' + label + '.csv'
@@ -53,49 +56,51 @@ function csvLoad(simu, label) {
 				label: 'chartReset',
 				title: label,
 			});
+			console.time('loading csv')
 			Papa.parse(csv, parserConfig);
 		});
 	});
 	return resp.then(() => `loaded ${label}`);
 }
 
-	// x, y, label,rowid
-	//this.ticks = dataTicks(this, data);
-	/*
-	function dataTicks(simu, data) { // x, y, label,rowid
-		console.time('data sort');
-		let ticks = data
-			.filter(branch=>simu.data_branches.includes(branch.title))
+// x, y, label,rowid
+//this.ticks = dataTicks(this, data);
+/*
+function dataTicks(simu, data) { // x, y, label,rowid
+	console.time('data sort');
+	let ticks = data
+		.filter(branch=>simu.data_branches.includes(branch.title))
+		.map(
+			branch=>branch
+			.data
 			.map(
-				branch=>branch
-				.data
-				.map(
-					(datum, rowid)=>{
-						datum = Object.assign({}, datum);
-						datum.label = branch.title;
-						datum.rowid = rowid;
-						return datum;
-					}
-				)
+				(datum, rowid)=>{
+					datum = Object.assign({}, datum);
+					datum.label = branch.title;
+					datum.rowid = rowid;
+					return datum;
+				}
 			)
-			.reduce((a, b)=>a.concat(b))
-			.sort((a, b)=>objCmp(a, b, ['x', 'rowid']))
-			;
-		console.timeEnd('data sort');
-		//cut consecutive duplicates
-		let current = {};
-		ticks = ticks
-			.filter(
-				tick => {
-					let ret = tick.y && tick.y != current[tick.label];
-					current[tick.label] = tick.y;
-					return ret;
-					
-				})
-			.map(
-				datum => {
-					datum.x = parseDate(datum.x);
-				});
-		
-		return ticks;
-	}*/
+		)
+		.reduce((a, b)=>a.concat(b))
+		.sort((a, b)=>objCmp(a, b, ['x', 'rowid']))
+		;
+	console.timeEnd('data sort');
+	//cut consecutive duplicates
+	let current = {};
+	ticks = ticks
+		.filter(
+			tick => {
+				let ret = tick.y && tick.y != current[tick.label];
+				current[tick.label] = tick.y;
+				return ret;
+				
+			})
+		.map(
+			datum => {
+				datum.x = parseDate(datum.x);
+			});
+	
+	return ticks;
+}
+*/
