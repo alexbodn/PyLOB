@@ -1,4 +1,3 @@
-
 'use strict';
 
 //import {OrderBook, objectUpdate, fetchText} from './orderbook.js';
@@ -74,7 +73,7 @@ class SimuLOB extends OrderBook {
 	
 	tickGap = 10;
 	
-	price_branch = ['price'];
+	price_branch = ['price', 'midpoint'];
 	balance_branch = ['balance'];
 	executions_branch = ['executions'];
 	market_orders = ['ask', 'bid'];
@@ -84,6 +83,10 @@ class SimuLOB extends OrderBook {
 			borderColor: 'green',
 			pointStyle: 'cross',
 			pointRadius: 0,
+		},
+		midpoint: {
+			borderColor: 'orange',
+			pointStyle: 'star',
 		},
 		balance: {
 			borderColor: 'gold',
@@ -265,7 +268,17 @@ class SimuLOB extends OrderBook {
 	
 	chartDataset(label) {
 		let ix = this[`${label}_ix`];
-		return this.chart.datasets[ix];
+		return this.chart.data.datasets[ix];
+	}
+	
+	chartDatasets() {
+		let ret = this.chart.data.datasets.map(ds => ds.label);
+		return ret;
+	}
+	
+	chartData(label) {
+		let ds = this.chartDataset(label);
+		return ds ? ds.data : null;
 	}
 	
 	chartInit(resolve, resolve_value) {
@@ -365,7 +378,7 @@ class SimuLOB extends OrderBook {
 				tick.timestamp = simu.updateTime(tick.timestamp);
 				if (simu.newChartStart) {
 					this.modificationsCharge();
-					///this.chart.options.scales.x.min = tick.timestamp;
+///					this.chart.options.scales.x.min = tick.timestamp;
 					if ('newChartStart_hook' in window) {
 						newChartStart_hook(simu);
 					}
@@ -407,7 +420,7 @@ class SimuLOB extends OrderBook {
 		this.ticks.push(tick);
 	}
 	
-	processQuote({trader, instrument, label, side, qty, price}) {
+	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false}) {
 		let quote = this.trader_quotes[instrument][label];
 		if (typeof quote === 'undefined') {
 			if (!side) {
@@ -417,14 +430,14 @@ class SimuLOB extends OrderBook {
 				trader, instrument, side, qty, price);
 			this.trader_quotes[instrument][label] = quote;
 			this.order_names[quote.idNum.toString()] = [instrument, label];
-			this.processOrder(quote, true, false);
+			this.processOrder(quote, true, false, isPrivate);
 		}
 		else {
 			let update = {
 				price: price,
 				qty: qty,
 			};
-			this.modifyOrder(quote.idNum, update);
+			this.modifyOrder(quote.idNum, update, quote.timestamp, false, isPrivate);
 			objectUpdate(quote, update);
 		}
 		quote.fulfilled = 0;
@@ -475,6 +488,14 @@ class SimuLOB extends OrderBook {
 		let ret = super.setLastPrice(instrument, price, db);
 		if ('setLastPrice_hook' in window) {
 			setLastPrice_hook(this, instrument, price);
+		}
+		return ret;
+	}
+	
+	tickMidPoint(instrument, midPoint, db) {
+		let ret = super.tickMidPoint(instrument, midPoint, db);
+		if ('tickMidPoint_hook' in window) {
+			tickMidPoint_hook(this, instrument, midPoint);
 		}
 		return ret;
 	}

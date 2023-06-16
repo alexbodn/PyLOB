@@ -63,6 +63,72 @@ function csvLoad(simu, label) {
 	return resp.then(() => `loaded ${label}`);
 }
 
+function fetchPricesCSV(label, location) {
+	let fieldTransforms = [
+		(val) => val,
+		(ts) => parseInt(ts) * 1000,
+		(val) => val,
+		parseFloat,
+	];
+	let fieldsNames = [
+		'instrument',
+		'timestamp',
+		'label',
+		'price',
+	];
+	
+	let url = `${location}/PyLOB/data/lobdata/${label}.csv`;
+	let data = [];
+	let resp = new Promise(
+		(resolve, reject) => {
+		let parserConfig = {
+			delimiter: "\t",	// empty auto-detect
+			newline: "\n",	// empty auto-detect
+			quoteChar: '',
+			escapeChar: '',
+			header: false,
+			step: (results, parser) => {
+				if (results.errors.length) {
+					console.log("Row data:", results.data);
+					console.log("Row errors:", results.errors);
+					reject();
+					return;
+				}
+				let tick = results.data
+					.reduce(
+						(obj, field, ix) => {
+							obj[fieldsNames[ix]] = field;
+							return obj;
+						}, {});
+				data.push(tick);
+			},
+			complete: (results, file) => {
+				console.timeEnd('loading csv')
+				resolve(data);
+			},
+			skipEmptyLines: true,
+			transform: (value, index) => {
+				return fieldTransforms[index](value);
+			},
+		};
+		fetch(
+			url
+		).then(
+			reply => {
+			reply.text()
+				.then(
+					csv => {
+						//console.log(csv);
+						console.time('loading csv')
+						Papa.parse(csv, parserConfig);
+					}
+				);
+			}
+		);
+	});
+	return resp;
+}
+
 // x, y, label,rowid
 //this.ticks = dataTicks(this, data);
 /*

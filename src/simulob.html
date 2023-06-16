@@ -2,17 +2,17 @@
 <html lang="en-us">
 <head>
 	<script>
-			let dates = [
-				'2009-09-28',
-				'2009-09-29',
-				'2009-09-30',
-				/*
-				'2009-10-01',
-				'2009-10-02',
-				'2009-10-05',
-				'2009-10-06',
-				*/
-			];
+		let dates = [
+			'2009-09-28',
+			'2009-09-29',
+			//'2009-09-30',
+			/*
+			'2009-10-01',
+			'2009-10-02',
+			'2009-10-05',
+			'2009-10-06',
+			*/
+		];
 	</script>
 	<meta charset="utf-8" />
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -60,12 +60,20 @@
 			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="simuStop();" /></td>
 			<td><input value="▶️" title="run" id="run" type="button" onclick="simuPlay();" /></td>
 		</tr>
-		<tr>
-			<td colspan="6">
-				<div>
+		<!--tr>
+			<td colspan="7">
+				<div style="width: 100%">
 					<label for="configFile" class="btn">Select config</label>
 					<input id="configFile" style="visibility:hidden;" type="file" accept=".json" />
 				</div>
+			</td>
+		</tr-->
+		<tr>
+			<td colspan="4">
+				<select id="charts"></select>
+			</td>
+			<td colspan="3">
+				<button onclick="saveChart()">save chart</button>
 			</td>
 		</tr>
 		</tbody>
@@ -79,7 +87,7 @@
 	<div id="log"></div>
 
 <!-- The `multiple` attribute lets users select multiple files. -->
-	<script>
+	<!--script>
 		const cfgSelector = document.querySelector('#configFile');
 		cfgSelector.addEventListener('change', (event) => {
 			const file = event.target.files[0];
@@ -94,7 +102,7 @@
 				alert('Unable to read ' + file.fileName);
 			};
 		});
-	</script>
+	</script-->
 	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
@@ -113,8 +121,8 @@
 	<script src="./PyLOB/chart/chartjs-luxon/chartjs-adapter-luxon.js"></script>
 	
 	<!--script src="./PyLOB/eruda/eruda.js"></script-->
-	<script src="./PyLOB/csv/papaparse.min.js"></script>
 	<script src="./PyLOB/file-saver/FileSaver.js"></script>
+	<script src="./PyLOB/csv/papaparse.min.js"></script>
 	<script src="./loaddata.js"></script>
 	<!--script>
 		//var FileSaver = require('file-saver');
@@ -198,6 +206,21 @@
 	});
 	</script>
 	<script>
+	function saveChart() {
+		let label = document.querySelector('select#charts').value;
+console.log(label);
+		let data = window.sob.chartData(label);
+console.log(data.length);
+		let json = JSON.stringify(data, null, 2);
+		let fileName = `${label}-data.json`;
+console.log(json.length);
+		let file = new File([json], fileName, {type: "text/plain;charset=utf-8"});
+console.log(file);
+var blob = new Blob([json], {type: "text/plain;charset=utf-8"});
+		//saveAs(file);
+		saveAs(blob, fileName);
+console.log('label done?');
+	}
 	function datasetIndex(chart, label) {
 		return chart.legend.legendItems.findIndex(item => item.text == label);
 	}
@@ -253,6 +276,16 @@
 			window.sob.init().then(
 				obj => {
 					//log(obj);
+					let chartSelect = document.querySelector('select#charts');
+					chartSelect.textContent = '';
+					for (let dataset of window.sob.chartDatasets()) {
+						let row =
+							`<option value="${dataset}">
+								${dataset}
+							</option>`;
+						chartSelect.insertAdjacentHTML('beforeend', row);
+					}
+//todo build dataset select list
 					window.sob.run(dates);
 				}
 			);

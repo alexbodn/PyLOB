@@ -2,6 +2,11 @@
 <html>
 <body>
 	<div>
+		<label for="deltaField">delta</label>
+		<input id="deltaField" />
+		<button onclick="run()">run</button>
+	</div>
+	<div>
 		<canvas id="c1" height="320px"></canvas>
 	</div>
 	<script src="./peakdet.js"></script>
@@ -9,6 +14,9 @@
 	<script src="./PyLOB/chart/chartjs/chart.umd.js"></script>
 	<script src="./PyLOB/chart/chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
 	<script src="./PyLOB/chart/chartjs-luxon/chartjs-adapter-luxon.js"></script>
+	<script src="./PyLOB/statistics/dispersion.js"></script>
+	<script src="./PyLOB/csv/papaparse.min.js"></script>
+	<script src="./loaddata.js"></script>
 	<script>
 	let input = [{
 		"x": 1254233778000, "y": 51.778
@@ -235,66 +243,66 @@
 	<script>
 		var config = {
 			type: 'line',
-		plugins: [ChartDataLabels],
-		options: {
-			animation: false,
-			normalized: true,
-		    plugins: {
-		      datalabels: {
-		        backgroundColor: function(context) {
-		          return context.dataset.backgroundColor;
-		        },
-		        borderRadius: 4,
-		        color: function(context) {
-		        	return labelattr(context, 'color');
-		        },
-		        //color: 'white',
-		        font: {
-		          weight: 'bold'
-		        },
-		        formatter: function(value, context) {
-		        	return labelattr(context, 'text');
-		        },
-		        padding: 1
-		      }
-		    },
-		/**/scales: {
-      	x: {
-            type: 'time',
-					time: {
-						unit: "minute",
-						tooltipFormat: "HH:mm:ss.SSS",
-						tooltipFormat0: "x",
-						displayFormats: {
-							millisecond: 'HH:mm:ss.SSS',
-							second: 'HH:mm:ss',
-							minute: 'HH:mm:ss',
-							millisecond0: 'x',
-							second0: 'x',
-							minute0: 'x',
-							/*'hour': 'HH:mm:ss',
-							'day': 'HH:mm:ss',
-							'week': 'HH:mm:ss',
-							'month': 'HH:mm:ss',
-							'quarter': 'HH:mm:ss',
-							'year': 'HH:mm:ss',*/
+			plugins: [ChartDataLabels],
+			options: {
+				animation: false,
+				normalized: true,
+				plugins: {
+					datalabels: {
+						backgroundColor: function(context) {
+							return context.dataset.backgroundColor;
 						},
-					},
-					adapters: {
-						date: {
-							zone: 'America/New_York',
+						borderRadius: 4,
+						color: function(context) {
+							return labelattr(context, 'color');
 						},
-					},
-					ticks: {
-						source: 'data'
+						//color: 'white',
+						font: {
+						  weight: 'bold'
+						},
+						formatter: function(value, context) {
+							return labelattr(context, 'text');
+						},
+						padding: 1
 					}
-      	},
-        },/**/
-		},
-		data: {
-			datasets: []
-		},
-	};
+				},
+				scales: {
+					x: {
+						type: 'time',
+						time: {
+							unit: "minute",
+							tooltipFormat: "HH:mm:ss.SSS",
+							tooltipFormat0: "x",
+							displayFormats: {
+								millisecond: 'HH:mm:ss.SSS',
+								second: 'HH:mm:ss',
+								minute: 'HH:mm:ss',
+								millisecond0: 'x',
+								second0: 'x',
+								minute0: 'x',
+								/*'hour': 'HH:mm:ss',
+								'day': 'HH:mm:ss',
+								'week': 'HH:mm:ss',
+								'month': 'HH:mm:ss',
+								'quarter': 'HH:mm:ss',
+								'year': 'HH:mm:ss',*/
+							},
+						},
+						adapters: {
+							date: {
+								zone: 'America/New_York',
+							},
+						},
+						ticks: {
+							source: 'data'
+						}
+					},
+				},
+			},
+			data: {
+				datasets: []
+			},
+		};
 	</script>
 
 	<script>
@@ -307,23 +315,61 @@
 		return null;
 	}
 
-	function chartfill(chart, prices, minprofit, capital, hidden)
+	function chartfill0(chart, prices, delta, hidden)
 	{
-	let allev2 = [];
-	let delta = 0.1343396226;
-	let [maxtab, mintab] = peakdet2(
-		input, delta, {getv: v => v.y, allev: allev2});
-	console.log(delta, allev2, maxtab, mintab)
-
+		let allev2 = [], trendchanges = [];
+		let mintab, maxtab;
+		[maxtab, mintab] = 
+			peakdet2(input, delta, {getv: v => v.y, allev: allev2, trendchanges: trendchanges});
+		console.log(/*maxtab, mintab, */allev2);
+		let test = [{'x': 1254233778000, 'y': 51.778}, {'x': 1254234134000, 'y': 51.64}, {'x': 1254234134000, 'y': 51.64}, {'x': 1254235229000, 'y': 51.8075}, {'x': 1254235503000, 'y': 51.64}];
+		test =     [{'x': 1254233778000, 'y': 51.778}, {'x': 1254234134000, 'y': 51.64},                                   {'x': 1254235229000, 'y': 51.8075}, {'x': 1254235503000, 'y': 51.64}];
+		console.log(test);
+		/*
+		allev2 = [];
+		trendchanges = [];
+		[maxtab, mintab] = 
+			peakdet1(input.map(v => [v.x, v.y]), delta, allev2);
+		console.log(maxtab, mintab);
+		[maxtab, mintab] = 
+			peakdet(input.map(v => v.y), delta, input.map(v => v.x));
+		console.log(maxtab, mintab);
+		console.log(delta, allev2, maxtab, mintab)
+		*/
 		//console.log(JSON.stringify(maxtab)),
-		chart.data.datasets[0] = {label: 'price', data: input, hidden: hidden};
-		chart.data.datasets[1] = {label: 'ev', data: allev2};
-		chart.data.datasets[2] = {label: 'peaks', data: maxtab};
-		chart.data.datasets[3] = {label: 'valeys', data: mintab};
+		chart.data.datasets = [
+			{label: 'price', data: input, hidden: hidden},
+			{label: 'ev', data: allev2},
+			{label: 'peaks', data: maxtab},
+			{label: 'valleys', data: mintab},
+			{label: 'trendchanges', data: trendchanges.map(pt => ({...pt[0], label: pt[1]}))},
+		];
+	}
+	function chartfill(chart, prices, delta)
+	{
+		let allev2 = [], trendchanges = [];
+		let mintab, maxtab;
+		[maxtab, mintab] = 
+			peakdet2(prices, delta, {
+				getv: v => v.y,
+				allev: allev2,
+				trendchanges: trendchanges,
+			});
+		//console.log(maxtab, mintab);
+		
+		//console.log(JSON.stringify(maxtab)),
+		trendchanges = trendchanges.map(pt => ({...pt[0], label: pt[1]}));
+		chart.data.datasets = [
+			{label: 'price', data: prices},
+			{label: 'ev', data: allev2},
+			{label: 'peaks', data: maxtab},
+			{label: 'valleys', data: mintab},
+			{label: 'trendchanges', data: trendchanges},
+		];
 	}
 	function inputNumber(id)
 	{
-		var elem = document.getElementById(id);
+		var elem = document.querySelector('#' + id);
 		if (elem) {
 			var value = elem.value;
 			if (value) {
@@ -337,18 +383,83 @@
 		document.getElementById('c1'),
 		config,
 	);
-	function chartupdate()
+	function chartupdate(prices, delta)
 	{
 		chartfill(
-			chart, 
-			prices=input, 
-			minprofit=inputNumber('minprofit'), 
-			capital=inputNumber('capital'),
-			show=true,
+			chart,
+			prices,
+			delta,
 		);
 		chart.update();
 	}
-	chartupdate();
+	
+	function run() {
+		/*
+		chartfill0(chart, input, 0.1343396226);
+		chart.update();
+		return;
+		*/
+		let myurl = window.location.href;
+		let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
+		let labels = ['2009-09-29', '2009-09-30'];
+		let allData = [], promise = Promise.resolve();
+		for (let label of labels.slice(0, 2)) {
+			promise = promise
+				.then(() => {
+					return fetchPricesCSV(label, mydir)
+				});
+			promise = promise
+				.then(data => {
+					let prices = data
+						.filter(row => row.label === 'price')
+						.map(row => ({
+							x: row.timestamp,
+							y: row.price,
+						}));
+					//console.log(prices);
+					allData.push(...prices);
+					return Promise.resolve();
+				});
+		}
+		promise = promise.then(
+			() => {
+				let delta = 0.26539877300613496;
+				delta /= 1.5;
+				{
+					console.time('stats');
+					let stats = {};
+					stats.mean = allData
+						.reduce((acc, curr) => acc + curr.y, 0) / 
+						(allData.length || 1);
+					stats.variance = allData.map(curr => (curr.y - stats.mean) ** 2).reduce((acc, curr) => acc + curr, 0) / (allData.length || 1);
+					stats.variance1 = allData.map(curr => Math.abs(curr.y - stats.mean)).reduce((acc, curr) => acc + curr, 0) / (allData.length || 1);
+					stats.stddev = Math.sqrt(stats.variance);
+					stats.length = allData.length;
+					let dataSorted = [...allData].sort((l, r) => l.y - r.y);
+					stats.range = dataSorted[dataSorted.length-1].y - dataSorted[0].y;
+					stats.q1 = dataSorted[Math.floor(dataSorted.length / 4)].y;
+					stats.q3 = dataSorted[Math.floor(3 * dataSorted.length / 4)].y;
+					stats.interQuartile = stats.q3 - stats.q1;
+					console.timeEnd('stats');
+					console.log(stats);
+				}
+				{
+					let dispersion = new Dispersion(
+						[], {getv: curr => curr.y, withQuartile: true});
+					console.time('addAll');
+					for (let curr of allData) {
+						dispersion.addOne(curr);
+					}
+					delta = inputNumber('deltaField') || dispersion.stddev;
+					deltaField.value = delta.toString();
+					//console.error(delta);
+					console.timeEnd('addAll');
+					dispersion.print();
+				}
+				chartupdate(allData, delta);
+			}
+		);
+	}
 	</script>
 </body>
 </html>

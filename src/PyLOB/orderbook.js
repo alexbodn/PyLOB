@@ -464,7 +464,7 @@ class OrderBook {
 		return quote;
 	}
 	
-	processOrder(quote, fromData, verbose=false, comment) {
+	processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
 		//todo implement condition as event, and fire at event
 		quote = {
 			...quote,
@@ -491,8 +491,6 @@ class OrderBook {
 			D => {
 				if (quote.price) {
 					quote.price = this.clipPrice(quote.instrument, quote.price, D);
-					this.setInstrument(
-						quote.instrument, D, 'last'+quote.side, quote.price);
 				}
 				else {
 					quote.price = null;
@@ -522,6 +520,10 @@ class OrderBook {
 				});
 			}
 		);
+		if (quote.price && !isPrivate) {
+			this.setInstrument(
+				quote.instrument, this.db, 'last'+quote.side, quote.price);
+		}
 		if (ret != null) {
 			this.orderSent(quote.idNum, quote);
 			let [trades, trade_fulfills, balance_updates] = ret;
@@ -735,7 +737,7 @@ class OrderBook {
 		// to be overriden
 	}
 	
-	cancelOrder(idNum, time, comment) {
+	cancelOrder(idNum, time, {comment=null}={}) {
 		this.updateTime(time);
 		
 		this.db.transaction(
@@ -799,8 +801,9 @@ class OrderBook {
 		return ret;
 	}
 
-	modifyOrder(idNum, orderUpdate, time, verbose=false, comment) {
+	modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null}={}) {
 		let ret = null;
+		let updateSide;
 		this.db.transaction(
 			D => {
 				D.exec({
@@ -821,14 +824,13 @@ class OrderBook {
 							side,
 							tid: trader,
 						};
+						updateSide = side;
 						let loginfo = '<u>MODIFY</u>';
 						if (orderUpdate.price) {
 							let logprice = formatRounder(orderUpdate.price);
 							loginfo += ` price: ${logprice};`;
 							orderUpdate.price = this.clipPrice(
 								instrument, orderUpdate.price, D);
-							//this.setInstrument(
-							//	instrument, D, 'last'+side, orderUpdate.price);
 						}
 						else {
 							orderUpdate.price = price;
@@ -860,6 +862,10 @@ class OrderBook {
 				});
 			}
 		);
+		if (orderUpdate.price && !isPrivate) {
+			this.setInstrument(
+				orderUpdate.instrument, this.db, 'last'+updateSide, orderUpdate.price);
+		}
 		if (ret != null) {
 			this.orderSent(idNum, orderUpdate);
 			let [trades, fulfills, balance_updates] = ret;
@@ -907,6 +913,17 @@ class OrderBook {
 			this.instrument_cache[instrument] = {};
 		}
 		this.instrument_cache[instrument][field] = value;
+		if (value && ['lastask', 'lastbid'].includes(field)) {
+			let other = field == 'lastask' ? 
+				this.getLastBid(instrument, db) : this.getLastAsk(instrument, db);
+			if (other) {
+				let midPoint = (value + other) / 2;
+				if (midPoint != this.instrument_cache[instrument].midpoint) {
+					this.instrument_cache[instrument].midpoint = midPoint
+					this.tickMidPoint(instrument, midPoint);
+				}
+			}
+		}
 	}
 	
 	setLastPrice(instrument, lastprice, db) {
@@ -924,6 +941,10 @@ class OrderBook {
 	setLastAsk(instrument, lastask, db) {
 		this.setInstrument(
 			instrument, db, 'lastask', lastask);
+	}
+	
+	tickMidPoint(instrument, midPoint) {
+		// to be overloaded
 	}
 	
 	getInstrument(instrument, db, force) {
@@ -966,6 +987,11 @@ class OrderBook {
 	getLastAsk(instrument, db) {
 		let cache = this.getInstrument(instrument, db);
 		return cache ? cache.lastask : null;
+	}
+	
+	getMidPoint(instrument, db) {
+		let cache = this.getInstrument(instrument, db);
+		return cache ? cache.midpoint : null;
 	}
 	
 	getVolumeAtPrice(instrument, side, price) {
@@ -1266,3 +1292,9 @@ class OrderBook {
 		this.debug = value;
 	}
 };
+
+/*
+export {
+  OrderBook
+};
+*/

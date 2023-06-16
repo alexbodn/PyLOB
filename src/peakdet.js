@@ -127,7 +127,7 @@ function peakdet1(v, delta, allev) {
 	return resp;
 }
 
-function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
+function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[], trendchanges=[]}={}) {
 	/*
 	this code was kindly provided  by it's original developer.
 	// Eli Billauer, 3.4.05 (Explicitly not copyrighted).
@@ -159,8 +159,6 @@ function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 	// This function is released to the public domain; Any use is allowed.
 	*/
 	
-	//maxtab = []
-	//mintab = []
 	if (!isIterable(v)) {
 		throw new Error('values should be iterable');
 	}
@@ -181,10 +179,16 @@ function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 				if (firstmn) {
 					// as lookformax is initially true, 
 					// the min that precedes the first max
-					// will be ignored
+					// would have been ignored
 					if (mnpt) {
 						mintab.push(mnpt);
 						allev.push(mnpt);
+						trendchanges.push([
+							mnpt,
+							{
+								text: lookformax
+							}
+						]);
 						mnpt = null;
 					}
 					firstmn = false;
@@ -210,6 +214,12 @@ function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 				mnpt = thisv; mn = _this;
 				lookformax = 0;
 				lastmx = null;
+				trendchanges.push([
+					thisv,
+					{
+						text: lookformax
+					}
+				]);
 			}
 		}
 		else {
@@ -223,6 +233,12 @@ function peakdet2(v, delta, {getv=v => v, maxtab=[], mintab=[], allev=[]}={}) {
 				mxpt = thisv; mx = _this;
 				lookformax = 1;
 				lastmn = null;
+				trendchanges.push([
+					thisv,
+					{
+						text: lookformax
+					}
+				]);
 			}
 		}
 	}

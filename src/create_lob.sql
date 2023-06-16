@@ -20,9 +20,9 @@ create table if not exists instrument (
     symbol text primary key,
     currency text,
     rounder integer default(4),
-    lastprice real default(1),
-    lastbid real default(1),
-	lastask real default(1),
+    lastprice real,
+    lastbid real,
+	lastask real,
 	modification_fee real default(0),
 	execution_credit real default(0),
 	foreign key(currency)
@@ -32,8 +32,8 @@ create table if not exists instrument (
 ) -- strict
 ;
 
-insert into instrument (symbol, currency) 
-values ('USD', null) 
+insert into instrument (symbol, currency, lastprice, lastbid, lastask) 
+values ('USD', null, 1, 1, 1) 
 on conflict(symbol) do nothing;
 
 create table if not exists trader_balance (
