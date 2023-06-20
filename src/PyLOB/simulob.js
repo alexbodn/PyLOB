@@ -202,10 +202,12 @@ class SimuLOB extends OrderBook {
 	constructor(
 		location, file_loader, db,
 		tick_size=0.0001, verbose=true,
-		chartElem,
+		chartContainer, chartClass,
 	) {
-		super(location, file_loader, db, tick_size, verbose);
-		this.chartElem = chartElem;
+		let isAuthonomous = false;
+		super(location, file_loader, db, tick_size, verbose, isAuthonomous);
+		this.chartContainer = chartContainer;
+		this.chartClass = chartClass;
 		this.data_branches = this.price_branch
 			.concat(this.market_orders);
 		this.core_branches = this.data_branches
@@ -221,25 +223,31 @@ class SimuLOB extends OrderBook {
 	
 	async init() {
 		let result = new Promise((resolve, reject) => {
-		let initDone = super.init();
-		this.ticks = [];
-		initDone.then(
-			value => {
-				if ('afterInit_hook' in window) {
-					result = afterInit_hook(this).then(
-					this.chartInit(resolve, value));
+		super.init()
+			.then(
+				value => {
+					this.ticks = [];
+					this.loading = document.querySelector('#loading');
+					this.paused = document.querySelector('#paused');
+					let chain = Promise.resolve();
+					if ('afterInit_hook' in window) {
+						chain = chain.then(afterInit_hook(this, value));
+					}
+					resolve(chain.then(value));
 				}
-				else {
-					this.chartInit(resolve, value);
-				}
-			}
-		);
+			)
+		;
 		});
-		this.loading = document.querySelector('#loading');
-		this.paused = document.querySelector('#paused');
-		return result.then(() => {
-			this.simu_initialized = true;
-		});
+		return result
+			// todo move chartinit to newchart
+			/*
+			.then(value => {
+				return this.chartInit(this.chartClass);
+			})
+			*/
+			.then(value => {
+				this.simu_initialized = true;
+			});
 	}
 	
 	isInitialized() {
@@ -281,9 +289,14 @@ class SimuLOB extends OrderBook {
 		return ds ? ds.data : null;
 	}
 	
-	chartInit(resolve, resolve_value) {
+	async chartInit(chartClass) {
 		console.time('chart init');
-		let hostElem = document.getElementById(this.chartElem);
+		let result = new Promise((resolve, reject) => {
+		let chartsDiv = document.querySelector(this.chartContainer);
+		chartsDiv.insertAdjacentHTML(
+			'beforeend',
+			`<canvas class="chart-${chartClass}" height="320px"></canvas>`
+		);
 		let chartConfig = {...this.chartConfig};
 		chartConfig.plugins.push(...[{
 			afterInit: (chart, args, options) => {
@@ -303,12 +316,11 @@ class SimuLOB extends OrderBook {
 					chart.data.datasets[ix] = dataset;
 				}
 				this.chart = chart;
+				let chain = Promise.resolve();
 				if ('chartInit_hook' in window) {
-					chartInit_hook(this, resolve, resolve_value);
+					chain = chain.then(chartInit_hook(this));
 				}
-				else {
-					resolve(resolve_value);
-				}
+				resolve(chain);
 				console.timeEnd('chart init');
 
 			},
@@ -318,7 +330,12 @@ class SimuLOB extends OrderBook {
 				//let ds = args.meta.dataset;
 			},
 		}]);
+		chartConfig.options.plugins.title = {text: chartClass};
+		console.log(chartConfig);
+		let hostElem = document.querySelector(`${this.chartContainer} .chart-${chartClass}`);
 		new Chart(hostElem.getContext("2d"), chartConfig);
+		});
+		return result;
 	}
 	
 	run(dates) {
@@ -371,19 +388,23 @@ class SimuLOB extends OrderBook {
 			else if (this.ticks.length) {
 				let tick = this.ticks.shift();
 				if (tick.label == 'chartReset') {
-					this.chart.options.plugins.title.text = tick.title;
 					simu.newChartStart = true;
+					simu.newTitle = tick.title;
+					return;
+				}
+				if (tick.label == 'endOfDay') {
+					this.modificationsCharge();
 					return;
 				}
 				tick.timestamp = simu.updateTime(tick.timestamp);
 				if (simu.newChartStart) {
-					this.modificationsCharge();
 ///					this.chart.options.scales.x.min = tick.timestamp;
+					this.chartInit(simu.newTitle);
 					if ('newChartStart_hook' in window) {
 						newChartStart_hook(simu);
 					}
 					simu.newChartStart = false;
-					this.chart.update('none');
+///					this.chart.update('none');
 				}
 				if (tick.label == 'price') {
 					simu.setLastPrice(tick.instrument, tick.price);

@@ -233,7 +233,7 @@ class OrderBook {
 	initialized = false;
 	debug = false;
 	 
-	constructor(location, file_loader, db, tick_size=0.0001, verbose=false) {
+	constructor(location, file_loader, db, tick_size=0.0001, verbose=false, isAuthonomous=true) {
 		this.tickSize = tick_size
 		this.rounder = 10**(Math.floor(Math.log10(1 / this.tickSize)));
 		this.time = 0;
@@ -242,6 +242,7 @@ class OrderBook {
 		this.location = location;
 		this.file_loader = file_loader;
 		this.verbose = verbose;
+		this.isAuthonomous = isAuthonomous;
 		this.instrument_cache = {};
 	}
 	
@@ -590,6 +591,9 @@ class OrderBook {
 				}, sql_matches),
 				rowMode: 'object',
 				callback: match => {
+					if (this.debug) {
+						this.logobj(qtyToExec, match.available, match);
+					}
 					if (qtyToExec <= 0) {
 						//stop the loop
 						throw new Error(loopBreak);
@@ -686,7 +690,9 @@ class OrderBook {
 		});
 		//this.order_log(this.time, ask_order, 'execute_order', `<u>SOLD</u> ${qty} @ ${price}`, db);
 		//this.order_log(this.time, bid_order, 'execute_order', `<u>BOUGHT</u> ${qty} @ ${price}`, db);
-		///this.setLastPrice(instrument, price, db);
+		if (this.isAuthonomous) {
+			this.setLastPrice(instrument, price, db);
+		}
 		if (verbose) {
 			log(`>>> TRADE \nt=${this.time} ${price} n=${qty} p1=${counterparty} p2=${quote.tid}`);
 		}

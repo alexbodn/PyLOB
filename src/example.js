@@ -363,14 +363,16 @@ function test_lob(lob, instrument) {
 	}
 	
 	//############# Outstanding Market Orders ##############
-	warn("A market ask for 40 should take all the bids and keep the remainder in the book");
+	warn("A market ask for 40 should fulfill all the bids and keep the remainder in the book");
 	let marketOrder3 = {'order_type' : 'market', 
 					 'side' : 'ask', 
 					 'instrument': instrument,
 					 'qty' : 40, 
 					 'tid' : 111};
 	//let [trades, idNum] = 
+	//lob.setDebug();
 	lob.processOrder(marketOrder3, false, false);
+	//lob.setDebug(false);
 	lob.print(instrument);
 	
 	expected = {

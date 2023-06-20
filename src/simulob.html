@@ -46,9 +46,7 @@
 			<tbody id="balance"></tbody>
 		</table>
 	</div>
-	<div>
-		<canvas id="c1" height="320px"></canvas>
-	</div>
+	<div id="charts"></div>
 	<table id="buttons" style="display: none">
 		<tbody>
 		<tr>
@@ -197,7 +195,6 @@
 			let buttons = document.querySelector("#buttons");
 			buttons.style.display = 'block';
 			showConfig();
-			//runsob(oo);
 		}
 		catch(e){
 			oo = null;
@@ -272,11 +269,11 @@ console.log('label done?');
 			//finally
 			window.sob = new SimuLOB(
 				mydir + '/PyLOB', fetchText, db, 
-				undefined, undefined, 'c1');
+				undefined, undefined, 'div#charts', 'c1');
 			window.sob.init().then(
 				obj => {
 					//log(obj);
-					let chartSelect = document.querySelector('select#charts');
+					/*let chartSelect = document.querySelector('select#charts');
 					chartSelect.textContent = '';
 					for (let dataset of window.sob.chartDatasets()) {
 						let row =
@@ -284,7 +281,7 @@ console.log('label done?');
 								${dataset}
 							</option>`;
 						chartSelect.insertAdjacentHTML('beforeend', row);
-					}
+					}*/
 //todo build dataset select list
 					window.sob.run(dates);
 				}
@@ -304,6 +301,6 @@ console.log('label done?');
 		createSVGElement(svg);*/
 	}
 	</script>
-	<script>eruda._isInit || eruda.init();</script>
+	<!--script>eruda._isInit || eruda.init();</script-->
 </body>
 </html>

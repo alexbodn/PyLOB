@@ -38,7 +38,11 @@ function csvLoad(simu, label) {
 				simu.pushTick(tick);
 			},
 			complete: (results, file) => {
-				simu.dataComing = false;
+			simu.ticks.push({
+				label: 'endOfDay',
+				title: label,
+			});
+			simu.dataComing = false;
 				console.timeEnd('loading csv')
 				resolve();
 			},
