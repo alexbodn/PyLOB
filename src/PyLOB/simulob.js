@@ -189,8 +189,16 @@ class SimuLOB extends OrderBook {
 						},
 					},
 					ticks: {
-						source: 'data'
-					}
+						source: 'data',
+                        // Include a dollar sign in the ticks
+                        /*callback: function(value, index, ticks) {
+                            return '$' + value;
+                        }*/
+					},
+					/*title: {
+					    display: true,
+					    text: 'minutes'
+					}*/
 				},
 			},
 		},
@@ -202,12 +210,12 @@ class SimuLOB extends OrderBook {
 	constructor(
 		location, file_loader, db,
 		tick_size=0.0001, verbose=true,
-		chartContainer, chartClass,
+		chartContainer, chartLabel,
 	) {
 		let isAuthonomous = false;
 		super(location, file_loader, db, tick_size, verbose, isAuthonomous);
 		this.chartContainer = chartContainer;
-		this.chartClass = chartClass;
+		this.chartLabel = chartLabel;
 		this.data_branches = this.price_branch
 			.concat(this.market_orders);
 		this.core_branches = this.data_branches
@@ -242,7 +250,7 @@ class SimuLOB extends OrderBook {
 			// todo move chartinit to newchart
 			/*
 			.then(value => {
-				return this.chartInit(this.chartClass);
+				return this.chartInit(this.chartLabel);
 			})
 			*/
 			.then(value => {
@@ -289,13 +297,13 @@ class SimuLOB extends OrderBook {
 		return ds ? ds.data : null;
 	}
 	
-	async chartInit(chartClass) {
+	async chartInit(chartLabel) {
 		console.time('chart init');
 		let result = new Promise((resolve, reject) => {
 		let chartsDiv = document.querySelector(this.chartContainer);
 		chartsDiv.insertAdjacentHTML(
 			'beforeend',
-			`<canvas class="chart-${chartClass}" height="320px"></canvas>`
+			`<canvas class="chart-${chartLabel}" height="320px"></canvas>`
 		);
 		let chartConfig = {...this.chartConfig};
 		chartConfig.plugins.push(...[{
@@ -330,9 +338,10 @@ class SimuLOB extends OrderBook {
 				//let ds = args.meta.dataset;
 			},
 		}]);
-		chartConfig.options.plugins.title = {text: chartClass};
+		chartConfig.options.plugins.title.text = chartLabel;
 		console.log(chartConfig);
-		let hostElem = document.querySelector(`${this.chartContainer} .chart-${chartClass}`);
+		//return;
+		let hostElem = document.querySelector(`${this.chartContainer} .chart-${chartLabel}`);
 		new Chart(hostElem.getContext("2d"), chartConfig);
 		});
 		return result;

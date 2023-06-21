@@ -1113,6 +1113,10 @@ class OrderBook {
 		});
 	}
 	
+	sql(query, params={}) {
+		return showQuery(query, this.db, params);
+	}
+	
 	logReplacer(key, value) {
 		if (key === 'event_dt') {
 			return this.dtFormat(value);

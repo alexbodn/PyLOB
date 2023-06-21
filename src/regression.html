@@ -1,0 +1,570 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+</head>
+<body>
+	<div id="linechartContainer">
+	<canvas id="Chartline" />
+	</div>
+	<script src="./PyLOB/chart/chartjs/chart.umd.js"></script>
+	<script src="./PyLOB/statistics/regression.js"></script>
+	<script>
+var myJSON = [
+  {
+    "": 0,
+    "Comune": "BONDENO",
+    "PUNTEGGIOSCUOLA1516": 4.25,
+    "Value 1": 63,
+    "Value 2": 8,
+    "Value 3": 17,
+    "DANNO": 6,
+    "Somma valori": 88,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": 5.5,
+    "VINCOLIPAESAGGIO": 1,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 1,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 1,
+    "Comune": "CAVEZZO",
+    "PUNTEGGIOSCUOLA1516": 3.75,
+    "Value 1": 23,
+    "Value 2": 2,
+    "Value 3": 9,
+    "DANNO": 8,
+    "Somma valori": 34,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": 4,
+    "DOCUMENTOVALUTAZIONERISCHIO": 0,
+    "PIANOEMERGENZA": 0,
+    "PUNTEGGIOSCUOLA1617": 3.5,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 1,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 2,
+    "Comune": "CENTO",
+    "PUNTEGGIOSCUOLA1516": 4.333333333333333,
+    "Value 1": 45,
+    "Value 2": 14,
+    "Value 3": 12,
+    "DANNO": 6,
+    "Somma valori": 71,
+    "numero_di_scuole": 36,
+    "CERTIFICATOAGIBILITAABITABILITA": 24,
+    "DOCUMENTOVALUTAZIONERISCHIO": 4,
+    "PIANOEMERGENZA": 4,
+    "PUNTEGGIOSCUOLA1617": 4.25,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 9,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": 5,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": 5
+  },
+  {
+    "": 3,
+    "Comune": "CONCORDIA SULLA SECCHIA",
+    "PUNTEGGIOSCUOLA1516": 4,
+    "Value 1": 23,
+    "Value 2": 4,
+    "Value 3": 1,
+    "DANNO": 7.5,
+    "Somma valori": 28,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": 4,
+    "DOCUMENTOVALUTAZIONERISCHIO": 4,
+    "PIANOEMERGENZA": 4,
+    "PUNTEGGIOSCUOLA1617": 3.75,
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 4,
+    "Comune": "CREVALCORE",
+    "PUNTEGGIOSCUOLA1516": 4.25,
+    "Value 1": 28,
+    "Value 2": 10,
+    "Value 3": 7,
+    "DANNO": 6.5,
+    "Somma valori": 45,
+    "numero_di_scuole": 8,
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": 5,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 2,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 5,
+    "Comune": "FINALE EMILIA",
+    "PUNTEGGIOSCUOLA1516": 4.821428571428571,
+    "Value 1": 57,
+    "Value 2": 3,
+    "Value 3": 6,
+    "DANNO": 7,
+    "Somma valori": 66,
+    "numero_di_scuole": 28,
+    "CERTIFICATOAGIBILITAABITABILITA": 12,
+    "DOCUMENTOVALUTAZIONERISCHIO": 4,
+    "PIANOEMERGENZA": 4,
+    "PUNTEGGIOSCUOLA1617": 4.857142857142857,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 4,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 6,
+    "Comune": "MIRANDOLA",
+    "PUNTEGGIOSCUOLA1516": 4.3,
+    "Value 1": 65,
+    "Value 2": 9,
+    "Value 3": 18,
+    "DANNO": 7.5,
+    "Somma valori": 92,
+    "numero_di_scuole": 20,
+    "CERTIFICATOAGIBILITAABITABILITA": 4,
+    "DOCUMENTOVALUTAZIONERISCHIO": 4,
+    "PIANOEMERGENZA": 4,
+    "PUNTEGGIOSCUOLA1617": 4.75,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 2,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 7,
+    "Comune": "NOVI DI MODENA",
+    "PUNTEGGIOSCUOLA1516": 4,
+    "Value 1": 33,
+    "Value 2": 2,
+    "Value 3": 8,
+    "DANNO": 7.5,
+    "Somma valori": 43,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": 3.75,
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 8,
+    "Comune": "PIEVE DI CENTO",
+    "PUNTEGGIOSCUOLA1516": 5.25,
+    "Value 1": 10,
+    "Value 2": 2,
+    "Value 3": 14,
+    "DANNO": 6,
+    "Somma valori": 26,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": 4,
+    "DOCUMENTOVALUTAZIONERISCHIO": 0,
+    "PIANOEMERGENZA": 0,
+    "PUNTEGGIOSCUOLA1617": 5.25,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 1,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 9,
+    "Comune": "POGGIO RENATICO",
+    "PUNTEGGIOSCUOLA1516": 4.25,
+    "Value 1": 12,
+    "Value 2": 4,
+    "Value 3": 3,
+    "DANNO": 6,
+    "Somma valori": 19,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": 4.25,
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 10,
+    "Comune": "REGGIOLO",
+    "PUNTEGGIOSCUOLA1516": 3,
+    "Value 1": 17,
+    "Value 2": 5,
+    "Value 3": 14,
+    "DANNO": 7,
+    "Somma valori": 36,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": 3.5,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 1,
+    "PROGETTAZIONEANTISISMICA": 1,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 11,
+    "Comune": "SAN FELICE SUL PANARO",
+    "PUNTEGGIOSCUOLA1516": 4.5,
+    "Value 1": 25,
+    "Value 2": 1,
+    "Value 3": 10,
+    "DANNO": 7,
+    "Somma valori": 36,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": 4,
+    "DOCUMENTOVALUTAZIONERISCHIO": 4,
+    "PIANOEMERGENZA": 4,
+    "PUNTEGGIOSCUOLA1617": 4.5,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 1,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 12,
+    "Comune": "SAN PROSPERO",
+    "PUNTEGGIOSCUOLA1516": 4.25,
+    "Value 1": 12,
+    "Value 2": 3,
+    "Value 3": 4,
+    "DANNO": 6,
+    "Somma valori": 19,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": 4,
+    "DOCUMENTOVALUTAZIONERISCHIO": 4,
+    "PIANOEMERGENZA": 4,
+    "PUNTEGGIOSCUOLA1617": 5.25,
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 13,
+    "Comune": "VIGARANO MAINARDA",
+    "PUNTEGGIOSCUOLA1516": 4.25,
+    "Value 1": 3,
+    "Value 2": 3,
+    "Value 3": 0,
+    "DANNO": 5.1,
+    "Somma valori": 6,
+    "numero_di_scuole": 4,
+    "CERTIFICATOAGIBILITAABITABILITA": 0,
+    "DOCUMENTOVALUTAZIONERISCHIO": 0,
+    "PIANOEMERGENZA": 0,
+    "PUNTEGGIOSCUOLA1617": 4.25,
+    "VINCOLIPAESAGGIO": 0,
+    "EDIFICIOVETUSTO": 0,
+    "PROGETTAZIONEANTISISMICA": 1,
+    "VINCOLIIDROGEOLOGICI": 0,
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 14,
+    "Comune": "MEDOLLA",
+    "PUNTEGGIOSCUOLA1516": "",
+    "Value 1": 18,
+    "Value 2": 1,
+    "Value 3": 1,
+    "DANNO": 6,
+    "Somma valori": 20,
+    "numero_di_scuole": "",
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": "",
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 15,
+    "Comune": "MIRABELLO",
+    "PUNTEGGIOSCUOLA1516": "",
+    "Value 1": 6,
+    "Value 2": 2,
+    "Value 3": 6,
+    "DANNO": 6.5,
+    "Somma valori": 14,
+    "numero_di_scuole": "",
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": "",
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 16,
+    "Comune": "SAN POSSIDONIO",
+    "PUNTEGGIOSCUOLA1516": "",
+    "Value 1": 11,
+    "Value 2": 0,
+    "Value 3": 1,
+    "DANNO": 6,
+    "Somma valori": 12,
+    "numero_di_scuole": "",
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": "",
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 17,
+    "Comune": "CAMPOSANTO",
+    "PUNTEGGIOSCUOLA1516": "",
+    "Value 1": "",
+    "Value 2": "",
+    "Value 3": "",
+    "DANNO": 6.5,
+    "Somma valori": 0,
+    "numero_di_scuole": "",
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": "",
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 18,
+    "Comune": "SANT'AGOSTINO",
+    "PUNTEGGIOSCUOLA1516": "",
+    "Value 1": "",
+    "Value 2": "",
+    "Value 3": "",
+    "DANNO": 6,
+    "Somma valori": 0,
+    "numero_di_scuole": "",
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": "",
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  },
+  {
+    "": 19,
+    "Comune": "TERRE DEL RENO",
+    "PUNTEGGIOSCUOLA1516": "",
+    "Value 1": "",
+    "Value 2": "",
+    "Value 3": "",
+    "DANNO": "",
+    "Somma valori": "",
+    "numero_di_scuole": "",
+    "CERTIFICATOAGIBILITAABITABILITA": "",
+    "DOCUMENTOVALUTAZIONERISCHIO": "",
+    "PIANOEMERGENZA": "",
+    "PUNTEGGIOSCUOLA1617": 6,
+    "VINCOLIPAESAGGIO": "",
+    "EDIFICIOVETUSTO": "",
+    "PROGETTAZIONEANTISISMICA": "",
+    "VINCOLIIDROGEOLOGICI": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1516": "",
+    "PUNTEGGIO_SCUOLE_PARITARIE_1617": ""
+  }
+];
+
+
+const xData= myJSON.map(itm=>(itm['Value 1']+itm['Value 2'])/itm['numero_di_scuole']);
+        //xData.sort(function(a, b){return a-b})
+const yData = myJSON.map(itm=>itm['PUNTEGGIOSCUOLA1516']);
+//yData.sort(function(a, b){return a-b})
+
+const datoa0 = xData.map((x, i) => {
+  return {
+    x: x,
+    y: yData[i]
+  };
+});
+
+const datoa = myJSON.map(
+	itm=>({
+		x: (itm['Value 1']+itm['Value 2'])/itm['numero_di_scuole'],
+		y: itm['PUNTEGGIOSCUOLA1516']
+	})
+);
+const clean_data = datoa
+    .filter(({ x, y }) => {
+      return (
+        typeof x === typeof y &&  // filter out one string & one number
+        !isNaN(x) &&              // filter out `NaN`
+        !isNaN(y) &&
+        Math.abs(x) !== Infinity && 
+        Math.abs(y) !== Infinity
+      );
+    })
+    .map(({ x, y }) => {
+      return [x, y];             // we need a list of [[x1, y1], [x2, y2], ...]
+    });
+
+const my_regression = regression.linear(
+  clean_data
+);
+
+const useful_points = my_regression.points.map(([x, y]) => {
+    return {x, y};    
+    // or {x, y}, depending on whether you just want y-coords for a 'linear' plot
+    // or x&y for a 'scatterplot'
+});
+
+console.log(my_regression);
+
+            var datiedu3 = {"labels": ['ok'],
+              "datasets": [{label: 'EEE',
+                            type:'bubble',
+                            data: clean_data ,
+                            //y: myJSON.map(itm=>itm['PUNTEGGIOSCUOLA1516']),
+                            backgroundColor: 'rgb(255, 99, 132)',
+                            borderWidth: 1,
+                            showLine: false},
+                           {
+          type: 'line',
+          label: 'Data',
+          data: makeLabels().labels,
+          fill: false,
+          backgroundColor: "rgba(218,83,79, .7)",
+          borderColor: "rgba(218,83,79, .7)",
+          pointRadius: 0
+        }]
+                            
+                          
+                           
+               };
+function grafo2(dati, opzioni) {
+  var grafoline = document.getElementById('Chartline').getContext('2d');
+  new Chart(grafoline, {type: 'scatter',data: dati, options: opzioni});
+};
+// display the data used in dataset[0]:
+//console.log(datiedu3.datasets[0].data)
+//console.log(makeLabels().labels);
+grafo2(datiedu3)
+
+function makeLabels() {
+  let arr = [
+    5.786341562524039,
+    8.79665220908912,
+    8.383664554147352,
+    6.512236758312074,
+    5.977927375174986,
+    5.795411971799503,
+    7.483008448660743,
+    10.944857778345781,
+    9.731148601839132,
+    9.299830925080316,
+    5.829437054802131,
+    5.89389536362796,
+    8.003445135489207,
+    6.0428956435913745,
+    6.0170861155256885,
+    8.8858198627947,
+    8.063495958147668,
+    8.241177297897147,
+    9.515870969001629,
+    10.22551286060783,
+    10.292722396729182,
+    8.251753293888944,
+    7.146226463060593,
+    5.988918648803384,
+    6.496517457556567,
+    7.432891288115246,
+    9.344935207444069,
+    5.843592666018152,
+    6.12315092706915,
+    8.687749798119956,
+    8.291409485783507,
+    7.863325849087245,
+    10.53809438360669,
+    6.702738926037372,
+    6.784877019135593,
+    8.490500493936208,
+    9.658488190644242,
+    9.343801630924382,
+    11.52492623170561,
+    10.00207659039105,
+    8.57312564934666,
+    6.846018047888539,
+    9.162893182611098,
+    5.9869519001247955,
+    5.576952345873481,
+    8.595164584671123,
+    7.431108145074283,
+    9.85430793938902
+  ];
+  arr = arr.sort((a, b) => a - b);
+  let labels = arr.map(item => ({ x: item, y: item }));
+  return {
+    labels,
+    arr
+  };
+};
+	</script>
+</body>
+</html>
