@@ -195,9 +195,9 @@ create trigger if not exists order_modify
     AFTER UPDATE OF qty, price ON trade_order
 BEGIN
     update trade_order
-    set modification_fee=trade_order.modification_fee+fee.modification_fee
+    set modification_fee=trade_order.modification_fee+fee.fee
     from (
-        select instrument.modification_fee
+        select instrument.modification_fee as fee
         from instrument
         where new.instrument=instrument.symbol
     ) as fee

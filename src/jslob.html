@@ -15,6 +15,9 @@
           white-space: break-spaces;
       }
     </style>
+    <script>
+    	var sqliteFlags = 'ct';
+    </script>
   </head>
   <body>
     <h1>js lob</h1>
@@ -89,7 +92,7 @@
 			let myurl = window.location.href;
 			let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
 			const oo = sqlite3.oo1/*high-level OO API*/;
-			const db = new oo.DB("/mydb.sqlite3",'ct');
+			const db = new oo.DB("/mydb.sqlite3", sqliteFlags);
 			// isolation_level: null
 			fetchText('create_db', mydir + '/create_lob.sql')
 			.then(function(sql) {

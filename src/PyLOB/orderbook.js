@@ -84,7 +84,6 @@ const format = function () {
 
 const formats = function (fmt, args) {
 	return fmt.replace(/{([a-z_A-Z][a-z_A-Z0-9]*)}/g, function (match, text) {
-		//console.warn(text);
 		return typeof args[text] != "undefined" ? args[text] : text;
 	});
 };
@@ -154,6 +153,11 @@ function objectUpdate(dest, src) {
 	return dest;
 }
 
+function uncomment(text) {
+	let commentRe = /(\/\*([^*]|[\r\n]|(\*+([^*\/]|[\r\n])))*\*+\/)|(\/\/.*)|(--.*)/g;
+	return text.replaceAll(commentRe, '');
+}
+
 function prepKeys(obj, query, label) {
 	let ret = obj;
 	if (false) warn(label);
@@ -163,32 +167,17 @@ function prepKeys(obj, query, label) {
 	let paramRe = /:[a-z_A-Z][a-z_A-Z0-9]*/g;
 	if (typeof(obj) == 'object') {
 		ret = {};
-		for (let [key, val] of Object.entries(obj)) {
-			ret[':' + key] = val;
-		}
-		let params = paramRe.exec(query) || [];
-		for (let param of params) {
-			if (!(param in ret)) {
-				throw new Error(`parameter ${param} not defined for ${label}`);
+		let paramRe = /:([a-z_A-Z][a-z_A-Z0-9]*)/g;
+		query = uncomment(query);
+		let param;
+		while (param = paramRe.exec(query)) {
+			let val = obj[param[1]];
+			if (typeof(val) == 'undefined') {
+				throw new Error(`parameter ${param[1]} not defined for ${label}.`);
 			}
+			ret[param[0]] = val;
 		}
 	}
-	return ret;
-}
-
-function showQuery(query, db, params={}) {
-	let ret = [];
-	db.exec({
-		sql: query,
-		bind: prepKeys(
-			params,
-			query),
-		rowMode: 'object',
-		callback: row => {
-			ret.push(row);
-		}
-	});
-	console.table(ret);
 	return ret;
 }
 
@@ -849,12 +838,9 @@ class OrderBook {
 						}
 						D.exec({
 							sql: this.queries.modify_order,
-							bind: prepKeys({
-								price: orderUpdate.price,
-								qty: orderUpdate.qty,
-								timestamp: orderUpdate.timestamp,
-								order_id: orderUpdate.order_id,
-							}, this.queries.modify_order)
+							bind: prepKeys(
+								orderUpdate,
+								this.queries.modify_order)
 						});
 						this.order_log(this.time, order_id, 'modify_order', this.printQuote(orderUpdate), D);
 						this.order_log(this.time, order_id, 'modify_detail', `${loginfo}`, D);
@@ -1114,7 +1100,18 @@ class OrderBook {
 	}
 	
 	sql(query, params={}) {
-		return showQuery(query, this.db, params);
+		let ret = [];
+		this.db.exec({
+			sql: query,
+			bind: prepKeys(
+				params,
+				query),
+			rowMode: 'object',
+			callback: row => {
+				ret.push(row);
+			}
+		});
+		return ret;
 	}
 	
 	logReplacer(key, value) {
@@ -1277,8 +1274,10 @@ class OrderBook {
 		let value = fileStr.join('\n');
 		log(value);
 		
-		showQuery(this.queries.modification_fee_test, this.db)
-		
+		let fees = this.sql(
+			this.queries.modification_fee_test);
+		console.log('modification fees');
+		console.table(fees);
 		return obj;
 	}
 	
@@ -1287,8 +1286,8 @@ class OrderBook {
 		this.db.exec({
 			sql: this.queries.trader_balance,
 			bind: prepKeys({
-				trader: trader,
-				symbol: symbol,
+				trader: trader || null,
+				symbol: symbol || null,
 			}, this.queries.trader_balance),
 			rowMode: 'object',
 			callback: row => {

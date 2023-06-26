@@ -20,7 +20,6 @@ let instrument_info = {
 };
 
 function test_perform(lob) {
-	console.time('test');
 	// Initialize
 	for (let tid=100; tid<112; ++tid) {
 		lob.createTrader(
@@ -37,6 +36,7 @@ function test_perform(lob) {
 }
 
 function test_lob(lob, instrument) {
+	console.time('test');
 	let expected, nerrors = 0;
 	let forWhom=null, priceAsk=98, priceBid=101;
 	let firstIdNum = lob.nextQuoteID;
@@ -388,4 +388,5 @@ function test_lob(lob, instrument) {
 	}
 	log(`${nerrors} errors for ${instrument}`);
 	//lob.order_log_show();
+	console.timeEnd('test');
 }
