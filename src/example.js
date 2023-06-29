@@ -36,7 +36,8 @@ function test_perform(lob) {
 }
 
 function test_lob(lob, instrument) {
-	console.time('test');
+	let test_label = 'test ' + instrument;
+	console.time(test_label);
 	let expected, nerrors = 0;
 	let forWhom=null, priceAsk=98, priceBid=101;
 	let firstIdNum = lob.nextQuoteID;
@@ -124,7 +125,7 @@ function test_lob(lob, instrument) {
 		}, {
 			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
-		"volumeBid": 15, "volumeAsk": 15, "bestBid": 99, "worstBid": 97, "bestAsk": 101, "worstAsk": 103, "commission_balance": 0
+		"volumeBid": 15, "volumeAsk": 15, "bestBid": 99, "worstBid": 97, "bestAsk": 101, "worstAsk": 103, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -164,7 +165,7 @@ function test_lob(lob, instrument) {
 		}, {
 			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
-		"volumeBid": 15, "volumeAsk": 13, "bestBid": 99, "worstBid": 97, "bestAsk": 101, "worstAsk": 103, "commission_balance": 0
+		"volumeBid": 15, "volumeAsk": 13, "bestBid": 99, "worstBid": 97, "bestAsk": 101, "worstAsk": 103, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -199,7 +200,7 @@ function test_lob(lob, instrument) {
 		"asks": [{
 			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
-		"volumeBid": 52, "volumeAsk": 0, "bestBid": 102, "worstBid": 97, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
+		"volumeBid": 52, "volumeAsk": 0, "bestBid": 102, "worstBid": 97, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -231,7 +232,7 @@ function test_lob(lob, instrument) {
 			"idNum": firstIdNum + 8, "trader": 103, "qty": 5, "fulfilled": 0, "price": 97, "event_dt": firstTime + 8
 		}], "asks": [{
 			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
-		}], "volumeBid": 12, "volumeAsk": 0, "bestBid": 99, "worstBid": 97, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
+		}], "volumeBid": 12, "volumeAsk": 0, "bestBid": 99, "worstBid": 97, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -255,7 +256,7 @@ function test_lob(lob, instrument) {
 		"asks": [{
 			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
-		"volumeBid": 12, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
+		"volumeBid": 12, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -280,7 +281,7 @@ function test_lob(lob, instrument) {
 			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}], "asks": [{
 			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
-		}], "volumeBid": 11, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
+		}], "volumeBid": 11, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -304,7 +305,7 @@ function test_lob(lob, instrument) {
 		"asks": [{
 			"idNum": firstIdNum + 2, "trader": 101, "qty": 5, "fulfilled": 0, "price": 103, "event_dt": firstTime + 2
 		}], 
-		"volumeBid": 21, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0
+		"volumeBid": 21, "volumeAsk": 0, "bestBid": 99, "worstBid": 98, "bestAsk": 103, "worstAsk": 103, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -327,7 +328,7 @@ function test_lob(lob, instrument) {
 			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}], 
 		"asks": [], 
-		"volumeBid": 16, "volumeAsk": 0, "bestBid": 103.2, "worstBid": 98, "bestAsk": null, "worstAsk": null, "commission_balance": 0
+		"volumeBid": 16, "volumeAsk": 0, "bestBid": 103.2, "worstBid": 98, "bestAsk": null, "worstAsk": null, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -356,7 +357,7 @@ function test_lob(lob, instrument) {
 			"idNum": firstIdNum + 6, "trader": 101, "qty": 5, "fulfilled": 0, "price": 98, "event_dt": firstTime + 6
 		}], 
 		"asks": [], 
-		"volumeBid": 26, "volumeAsk": 0, "bestBid": "MKT", "worstBid": 98, "bestAsk": null, "worstAsk": null, "commission_balance": 0
+		"volumeBid": 26, "volumeAsk": 0, "bestBid": "MKT", "worstBid": 98, "bestAsk": null, "worstAsk": null, "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
@@ -381,12 +382,12 @@ function test_lob(lob, instrument) {
 		"asks": [{
 			"idNum": firstIdNum + 13, "trader": 111, "qty": 40, "fulfilled": 26, "price": null, "event_dt": firstTime + 17
 		}], 
-		"volumeBid": 0, "volumeAsk": 14, "bestBid": null, "worstBid": null, "bestAsk": "MKT", "worstAsk": "MKT", "commission_balance": 0
+		"volumeBid": 0, "volumeAsk": 14, "bestBid": null, "worstBid": null, "bestAsk": "MKT", "worstAsk": "MKT", "commission_balance": 0, "fee": [], "fee2": []
 	};
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
 	}
-	log(`${nerrors} errors for ${instrument}`);
+	console.log(`${nerrors} errors for ${instrument}`);
 	//lob.order_log_show();
-	console.timeEnd('test');
+	console.timeEnd(test_label);
 }

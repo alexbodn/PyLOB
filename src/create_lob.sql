@@ -32,15 +32,31 @@ create table if not exists instrument (
 ) -- strict
 ;
 
-insert into instrument (symbol, currency, lastprice, lastbid, lastask) 
-values ('USD', null, 1, 1, 1) 
+insert into instrument (symbol, currency) 
+values ('USD', null) 
 on conflict(symbol) do nothing;
+
+create trigger if not exists instrument_update_lock
+    BEFORE UPDATE OF symbol, currency ON instrument
+BEGIN
+    select RAISE (ABORT, 'symbol and currency may not be updated');
+END;
+
+create trigger if not exists base_currency
+    AFTER INSERT ON instrument
+BEGIN
+    update instrument
+	set lastprice=1,
+	    lastbid=1,
+		lastask=1
+    where new.currency is null and symbol=new.symbol;
+END;
 
 create table if not exists trader_balance (
     trader integer, -- trader
     instrument text,
     amount real default(0),
-	modification_fee real default(0), -- grow on modify/cancel
+	modification_debit real default(0), -- grow on modify/cancel
 	execution_credit real default(0), -- grow on execution, only if 0
     primary key(trader, instrument),
     foreign key(trader) references trader(tid),
@@ -104,7 +120,7 @@ create table if not exists trade_order (
     condition integer, -- optional
     fulfill_price real default(0),
     commission real not null default(0), -- calculate on fulfill or on cancel, else nullify
-	modification_fee real default(0), -- grow on modify/cancel
+	modification_debit real default(0), -- grow on modify/cancel
 	execution_credit real default(0), -- grow on execution, only if 0
     currency text, -- redundant, but frequently used
     foreign key(side) references side(side),
@@ -195,7 +211,7 @@ create trigger if not exists order_modify
     AFTER UPDATE OF qty, price ON trade_order
 BEGIN
     update trade_order
-    set modification_fee=trade_order.modification_fee+fee.fee
+    set modification_debit=trade_order.modification_debit+fee.fee
     from (
         select instrument.modification_fee as fee
         from instrument
@@ -214,7 +230,7 @@ BEGIN
 			trader.commission_max_percnt * new.fulfill_price / 100, 
 			max(trader.commission_min, trader.commission_per_unit * new.fulfilled)
 		), commission_rounder),
-		modification_fee=trade_order.modification_fee + case when new.cancel>old.cancel then trader.modification_fee else 0 end,
+		modification_debit=trade_order.modification_debit + case when new.cancel>old.cancel then trader.modification_fee else 0 end,
 		execution_credit=case when new.fulfilled>0 then trader.execution_credit else 0 end
     from (
         select 
@@ -236,19 +252,37 @@ END;
 create trigger if not exists trader_commission
     AFTER UPDATE OF commission ON trade_order
 BEGIN
+	-- todo save in commission table
     update trader_balance
     set amount=amount - (new.commission - old.commission)
     where trader_balance.trader=new.trader and trader_balance.instrument=new.currency;
 END;
 
 create trigger if not exists trader_modification_fee
-    AFTER UPDATE OF modification_fee, execution_credit ON trade_order
+    AFTER UPDATE OF modification_debit, execution_credit ON trade_order
 BEGIN
+	-- todo save in fees table
     update trader_balance
-	set modification_fee=trader_balance.modification_fee+new.modification_fee-old.modification_fee,
+	set modification_debit=trader_balance.modification_debit+new.modification_debit-old.modification_debit,
 		execution_credit=trader_balance.execution_credit+new.execution_credit-old.execution_credit
     where trader_balance.trader=new.trader and trader_balance.instrument=new.instrument;
 END;
+
+/*
+create trigger if not exists trader_modification_fee
+    AFTER UPDATE OF commission, modification_debit, execution_credit ON trade_order
+BEGIN
+    update trader_balance
+    set amount=amount - (new.commission - old.commission)
+    where new.commission<>old.commission
+    	and trader_balance.trader=new.trader and trader_balance.instrument=new.currency;
+    update trader_balance
+	set modification_debit=trader_balance.modification_debit+new.modification_debit-old.modification_debit,
+		execution_credit=trader_balance.execution_credit+new.execution_credit-old.execution_credit
+    where (new.modification_debit<>old.modification_debit or new.execution_credit<>old.execution_credit)
+    	and trader_balance.trader=new.trader and trader_balance.instrument=new.instrument;
+END;
+*/
 
 create table if not exists trade (
     trade_id integer primary key, 

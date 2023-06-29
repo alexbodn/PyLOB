@@ -214,6 +214,8 @@ class OrderBook {
 		'commission_data',
 		'commission_test',
 		'modification_fee_test',
+		'modification_fee_test2',
+		'balance_test',
 		'modifications_charge',
 		'insert_order_log',
 		'select_order_log',
@@ -1078,10 +1080,10 @@ class OrderBook {
 		db.exec({
 			sql: this.queries.insert_order_log, 
 			bind: prepKeys({
-				event_dt: event_dt,
-				order_id: order_id,
-				label: label,
-				info: info
+				event_dt,
+				order_id,
+				label,
+				info
 			}, this.queries.insert_order_log)
 		});
 	}
@@ -1181,6 +1183,13 @@ class OrderBook {
 				obj.commission_balance = commission.commission_balance;
 			}
 		});
+		obj.fee = this.sql(
+			this.queries.modification_fee_test,
+			{instrument});
+		
+		obj.fee2 = this.sql(
+			this.queries.modification_fee_test2,
+			{instrument});
 		return obj;
 	}
 	
@@ -1198,6 +1207,9 @@ class OrderBook {
 			worstBid,
 			bestAsk,
 			worstAsk,
+			commission_balance,
+			fee,
+			fee2,
 		}
 	) {
 		let ret = 0;
@@ -1208,6 +1220,7 @@ class OrderBook {
 			worstBid,
 			bestAsk,
 			worstAsk,
+			commission_balance,
 		};
 		let dumpParams = {
 			instrument,
@@ -1274,10 +1287,16 @@ class OrderBook {
 		let value = fileStr.join('\n');
 		log(value);
 		
-		let fees = this.sql(
-			this.queries.modification_fee_test);
-		console.log('modification fees');
-		console.table(fees);
+		if (obj.fee.length) {
+			console.log('modification fees');
+			console.table(obj.fee);
+		}
+		
+		if (obj.fee2.length) {
+			console.log('modification fees2');
+			console.table(obj.fee2);
+		}
+		
 		return obj;
 	}
 	

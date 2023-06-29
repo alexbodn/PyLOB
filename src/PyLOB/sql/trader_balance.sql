@@ -7,7 +7,7 @@ select
 	amount * lastprice as value,
 	-- should rather be: best bid
 	amount * lastbid as liquidation,
-	trader_balance.modification_fee,
+	trader_balance.modification_debit,
 	trader_balance.execution_credit
 from trader_balance
 inner join instrument on symbol=instrument

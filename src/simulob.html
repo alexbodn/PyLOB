@@ -31,6 +31,7 @@
 			float: left;
 		}
 	</style>
+	<script src="./PyLOB/sqlquery.js"></script>
 </head>
 <body>
 	<h1>simulob</h1>
@@ -79,146 +80,7 @@
 	<table>
 		<tbody id="status"></tbody>
 	</table>
-	<script>
-		const fieldTypes = {
-			NULL: ['^$', '', x => null, true, 'null'],
-			INTEGER: ['^([+-]?[1-9]\\d*([Ee][+-]?[1-9]\\d*)?|0)$', '', parseInt, false, '123'],
-			REAL: ['^([+-]?[1-9]\\d*(\\.\\d*)?([Ee][+-]?[1-9]\\d*)?|0)$', '', parseFloat, false, '123.45'],
-			TEXT: ['.*', '', x => x, false, 'abc'],
-			BLOB: ['.*', '', x => x, false, 'abc'],
-			DATETIME: ['^[1-9]\\d{3}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$', '', x => parseDate(x), false, '2009-09-28T09:15:15'],
-		};
-		function paramType(_this) {
-			let tr = _this.closest('tr');
-			let val = tr.querySelector('.value');
-			let [pattern, dflt, fmt, disabled, placeholder] = fieldTypes[_this.value];
-			val.value = dflt;
-			val.disabled = disabled;
-			val.pattern = `/${pattern}/`;
-			val.placeholder = placeholder;
-		}
-		function addParam(name='') {
-			function typeOptions() {
-				return Object.keys(fieldTypes)
-					.map(type => `<option value="${type}" ${type == 'NULL' ? 'selected="selected"' : ''}>${type}</option>`)
-					.reduce((a, b) => (a + '\n' + b), '')
-					;
-			}
-			let row = `
-				<tr>
-					<td style="width: 30%">
-						<input class="variable" onblur="buildParams(false)" type="text" value="${name}" placeholder="name" style="width: 100%" />
-					</td>
-					<td style="width: 30%">
-						<select class="type" style="width: 100%" onchange="paramType(this);">
-							${typeOptions()}
-						</select>
-					</td>
-					<td style="width: 30%">
-						<input class="value" onblur="buildParams()" pattern="/^$/" disabled="disabled" value="" placeholder="null" style="width: 100%" />
-					</td>
-					<td style="width: 10%"><button onclick="delParam(this)">del</button></td>
-				</tr>
-				`;
-			let params = document.querySelector('div#sqlQuery .sqlParams');
-			params.insertAdjacentHTML('beforeend', row);
-			params.querySelector('tr:last-child input.variable').focus();
-		}
-		function buildParams(testValues=true) {
-			let params = document.querySelector('div#sqlQuery .sqlParams');
-			let rows = params.querySelectorAll('tr');
-			params = {};
-			const nameRegex = /^[a-z_A-Z][a-z_A-Z0-9]*$/;
-			rows.forEach(curr => {
-				let varField = curr.querySelector('.variable');
-				let variable = varField.value;
-				let type = curr.querySelector('.type').value;
-				let valField = curr.querySelector('.value');
-				let value = valField.value;
-				let [pattern, dflt, fmt, disabled, placeholder] = fieldTypes[type];
-				if (!nameRegex.test(variable)) {
-					alert(`invalid variable name ${variable}`);
-					varField.focus();
-					return;
-				}
-				if (variable in params) {
-					alert(`variable ${variable} already defined`);
-					varField.focus();
-					return;
-				}
-				let regex = new RegExp(pattern);
-				if (testValues && !regex.test(value)) {
-					alert(`value of ${variable} doesn't match ${type}`);
-					valField.focus();
-					return;
-				}
-				params[variable] = fmt(value);
-			});
-			return params;
-		}
-		function makeParams() {
-			let params = buildParams(false);
-			let query = document.querySelector('div#sqlQuery .query').value;
-			let paramRe = /:([a-z_A-Z][a-z_A-Z0-9]*)/g;
-			let param;
-			while (param = paramRe.exec(query)) {
-				if (!(param[1] in params)) {
-					addParam(param[1]);
-					params[param[1]] = null;
-				}
-			}
-		}
-		function runQuery() {
-			let params = buildParams();
-			let query = document.querySelector('div#sqlQuery .query');
-			
-			let target = document.querySelector('div#sqlQuery .sqlResults');
-			target.textContent = '';
-			let results = sob.sql(query.value, params);
-			if (results) {
-				let colnames = Object.keys(results[0]);
-				let columns = colnames
-					.map(col => `<th>${col}</th>`)
-					.reduce((acc, curr) => acc + curr, '');
-				target.insertAdjacentHTML(
-					'beforeend',
-					`<tr>${columns}</tr>`
-				);
-				for(let row of results) {
-					row = colnames
-						.map(col => `<td>${row[col]}</td>`)
-						.reduce((acc, curr) => acc + curr, '');
-					target.insertAdjacentHTML(
-						'beforeend',
-						`<tr>${row}</tr>`
-					);
-				}
-			}
-			else {
-				target.insertAdjacentHTML(
-					'beforeend',
-					`<tr><td>no results</td></tr>`
-				);
-			}
-		}
-		function delParam(_this) {
-			let tr = _this.closest('tr');
-			let ok = confirm(`delete ${tr.querySelector('.variable').value} ?`);
-			if (ok) {
-				tr.parentNode.removeChild(tr);
-			}
-		}
-	</script>
-	<div id="sqlQuery">
-		<table><tbody class="sqlParams"></tbody></table>
-		<div>
-			<button onclick="addParam()">add param</button>
-			<button onclick="makeParams()">make params</button>
-			<button onclick="runQuery()">run</button>
-		</div>
-		<textarea class="query" style="width: 100%" placeholder="select 'hello';"></textarea>
-		<table border="1"><tbody class="sqlResults"></tbody></table>
-	</div>
+	<div id="sqlQuery"></div>
 	<table>
 		<tbody id="config"></tbody>
 	</table>
@@ -426,6 +288,8 @@ console.log('label done?');
 						chartSelect.insertAdjacentHTML('beforeend', row);
 					}*/
 //todo build dataset select list
+					window.sqlConsole = new SQLQuery('div#sqlQuery', db, 'sqlConsole');
+					
 					window.sob.run(dates);
 				}
 			);

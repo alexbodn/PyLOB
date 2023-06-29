@@ -8,7 +8,7 @@
     <style>
       .warning, .error {color: red}
       .error {background-color: yellow}
-      body {
+      div#log {
           display: flex;
           flex-direction: column;
           font-family: monospace;
@@ -16,11 +16,15 @@
       }
     </style>
     <script>
-    	var sqliteFlags = 'ct';
+    	var sqliteFlags = 'c';//ct
     </script>
   </head>
   <body>
     <h1>js lob</h1>
+	<div id="sqlQuery"></div>
+	<div style="overflow: scroll; height: 320px; border-style: ridge;">
+		<div id="log"></div>
+	</div>
     <script src="./PyLOB/sqlitejs/sqlite3.js"></script>
     <!--script src="./PyLOB/sqlitejs/demo-123.js"></script-->
 	<script src="./PyLOB/orderbook.js"></script>
@@ -39,7 +43,8 @@
 			//ln.append(document.createTextNode(args.join(' ')));
 			///ln.append(createHTMLNode(args.join(' ')));
 			///document.body.append(ln);
-			document.body.insertAdjacentHTML(
+			let logDiv = document.querySelector("div#log");
+			logDiv.insertAdjacentHTML(
 				'beforeend', `<div class="${cssClass}">${args.join(' ')}</div>`
 			);
 		};
@@ -98,16 +103,21 @@
 			.then(function(sql) {
 				//sql[1] = sql[1].replaceAll('begin transaction;', '').replaceAll('commit;');
 				//try
+				console.time('create_lob');
 				db.exec({
 					sql: sql[1],
 				});
+				console.timeEnd('create_lob');
 				//finally
-				let ob = new OrderBook(mydir + '/PyLOB', fetchText, db, 0.0001, true);
-				ob.init().then(
+				window.sob = new OrderBook(mydir + '/PyLOB', fetchText, db, 0.0001, true);
+				console.time('sob_init');
+				window.sob.init().then(
 					obj => {
 						warn('initialization done.');
+						console.timeEnd('sob_init');
+						window.sqlConsole = new SQLQuery('div#sqlQuery', db, 'sqlConsole');
 						
-						test_perform(ob);
+						test_perform(window.sob);
 					}
 				); 
 			});
@@ -117,5 +127,6 @@
 		}
 	});
 	</script>
+	<script src="./PyLOB/sqlquery.js"></script>
   </body>
 </html>
