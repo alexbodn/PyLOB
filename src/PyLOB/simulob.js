@@ -231,20 +231,20 @@ class SimuLOB extends OrderBook {
 	
 	async init() {
 		let result = new Promise((resolve, reject) => {
-		super.init()
-			.then(
-				value => {
-					this.ticks = [];
-					this.loading = document.querySelector('#loading');
-					this.paused = document.querySelector('#paused');
-					let chain = Promise.resolve();
-					if ('afterInit_hook' in window) {
-						chain = chain.then(afterInit_hook(this, value));
+			super.init()
+				.then(
+					value => {
+						this.ticks = [];
+						this.loading = document.querySelector('#loading');
+						this.paused = document.querySelector('#paused');
+						let chain = Promise.resolve();
+						if ('afterInit_hook' in window) {
+							chain = chain.then(afterInit_hook(this, value));
+						}
+						resolve(chain.then(value));
 					}
-					resolve(chain.then(value));
-				}
-			)
-		;
+				)
+			;
 		});
 		return result
 			// todo move chartinit to newchart
@@ -263,7 +263,12 @@ class SimuLOB extends OrderBook {
 	}
 	
 	pause(value=true) {
-		//todo implement hook to hide loading
+		if (this.loading) {
+			this.loading.style.display = value ? 'none' : 'block';
+		}
+		if (this.paused) {
+			this.paused.style.display = value ? 'block' : 'none';
+		}
 		this.dopause = value;
 	}
 	
@@ -339,8 +344,6 @@ class SimuLOB extends OrderBook {
 			},
 		}]);
 		chartConfig.options.plugins.title.text = chartLabel;
-		console.log(chartConfig);
-		//return;
 		let hostElem = document.querySelector(`${this.chartContainer} .chart-${chartLabel}`);
 		new Chart(hostElem.getContext("2d"), chartConfig);
 		});
@@ -385,9 +388,11 @@ class SimuLOB extends OrderBook {
 				if (this.quotesQueueLocked) {
 					return;
 				}
+				this.quotesQueueLock();
 				quote = this.quotesQueue.shift();
 				label = quote.label;
 				let instrument = quote.instrument;
+				this.quotesQueueLock(false);
 				if (label in this.derailedLabels[quote.instrument]) {
 					return;
 				}

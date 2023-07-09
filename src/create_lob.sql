@@ -32,10 +32,6 @@ create table if not exists instrument (
 ) -- strict
 ;
 
-insert into instrument (symbol, currency) 
-values ('USD', null) 
-on conflict(symbol) do nothing;
-
 create trigger if not exists instrument_update_lock
     BEFORE UPDATE OF symbol, currency ON instrument
 BEGIN
@@ -51,6 +47,10 @@ BEGIN
 		lastask=1
     where new.currency is null and symbol=new.symbol;
 END;
+
+insert into instrument (symbol, currency) 
+values ('USD', null) 
+on conflict(symbol) do nothing;
 
 create table if not exists trader_balance (
     trader integer, -- trader

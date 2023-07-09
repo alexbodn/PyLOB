@@ -212,7 +212,6 @@ class OrderBook {
 		'volume_at_price',
 		'commission_calc',
 		'commission_data',
-		'commission_test',
 		'modification_fee_test',
 		'modification_fee_test2',
 		'balance_test',
@@ -1176,17 +1175,12 @@ class OrderBook {
 			bestAsk: this.getBestAsk(instrument),
 			worstAsk: this.getWorstAsk(instrument),
 		};
-		this.db.exec({
-			sql: this.queries.commission_test, 
-			rowMode: 'object',
-			callback: commission => {
-				obj.commission_balance = commission.commission_balance;
-			}
-		});
+		obj.balance_test = this.sql(
+			this.queries.balance_test,
+			{instrument});
 		obj.fee = this.sql(
 			this.queries.modification_fee_test,
 			{instrument});
-		
 		obj.fee2 = this.sql(
 			this.queries.modification_fee_test2,
 			{instrument});
@@ -1207,7 +1201,7 @@ class OrderBook {
 			worstBid,
 			bestAsk,
 			worstAsk,
-			commission_balance,
+			balance_test,
 			fee,
 			fee2,
 		}
@@ -1220,7 +1214,6 @@ class OrderBook {
 			worstBid,
 			bestAsk,
 			worstAsk,
-			commission_balance,
 		};
 		let dumpParams = {
 			instrument,
@@ -1235,8 +1228,8 @@ class OrderBook {
 				break;
 			}
 		}
-		let quoteLists = {bids, asks};
-		for (let [name, list] of Object.entries(quoteLists)) {
+		let lists = {bids, asks, balance_test, fee, fee2};
+		for (let [name, list] of Object.entries(lists)) {
 			if (ret) {
 				break;
 			}
@@ -1271,9 +1264,6 @@ class OrderBook {
 			let {idNum, trader, qty, fulfilled, price, event_dt, instrument} = row;
 			fileStr.push(`${idNum} of ${trader})${qty}-${fulfilled} @ ${price} t=${event_dt}`);
 		}
-		fileStr.push("");
-		fileStr.push(`commission_balance: ${obj.commission_balance}`);
-		fileStr.push("");
 		
 		fileStr.push(`volume bid if i ask ${obj.priceAsk}: ${obj.volumeBid}`);
 		fileStr.push(`volume ask if i bid ${obj.priceBid}: ${obj.volumeAsk}`);

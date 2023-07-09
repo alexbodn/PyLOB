@@ -36,6 +36,7 @@
 <body>
 	<h1>simulob</h1>
 	
+	<div id="charts"></div>
 	<div>
 		<h3 class="lob-header">
 			<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
@@ -47,7 +48,6 @@
 			<tbody id="balance"></tbody>
 		</table>
 	</div>
-	<div id="charts"></div>
 	<table id="buttons" style="display: none">
 		<tbody>
 		<tr>
@@ -294,20 +294,8 @@ console.log('label done?');
 				}
 			);
 		});
-		/*let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M5 3l3.057-3 11.943 12-11.943 12-3.057-3 9-9z"/></svg>';
-		svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 500" height="200" width="500">
-			<polyline points="20,20 40,25 60,40 80,120 120,140 200,180"
-			style="fill:none;stroke:white;stroke-width:3" />
-		</svg>`;
-		function createSVGElement(data) {
-			var parser = new DOMParser();
-			var doc = parser.parseFromString(data, "image/svg+xml");
-			document.body.appendChild(doc.lastChild);
-		}
-		
-		createSVGElement(svg);*/
 	}
 	</script>
-	<!--script>eruda._isInit || eruda.init();</script-->
+	<script>window.eruda && (eruda._isInit || eruda.init());</script>
 </body>
 </html>
