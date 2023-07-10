@@ -2,7 +2,8 @@
 select
 	trader,
 	instrument,
-	round(amount, rounder),
+	round(amount, rounder) as amount,
+	rounder,
 	lastprice,
 	amount * lastprice as value,
 	-- should rather be: best bid

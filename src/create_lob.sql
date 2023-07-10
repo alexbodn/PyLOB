@@ -55,7 +55,7 @@ on conflict(symbol) do nothing;
 create table if not exists trader_balance (
     trader integer, -- trader
     instrument text,
-    amount real default(0),
+    amount real not null default(0),
 	modification_debit real default(0), -- grow on modify/cancel
 	execution_credit real default(0), -- grow on execution, only if 0
     primary key(trader, instrument),
