@@ -31,12 +31,22 @@
 			float: left;
 		}
 	</style>
+	<style>
+		/*.flex-container {
+			display: flex;
+		}
+		
+		.flex-child {
+			flex: 1;
+			border: 2px solid yellow;
+		}*/
+	</style>
 	<script src="./PyLOB/sqlquery.js"></script>
 </head>
 <body>
 	<h1>simulob</h1>
 	
-	<div id="charts"></div>
+	<div id="charts" class="flex-container"></div>
 	<div>
 		<h3 class="lob-header">
 			<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
@@ -114,9 +124,10 @@
 	<script src="./peakdet.js"></script>
 	<script src="./PyLOB/simulob.js"></script>
 	
-	<script src="./PyLOB/chart/chartjs/chart.umd.js"></script>
+	<script src="./PyLOB/chart/chartjs-4.4.0/chart.umd.min.js"></script>
+	<!--script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script-->
 	<script src="./PyLOB/chart/chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
-	
+
 	<script src="./PyLOB/hammerjs/hammer.min.js"></script>
 	<script src="./PyLOB/chart/chartjs-zoom/chartjs-plugin-zoom.min.js"></script>
 	<!--script src="./PyLOB/chart/chartjs-streaming/chartjs-plugin-streaming.min.js"></script-->

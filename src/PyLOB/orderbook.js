@@ -129,7 +129,9 @@ function syntaxHighlight(json, withCss=true, tag='pre', jsonClass='json') {
 
 function stringify(arg, replacer, spacer, inPre, jsonClass='json') {
 	let tag = inPre ? 'pre' : 'span';
-	let json = syntaxHighlight(JSON.stringify(arg, replacer, spacer).replaceAll(/,\s*/g, ', '), true, tag);
+	let json = JSON.stringify(arg, replacer, spacer);
+	json = json.replaceAll(/,\s*/g, ', ');
+	json = syntaxHighlight(json, true, tag);
 	json = `<${tag} class="${jsonClass}">${json}</${tag}>`;
 	return json;
 }
@@ -143,7 +145,7 @@ function logReplacer(key, value) {
 
 function logobj(...args) {
 	log.apply(this, args.map(
-		arg => arg == undefined ? 'undefined' : stringify(arg, logReplacer)));
+		arg => (typeof arg == 'undefined') ? 'undefined' : stringify(arg, logReplacer)));
 }
 
 function objectUpdate(dest, src) {
@@ -221,6 +223,8 @@ class OrderBook {
 	];
 	queries = {};
 	initialized = false;
+	tickGap = 10;
+	
 	debug = false;
 	 
 	constructor(location, file_loader, db, tick_size=0.0001, verbose=false, isAuthonomous=true) {
@@ -397,7 +401,7 @@ class OrderBook {
 		//to be overriden
 	}
 		
-	traderBalance({instrument, amount, lastprice, value, liquidation}) {
+	traderBalance({instrument, amount, lastprice, value, liquidation, reqId}) {
 		//to be overriden
 		/*if (this.verbose) {
 			this.logobj({instrument, amount, lastprice, value, liquidation});
@@ -406,6 +410,10 @@ class OrderBook {
 	
 	traderGetBalance(trader, instrument) {
 		// if !instrument, then all
+		const traderBalance =
+			(ob, info) => {
+				ob.traderBalance(info);
+			};
 		this.db.exec({
 			sql: this.queries.trader_balance,
 			bind: prepKeys({
@@ -414,7 +422,12 @@ class OrderBook {
 			}, this.queries.trader_balance),
 			rowMode: 'object',
 			callback: row => {
-				this.traderBalance(row);
+				setTimeout(
+					traderBalance,
+					this.tickGap,
+					this,
+					{...row, time: this.getTime()}
+				);
 			}
 		});
 	}
@@ -468,6 +481,7 @@ class OrderBook {
 			throw new Error(`processOrder(${quote.idNum}) no instrument given`);
 		}
 		if (quote.qty <= 0) {
+console.log(quote);
 			throw new Error(`processOrder(${quote.idNum}) given order of qty <= 0`);
 		}
 		if (!this.valid_types.includes(quote.order_type)) {
@@ -711,6 +725,7 @@ class OrderBook {
 			else {
 				// update balance
 			}
+			//todo: that's probably the way to go
 			if (false && this.verbose) {
 				this.traderGetBalance(update.trader, update.instrument);
 			}
@@ -734,8 +749,8 @@ class OrderBook {
 	}
 	
 	cancelOrder(idNum, time, {comment=null}={}) {
-		this.updateTime(time);
-		
+		time = this.updateTime(time);
+		let _trader = null;
 		this.db.transaction(
 			D => {
 				D.exec({
@@ -745,7 +760,7 @@ class OrderBook {
 						this.queries.find_order),
 					rowMode: 'object',
 					callback: row => {
-						let {order_id} = row;
+						let {order_id, trader} = row;
 						D.exec({
 							sql: this.queries.cancel_order, 
 							bind: prepKeys({
@@ -753,15 +768,18 @@ class OrderBook {
 								order_id: order_id, 
 							}, this.queries.cancel_order)
 						});
+						_trader = trader;
 						this.order_log(this.time, order_id, 'cancel_order', '<u>CANCEL ORDER</u>', D);
 					}
 				});
 			}
 		);
-		this.orderCancelled(idNum);
+		if (_trader) {
+			this.orderCancelled(idNum, _trader, time);
+		}
 	}
 
-	orderCancelled(idNum) {
+	orderCancelled(idNum, trader, time) {
 		// to be overriden
 	}
 	
