@@ -56,9 +56,9 @@ class SQLQuery {
 	}
 	
 	buildParams(testValues=true) {
-		let params = document.querySelector(this.sqlQuerySelector + ' .sqlParams');
-		let rows = params.querySelectorAll('tr');
-		params = {};
+		let paramsDiv = document.querySelector(this.sqlQuerySelector + ' .sqlParams');
+		let rows = paramsDiv.querySelectorAll('tr');
+		let params = {};
 		const nameRegex = /^[a-z_A-Z][a-z_A-Z0-9]*$/;
 		rows.forEach(curr => {
 			let varField = curr.querySelector('.variable');
@@ -103,11 +103,14 @@ class SQLQuery {
 	
 	runQuery() {
 		let params = this.buildParams();
-		let query = document.querySelector(this.sqlQuerySelector + ' .query');
+		let query = document.querySelector(`${this.sqlQuerySelector} .query`);
 		
-		let target = document.querySelector(this.sqlQuerySelector + ' .sqlResults');
+		this.sql(query.value, params);
+	}
+	
+	showResults(results) {
+		let target = document.querySelector(`${this.sqlQuerySelector} .sqlResults`);
 		target.textContent = '';
-		let results = this.sql(query.value, params);
 		if (results) {
 			let colnames = Object.keys(results[0]);
 			let columns = colnames
@@ -144,7 +147,7 @@ class SQLQuery {
 	}
 	
 	sql(query, params={}) {
-		let ret = [];
+		let results = [];
 		this.db.exec({
 			sql: query,
 			bind: prepKeys(
@@ -152,10 +155,10 @@ class SQLQuery {
 				query),
 			rowMode: 'object',
 			callback: row => {
-				ret.push(row);
+				results.push(row);
 			}
 		});
-		return ret;
+		this.showResults(results);
 	}
 	
 	buildForm() {

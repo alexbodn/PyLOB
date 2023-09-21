@@ -1,5 +1,7 @@
 'use strict';
 
+//importScripts("orderbook.js");
+
 //import {OrderBook, objectUpdate, fetchText} from './orderbook.js';
 
 //var _scriptDir = typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : undefined;
@@ -36,29 +38,44 @@ function formatDate(millis, fmt='h:m:s.S') {
 }
 
 const zoomOptions = {
-  limits: {
-    x: {min: -200, max: 200, minRange: 50},
-    y: {min: -200, max: 200, minRange: 50}
-  },
-  pan: {
-    enabled: true,
-    mode: 'xy',
-  },
-  zoom: {
-    wheel: {
-      enabled: true,
-    },
-    pinch: {
-      enabled: true
-    },
-    mode: 'xy',
-    onZoomComplete({chart}) {
-      // This update is needed to display up to date zoom level in the title.
-      // Without this, previous zoom level is displayed.
-      // The reason is: title uses the same beforeUpdate hook, and is evaluated before zoom.
-      chart.update('none');
-    }
-  }
+	limits: {
+		x: {min: -200, max: 200, minRange: 50},
+		y: {min: -200, max: 200, minRange: 50}
+	},
+	pan: {
+		enabled: true,
+		mode: 'xy',
+	},
+	zoom: {
+		wheel: {
+			enabled: true,
+		},
+		pinch: {
+			enabled: true
+		},
+		mode: 'xy',
+		onZoomComplete({chart}) {
+			// This update is needed to display up to date zoom level in the title.
+			// Without this, previous zoom level is displayed.
+			// The reason is: title uses the same beforeUpdate hook, and is evaluated before zoom.
+			chart.update('none');
+		}
+	}
+};
+
+const bgPlugin = {
+	id: 'custom_canvas_background_color',
+	beforeDraw: (chart, args, options) => {
+		const {ctx} = chart;
+		ctx.save();
+		ctx.globalCompositeOperation = 'destination-over';
+		ctx.fillStyle = options.color;
+		ctx.fillRect(0, 0, chart.width, chart.height);
+		ctx.restore();
+	},
+	defaults: {
+		color: 'lightGreen'
+	}
 };
 
 class SimuLOB extends OrderBook {
@@ -76,6 +93,16 @@ class SimuLOB extends OrderBook {
 	executions_branch = ['executions'];
 	market_orders = ['ask', 'bid'];
 	
+	updateGroups = {
+		sum: 'sum',
+	};
+	updateFrequency = {
+		default: 10,
+		sum: 20,
+		balance: 1,
+		executions: 1,
+	};
+	
 	chartStyle = {
 		price: {
 			borderColor: 'green',
@@ -90,11 +117,14 @@ class SimuLOB extends OrderBook {
 			borderColor: 'gold',
 			pointStyle: 'star',
 			yAxisID: 'yBalance',
+			//hidden: true,
+			updateGroup: 'balance',
 		},
 		executions: {
 			borderColor: 'violet',
 			pointStyle: 'star',
 			type: 'scatter',
+			updateGroup: 'executions',
 		},
 		ask: {
 			borderColor: 'red',
@@ -108,9 +138,11 @@ class SimuLOB extends OrderBook {
 		type: 'line',
 		plugins: [
 			ChartDataLabels,
+			//bgPlugin,
 		],
 		options: {
 			animation: false,
+//			responsive: true,
 			normalized: true,
 			plugins: {
 				datalabels: {
@@ -156,6 +188,9 @@ class SimuLOB extends OrderBook {
 						boxWidth: 9,
 						fontColor: '#474747',
 						fontFamily: '6px Montserrat',
+						filter: (item, chart) => {
+							return (item.text !== 'hidden');
+						}
 					}
 				},
 				//zoom: zoomOptions,
@@ -295,7 +330,7 @@ class SimuLOB extends OrderBook {
 	}
 	
 	chartDestroy(chartLabel) {
-		let chart = this.getChart(chartLabel);
+		let chart = this.getChartInfo(chartLabel);
 		if (chart.chart) {
 			chart.chart.clear();
 			chart.chart.destroy();
@@ -303,16 +338,16 @@ class SimuLOB extends OrderBook {
 	}
 	
 	chartSetTitle(title, chartLabel) {
-		let chart = this.getChart(chartLabel);
+		let chart = this.getChartInfo(chartLabel);
 		if (chart.chart) {
 			chart.chart.options.plugins.title.text = title;
 		}
 	}
 	
 	chartUpdate(method, chartLabel) {
-		let chart = this.getChart(chartLabel);
+		let chart = this.getChartInfo(chartLabel || this.chartLabel);
 		if (chart.chart) {
-			chart.chart.update(method);
+//			chart.chart.update(method);
 		}
 	}
 	
@@ -344,11 +379,19 @@ class SimuLOB extends OrderBook {
 			let label = dataset.label;
 			dataset.id = `id_${label}`;
 			dataset.data = [];
+			dataset.animation = false;
 			if (dataset.isQuote) {
 				order_branches.push(label);
 				delete dataset.isQuote;
 			}
 			branches.push(label);
+			if ('updateGroup' in dataset) {
+				this.updateGroups[label] = dataset.updateGroup;
+				delete dataset.updateGroup;
+			}
+			else {
+				this.updateGroups[label] = 'default';
+			}
 			chartIndex[label] = {dataset: branch_ix};
 		}
 		this.branches = branches;
@@ -357,12 +400,12 @@ class SimuLOB extends OrderBook {
 		return datasets;
 	}
 	
-	getChart(label) {
+	getChartInfo(label) {
 		return this.charts[label || this.chartLabel] || {};
 	}
 	
 	chartLoadBuffer(chartLabel) {
-		let chart = this.getChart(chartLabel);
+		let chart = this.getChartInfo(chartLabel);
 		if (!chart.chart) {
 			return;
 		}
@@ -405,15 +448,8 @@ class SimuLOB extends OrderBook {
 		return chart.dataBuffer[label];
 	}
 	
-	chartSetTicks(label, ticks) {
-		let ds = this.chartDataset(label);
-		if (ds) {
-			ds.data = ticks;
-		}
-	}
-	
 	chartDatasets(chartLabel) {
-		let chart = this.getChart(chartLabel);
+		let chart = this.getChartInfo(chartLabel);
 		let ret = chart.chart.data.datasets.map(ds => ds.label);
 		return ret;
 	}
@@ -423,10 +459,56 @@ class SimuLOB extends OrderBook {
 		return ds ? ds.data : null;
 	}
 	
+	chartDataUpdate(label, ticks, chartLabel) {
+		let chartInfo = this.getChartInfo(chartLabel || this.chartLabel);
+		let updateGroup = this.updateGroups[label];
+		//update the counter for the group and instrument
+		let groups = [updateGroup, 'sum'];
+		let shouldUpdate = false;
+		for (let group of groups) {
+			chartInfo.updateCounters[group] += ticks.length;
+			if (chartInfo.updateCounters[group] >= this.updateFrequency[group]) {
+				shouldUpdate = true;
+			}
+		}
+		if (shouldUpdate && !chartInfo.updating && chartInfo.initialized) {
+			chartInfo.updating = true;
+			chartInfo.chart.update();
+		}
+	}
+	
 	chartPushTicks(label, ...ticks) {
 		let data = this.chartData(label);
 		if (data) {
 			data.push(...ticks);
+if (label.slice(0, 4) == 'bid_') {
+	this.logobj(label, data.map(tick => ({event_dt: tick.x, y: tick.y, sentinel: tick.sentinel})));
+}
+			this.chartDataUpdate(label, ticks);
+		}
+	}
+	
+	_chartPushTicks(label, chartLabel, ...ticks) {
+		let data = this.chartData(label, chartLabel);
+		if (data) {
+			data.push(...ticks);
+			this.chartDataUpdate(label, ticks, chartLabel);
+		}
+	}
+	
+	chartSetTicks(label, ticks, chartLabel) {
+		let ds = this.chartDataset(label, chartLabel);
+		if (ds) {
+			ds.data = ticks;
+			this.chartDataUpdate(label, ticks);
+		}
+	}
+	
+	chartAction(chartLabel, {action, data}) {
+		if (action == 'data_set') {
+			for (let [ds, ticks] of Object.entries(data)) {
+				this.chartSetTicks(ds, ticks, chartLabel);
+			}
 		}
 	}
 	
@@ -437,18 +519,48 @@ class SimuLOB extends OrderBook {
 			afterInit: (chart, args, options) => {
 				if (!this.charts[chartLabel].initialized) {
 					console.timeEnd(timeLabel);
-					this.chartSetTitle(chartLabel, chartLabel);
-					this.chartLoadBuffer();
+					//this.chartSetTitle(chartLabel, chartLabel);
+					this.chartLoadBuffer(chartLabel);
+					const pointValue = (point) => {
+						return chart.data.datasets[point.datasetIndex].data[point.index];
+					};
+					chart.ctx.canvas.onclick = (evt) => {
+						
+						let points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true)
+							.map(pointValue)
+							.filter(point => {return 'onclick' in point;});
+						if (points.length) {
+							this.chartAction(chartLabel, points[0].onclick);
+						}
+					};
 				}
 				this.charts[chartLabel].chart = chart;
+				this.charts[chartLabel].id = chart.id;
 				this.charts[chartLabel].initialized = true;
-				this.chartUpdate();
 			},
-			afterDatasetUpdate: (chart, args, pluginOptions) => {
-				//const { ctx } = chart;
-				//ctx.save();
-				//let ds = args.meta.dataset;
+			beforeUpdate: (chart, args, options) => {
+				if ('beforeUpdateChart_hook' in window) {
+					beforeUpdateChart_hook(this, chartLabel);
+				}
+				chart.data.datasets.forEach(
+					ds => {
+						if (ds.data && ds.data.length && ds.data.at(-1).y) {
+							let last = ds.data.at(-1);
+							if (last.sentinel) {
+								last.x = this.getTime();
+							}
+						}
+					}
+				);
+				let counters = this.charts[chartLabel].updateCounters;
+				Object.keys(counters)
+					.map(key => {counters[key] = 0;});
+				return true;
 			},
+			afterUpdate: (chart, args, options) => {
+				this.charts[chartLabel].updating = false;
+				return true;
+			}
 		};
 		let hostElemQuery = `${this.chartContainer} .chart-${chartLabel}`;
 		let hostElem = document.querySelector(hostElemQuery);
@@ -511,9 +623,9 @@ class SimuLOB extends OrderBook {
 			}
 			let label, price, quote;
 			if (this.quotesQueue.length) {
-				if (this.quotesQueueLocked) {
+				/*if (this.quotesQueueLocked) {
 					return;
-				}
+				}*/
 				this.quotesQueueLock();
 				quote = this.quotesQueue.shift();
 				label = quote.label;
@@ -523,9 +635,6 @@ class SimuLOB extends OrderBook {
 					return;
 				}
 				simu.processQuote(quote);
-				if (!this.quotesQueue.length) {
-					simu.chartUpdate('quiet');
-				}
 			}
 			else if (this.ticks.length) {
 				let tick = this.ticks.shift();
@@ -535,6 +644,9 @@ class SimuLOB extends OrderBook {
 					simu.chartLabel = tick.title;
 					simu.charts[simu.chartLabel] = {
 						dataBuffer: {},
+						updateCounters: 
+							Object.keys(simu.updateFrequency)
+								.reduce((a, b) => {a[b] = 0; return a;}, {}),
 						initialized: false,
 					};
 					if (!prevLabel) {
@@ -550,7 +662,7 @@ class SimuLOB extends OrderBook {
 				if (simu.newChartStart && !simu.chart) {
 					simu.newChartStart = false;
 					this.chartInit(simu.chartLabel);
-///					this.chart.options.scales.x.min = tick.timestamp;
+					///this.chart.options.scales.x.min = tick.timestamp;
 					if ('newChartStart_hook' in window) {
 						newChartStart_hook(simu);
 					}
@@ -591,7 +703,7 @@ class SimuLOB extends OrderBook {
 			
 			++sent;
 		}
-		, simu.tickGap, simu);
+		, 5/*simu.tickGap*/, simu);
 	}
 	
 	pushTick(tick) {
@@ -606,7 +718,6 @@ class SimuLOB extends OrderBook {
 			}
 			quote = this.createQuote(
 				trader, instrument, side, qty, price);
-			this.trader_quotes[instrument][label] = quote;
 			this.order_names[quote.idNum] = [instrument, label];
 			this.processOrder(quote, true, false, isPrivate);
 		}
@@ -622,6 +733,7 @@ class SimuLOB extends OrderBook {
 			objectUpdate(quote, update);
 		}
 		quote.fulfilled = 0;
+		this.trader_quotes[instrument][label] = Object.assign({status: 'quoted'}, quote);
 		return quote.idNum;
 	}
 	
@@ -640,10 +752,20 @@ class SimuLOB extends OrderBook {
 	
 	//todo take and subsequently use order_id
 	orderSent(idNum, quote) {
+if (!(idNum in this.order_names)) {
+	console.error('sent order not found', idNum, quote, this.findOrder(idNum));
+}
 		let [instrument, label] = this.order_names[idNum];
 		if (instrument && label) {
-			let thinTick = {x: quote.timestamp, y: quote.price};
-			this.chartPushTicks(label, thinTick);
+			this.trader_quotes[instrument][label] = quote;
+			this.chartPushTicks(
+				label,
+				{x: quote.timestamp, y: quote.price},
+				{x: quote.timestamp + 1, y: quote.price, sentinel: true},
+			);
+			if ('orderSent_hook' in window) {
+				orderSent_hook(this, quote.tid, instrument, label, quote.price);
+			}
 		}
 	}
 	
@@ -651,13 +773,20 @@ class SimuLOB extends OrderBook {
 	dismissQuote(idNum) {
 		let [instrument, label] = this.order_names[idNum];
 		if (instrument && label) {
+			let quote = this.trader_quotes[instrument][label];
 			delete this.trader_quotes[instrument][label];
 			delete this.order_names[idNum];
-			let tick = {
-				x: this.updateTime(),
-				y: null,
-			};
-			this.chartPushTicks(label, tick);
+			this.chartPushTicks(
+				label,
+				{
+					x: this.updateTime(),
+					y: quote.price,
+				},
+				{
+					x: this.updateTime(),
+					y: null,
+				}
+			);
 		}
 	}
 	
@@ -734,10 +863,18 @@ class SimuLOB extends OrderBook {
 		return ret;
 	}
 	
-	traderBalance({instrument, amount, lastprice, value, liquidation, reqId}) {
-		let ret = super.traderBalance({instrument, amount, lastprice, value, liquidation, reqId});
+	traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra}) {
+		let ret = super.traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra});
 		if ('traderBalance_hook' in window) {
-			traderBalance_hook(this, instrument, amount, lastprice, value, liquidation, reqId);
+			traderBalance_hook(this, trader, instrument, amount, lastprice, value, liquidation, time, extra);
+		}
+		return ret;
+	}
+	
+	traderNLV({trader, nlv, extra}) {
+		let ret = super.traderNLV({trader, nlv, extra});
+		if ('traderNLV_hook' in window) {
+			traderNLV_hook(this, trader, nlv, extra);
 		}
 		return ret;
 	}
@@ -752,9 +889,11 @@ class SimuLOB extends OrderBook {
 		if (['balance_update', 'modify_detail'].includes(label)) {
 			dolog = false;
 		}
-		let [instrument, order_label] = this.order_names[data.idNum];
-		data.order_label = order_label;
-		data.event_dt = formatDate(data.event_dt);
+		if (data.idNum in this.order_names) {
+			let [instrument, order_label] = this.order_names[data.idNum];
+			data.order_label = order_label;
+			data.event_dt = formatDate(data.event_dt);
+		}
 		return [dolog, data];
 	}
 	
@@ -767,7 +906,7 @@ class SimuLOB extends OrderBook {
 	}
 	
 	studySide(side, chartLabel) {
-		let chart = this.getChart(chartLabel);
+		let chart = this.getChartInfo(chartLabel);
 		let labels = this.market_orders
 			.filter(label => label != side)
 			.concat(
@@ -786,7 +925,22 @@ class SimuLOB extends OrderBook {
 		chart.chart.update();
 	}
 	
-	quotesQueueLock(value=true) {
+	quotesQueueLock(lock=true) {
+		if (lock) {
+			let checkInterval = setInterval(
+				() => {
+				if (!this.quotesQueueLocked) {
+					this.quotesQueueLocked = true;
+					clearInterval(checkInterval);
+				}
+			}, 1);
+		}
+		else {
+			this.quotesQueueLocked = false;
+		}
+	}
+	
+	_quotesQueueLock(value=true) {
 		this.quotesQueueLocked = value;
 	}
 };

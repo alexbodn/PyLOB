@@ -78,13 +78,13 @@ async function fetchText(name, url) {
 const format = function () {
 	let args = arguments;
 	return args[0].replace(/{(\d+)}/g, function (match, number) {
-		return typeof args[number + 1] != "undefined" ? args[number + 1] : match;
+		return typeof args[number + 1] !== "undefined" ? args[number + 1] : match;
 	});
 };
 
 const formats = function (fmt, args) {
 	return fmt.replace(/{([a-z_A-Z][a-z_A-Z0-9]*)}/g, function (match, text) {
-		return typeof args[text] != "undefined" ? args[text] : text;
+		return typeof args[text] !== "undefined" ? args[text] : text;
 	});
 };
 
@@ -127,11 +127,13 @@ function syntaxHighlight(json, withCss=true, tag='pre', jsonClass='json') {
 	});
 }
 
-function stringify(arg, replacer, spacer, inPre, jsonClass='json') {
+function stringify(arg, replacer, spacer, inPre, jsonClass='json', highlight=true) {
 	let tag = inPre ? 'pre' : 'span';
 	let json = JSON.stringify(arg, replacer, spacer);
-	json = json.replaceAll(/,\s*/g, ', ');
-	json = syntaxHighlight(json, true, tag);
+	json = json.replace(/,\s*/g, ', ');
+	if (highlight) {
+		json = syntaxHighlight(json, true, tag);
+	}
 	json = `<${tag} class="${jsonClass}">${json}</${tag}>`;
 	return json;
 }
@@ -149,6 +151,7 @@ function logobj(...args) {
 }
 
 function objectUpdate(dest, src) {
+	return Object.assign(dest, src);
 	for (let [k, v] of Object.entries(src)) {
 		dest[k] = v;
 	}
@@ -180,6 +183,7 @@ function prepKeys(obj, query, label) {
 			ret[param[0]] = val;
 		}
 	}
+//console.log(obj, ret, query);
 	return ret;
 }
 
@@ -192,11 +196,13 @@ class OrderBook {
 		'best_quotes_order',
 		'cancel_order',
 		'find_order',
+		'find_active_order',
 		'insert_order',
 		'order_info',
 		'trader_insert',
 		'trader_transfer',
 		'trader_balance',
+		'trader_nlv',
 		'lastorder',
 		'lasttrader',
 		'instrument_insert',
@@ -206,6 +212,9 @@ class OrderBook {
 		'matches',
 		'trade_balance',
 		'balance_reset',
+		'cash_reset',
+		'cash_deposit',
+		'fund_deposit',
 		'modify_order',
 		'trade_fulfills',
 		'select_trades',
@@ -293,7 +302,7 @@ class OrderBook {
 		(db || this.db).exec({
 			sql: this.queries.find_order,
 			bind: prepKeys(
-				{idNum: idNum},
+				{idNum},
 				this.queries.find_order),
 			rowMode: 'object',
 			callback: row => {
@@ -303,12 +312,12 @@ class OrderBook {
 		return ret;
 	}
 	
-	findOrder (idNum, db) {
+	findOrder(idNum, db) {
 		let ret;
 		(db || this.db).exec({
 			sql: this.queries.find_order,
 			bind: prepKeys(
-				{idNum: idNum},
+				{idNum},
 				this.queries.find_order),
 			rowMode: 'object',
 			callback: row => {
@@ -381,34 +390,61 @@ class OrderBook {
 		return ret;
 	}
 	
-	traderTransfer(trader, instrument, amount) {
-		// deposit/withdrawal by the sign of amount
+	traderCashWithdraw(trader, currency, amount) {
+		return this.traderCashDeposit(trader, currency, -amount);
+	}
+	
+	traderCashDeposit(trader, currency, amount) {
 		this.db.transaction(
 			D => {
 				D.exec({
-					sql: this.queries.trader_transfer,
+					sql: this.queries.cash_deposit,
 					bind: prepKeys({
 						trader: trader,
-						instrument: instrument,
+						currency: currency,
 						amount: amount,
-					}, this.queries.trader_transfer),
+					}, this.queries.cash_deposit),
 				});
 			}
 		);
 	}
 	
-	orderCancelled(idNum) {
-		//to be overriden
+	traderFundWithdraw(trader, instrument, amount) {
+		return this.traderFundDeposit(trader, instrument, -amount);
 	}
-		
-	traderBalance({instrument, amount, lastprice, value, liquidation, reqId}) {
+	
+	traderFundDeposit(trader, instrument, amount) {
+		// transfer amount from cash to fund or viceversa
+		this.db.transaction(
+			D => {
+				D.exec({
+					sql: this.queries.cash_deposit,
+					bind: prepKeys({
+						trader: trader,
+						currency: instrument,
+						amount: -(amount),
+					}, this.queries.cash_deposit),
+				});
+				D.exec({
+					sql: this.queries.fund_deposit,
+					bind: prepKeys({
+						trader: trader,
+						instrument: instrument,
+						amount: amount,
+					}, this.queries.fund_deposit),
+				});
+			}
+		);
+	}
+	
+	traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra}) {
 		//to be overriden
 		/*if (this.verbose) {
 			this.logobj({instrument, amount, lastprice, value, liquidation});
 		}*/
 	}
 	
-	traderGetBalance(trader, instrument) {
+	traderGetBalance(trader, instrument, extra) {
 		// if !instrument, then all
 		const traderBalance =
 			(ob, info) => {
@@ -422,17 +458,47 @@ class OrderBook {
 			}, this.queries.trader_balance),
 			rowMode: 'object',
 			callback: row => {
-				setTimeout(
+				let info = {...row, time: this.getTime(), extra};
+				this.traderBalance(info);
+				/*setTimeout(
 					traderBalance,
 					this.tickGap,
-					this,
-					{...row, time: this.getTime()}
+					this, info,
+				);*/
+			}
+		});
+	}
+	
+	traderNLV({trader, nlv, extra}) {
+		//to be overriden
+		/*if (this.verbose) {
+			this.logobj({trader, nlv});
+		}*/
+	}
+	
+	traderGetNLV(trader, extra) {
+		const traderNLV =
+			(ob, info) => {
+				ob.traderNLV(info);
+			};
+		this.db.exec({
+			sql: this.queries.trader_nlv,
+			bind: prepKeys({
+				trader: trader,
+			}, this.queries.trader_nlv),
+			rowMode: 'object',
+			callback: row => {
+				let info = {...row, time: this.getTime(), extra}
+				setTimeout(
+					traderNLV,
+					0*this.tickGap,
+					this, info,
 				);
 			}
 		});
 	}
 	
-	traderBalanceReset(trader, instrument) {
+	traderFundsReset(trader, instrument) {
 		this.db.transaction(
 			D => {
 				D.exec({
@@ -441,6 +507,20 @@ class OrderBook {
 						trader: trader,
 						instrument: instrument,
 					}, this.queries.balance_reset),
+				});
+			}
+		);
+	}
+	
+	traderCashReset(trader, currency) {
+		this.db.transaction(
+			D => {
+				D.exec({
+					sql: this.queries.cash_reset,
+					bind: prepKeys({
+						trader: trader,
+						currency: currency,
+					}, this.queries.cash_reset),
 				});
 			}
 		);
@@ -481,7 +561,6 @@ class OrderBook {
 			throw new Error(`processOrder(${quote.idNum}) no instrument given`);
 		}
 		if (quote.qty <= 0) {
-console.log(quote);
 			throw new Error(`processOrder(${quote.idNum}) given order of qty <= 0`);
 		}
 		if (!this.valid_types.includes(quote.order_type)) {
@@ -530,7 +609,10 @@ console.log(quote);
 				quote.instrument, this.db, 'last'+quote.side, quote.price);
 		}
 		if (ret != null) {
-			this.orderSent(quote.idNum, quote);
+			this.orderSent(
+				quote.idNum,
+				Object.assign({status: 'sent'}, quote)
+			);
 			let [trades, trade_fulfills, balance_updates] = ret;
 			this.matchesEvents(trades, trade_fulfills, balance_updates, quote, comment);
 			return [trades, quote];
@@ -754,22 +836,22 @@ console.log(quote);
 		this.db.transaction(
 			D => {
 				D.exec({
-					sql: this.queries.find_order,
+					sql: this.queries.find_active_order,
 					bind: prepKeys(
-						{idNum: idNum},
-						this.queries.find_order),
+						{idNum},
+						this.queries.find_active_order),
 					rowMode: 'object',
 					callback: row => {
 						let {order_id, trader} = row;
 						D.exec({
 							sql: this.queries.cancel_order, 
 							bind: prepKeys({
+								order_id, 
 								cancel: 1, 
-								order_id: order_id, 
 							}, this.queries.cancel_order)
 						});
 						_trader = trader;
-						this.order_log(this.time, order_id, 'cancel_order', '<u>CANCEL ORDER</u>', D);
+						this.order_log(time, order_id, 'cancel_order', '<u>CANCEL ORDER</u>', D);
 					}
 				});
 			}
@@ -807,7 +889,7 @@ console.log(quote);
 		(db || this.db).exec({
 			sql: this.queries.find_order, 
 			bind: prepKeys(
-				{idNum: idNum},
+				{idNum},
 				this.queries.find_order),
 			rowMode: 'object',
 			callback: row => {ret = row.side}
@@ -817,17 +899,21 @@ console.log(quote);
 
 	modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null}={}) {
 		let ret = null;
-		let updateSide;
+		let updateSide, updatePrice;
 		this.db.transaction(
 			D => {
 				D.exec({
-					sql: this.queries.find_order,
+					sql: this.queries.find_active_order,
 					bind: prepKeys(
-						{idNum: idNum},
-						this.queries.find_order),
+						{idNum},
+						this.queries.find_active_order),
 					rowMode: 'object',
 					callback: row => {
 						let {side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader} = row;
+						if (cancel || fulfilled >= qty) {
+							return;
+						}
+						updateSide = side;
 						orderUpdate = {
 							...orderUpdate,
 							idNum,
@@ -838,12 +924,11 @@ console.log(quote);
 							side,
 							tid: trader,
 						};
-						updateSide = side;
 						let loginfo = '<u>MODIFY</u>';
 						if (orderUpdate.price) {
 							let logprice = formatRounder(orderUpdate.price);
 							loginfo += ` price: ${logprice};`;
-							orderUpdate.price = this.clipPrice(
+							updatePrice = orderUpdate.price = this.clipPrice(
 								instrument, orderUpdate.price, D);
 						}
 						else {
@@ -873,11 +958,12 @@ console.log(quote);
 				});
 			}
 		);
-		if (orderUpdate.price && !isPrivate) {
+		if (updatePrice && !isPrivate) {
 			this.setInstrument(
-				orderUpdate.instrument, this.db, 'last'+updateSide, orderUpdate.price);
+				orderUpdate.instrument, this.db, 'last'+updateSide, updatePrice);
 		}
 		if (ret != null) {
+//console.log('modified', orderUpdate);
 			this.orderSent(idNum, orderUpdate);
 			let [trades, fulfills, balance_updates] = ret;
 			this.matchesEvents(trades, fulfills, balance_updates, orderUpdate, comment);
@@ -1082,7 +1168,7 @@ console.log(quote);
 		return [dolog, data];
 	}
 	
-	dtFormat(value) {
+	dtFormat(value, fmt) {
 		return value.toString();
 	}
 	
@@ -1133,7 +1219,7 @@ console.log(quote);
 		return ret;
 	}
 	
-	logReplacer(key, value) {
+	logReplacer = (key, value) => {
 		if (key === 'event_dt') {
 			return this.dtFormat(value);
 		}

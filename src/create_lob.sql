@@ -52,6 +52,16 @@ insert into instrument (symbol, currency)
 values ('USD', null) 
 on conflict(symbol) do nothing;
 
+create table if not exists cash_balance (
+    trader integer, -- trader
+    currency text,
+    amount real not null default(0),
+    primary key(trader, currency),
+    foreign key(trader) references trader(tid),
+    foreign key(currency) references instrument(symbol)
+) -- strict
+;
+
 create table if not exists trader_balance (
     trader integer, -- trader
     instrument text,

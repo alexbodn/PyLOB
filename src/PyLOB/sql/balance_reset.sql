@@ -1,4 +1,5 @@
 
-update trader_balance
-set amount=0
+-- deposit / withdraw will insert anyway
+delete from trader_balance
 where trader=:trader and instrument=:instrument
+;
