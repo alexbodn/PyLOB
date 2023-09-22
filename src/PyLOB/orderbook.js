@@ -910,9 +910,6 @@ class OrderBook {
 					rowMode: 'object',
 					callback: row => {
 						let {side, instrument, price, qty, fulfilled, cancel, order_id, order_type, trader} = row;
-						if (cancel || fulfilled >= qty) {
-							return;
-						}
 						updateSide = side;
 						orderUpdate = {
 							...orderUpdate,
@@ -948,9 +945,6 @@ class OrderBook {
 						});
 						this.order_log(this.time, order_id, 'modify_order', this.printQuote(orderUpdate), D);
 						this.order_log(this.time, order_id, 'modify_detail', `${loginfo}`, D);
-						//this.orderBalance(
-						//	order_id, order_id, trader, trader,
-						//	instrument, undefined, D);
 						if (this.betterPrice(side, price, orderUpdate.price)) {
 							ret = this.processMatchesDB(orderUpdate, false, D, verbose);
 						}
@@ -962,9 +956,11 @@ class OrderBook {
 			this.setInstrument(
 				orderUpdate.instrument, this.db, 'last'+updateSide, updatePrice);
 		}
+		if (updateSide) {
+			this.orderSent(idNum, orderUpdate);
+		}
 		if (ret != null) {
 //console.log('modified', orderUpdate);
-			this.orderSent(idNum, orderUpdate);
 			let [trades, fulfills, balance_updates] = ret;
 			this.matchesEvents(trades, fulfills, balance_updates, orderUpdate, comment);
 			return [trades, orderUpdate];

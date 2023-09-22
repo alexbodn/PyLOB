@@ -400,8 +400,8 @@ class SimuLOB extends OrderBook {
 		return datasets;
 	}
 	
-	getChartInfo(label) {
-		return this.charts[label || this.chartLabel] || {};
+	getChartInfo(chartLabel) {
+		return this.charts[chartLabel || this.chartLabel] || {};
 	}
 	
 	chartLoadBuffer(chartLabel) {
@@ -478,21 +478,17 @@ class SimuLOB extends OrderBook {
 	}
 	
 	chartPushTicks(label, ...ticks) {
-		let data = this.chartData(label);
-		if (data) {
-			data.push(...ticks);
-if (label.slice(0, 4) == 'bid_') {
-	this.logobj(label, data.map(tick => ({event_dt: tick.x, y: tick.y, sentinel: tick.sentinel})));
-}
-			this.chartDataUpdate(label, ticks);
-		}
+		this._chartPushTicks(label, this.chartLabel, ...ticks);
 	}
 	
 	_chartPushTicks(label, chartLabel, ...ticks) {
-		let data = this.chartData(label, chartLabel);
+		let data = this.chartData(label, chartLabel || this.chartLabel);
 		if (data) {
+			if (data.length && data.at(-1).sentinel) {
+				data.pop();
+			}
 			data.push(...ticks);
-			this.chartDataUpdate(label, ticks, chartLabel);
+			this.chartDataUpdate(label, ticks, chartLabel || this.chartLabel);
 		}
 	}
 	
@@ -623,15 +619,12 @@ if (label.slice(0, 4) == 'bid_') {
 			}
 			let label, price, quote;
 			if (this.quotesQueue.length) {
-				/*if (this.quotesQueueLocked) {
-					return;
-				}*/
 				this.quotesQueueLock();
 				quote = this.quotesQueue.shift();
 				label = quote.label;
 				let instrument = quote.instrument;
 				this.quotesQueueLock(false);
-				if (label in this.derailedLabels[quote.instrument]) {
+				if (label in this.derailedLabels[instrument]) {
 					return;
 				}
 				simu.processQuote(quote);
@@ -719,6 +712,7 @@ if (label.slice(0, 4) == 'bid_') {
 			quote = this.createQuote(
 				trader, instrument, side, qty, price);
 			this.order_names[quote.idNum] = [instrument, label];
+			///quote.fulfilled = 0;
 			this.processOrder(quote, true, false, isPrivate);
 		}
 		else if (cancelQuote) {
@@ -726,13 +720,13 @@ if (label.slice(0, 4) == 'bid_') {
 		}
 		else {
 			let update = {
-				price: price,
-				qty: qty,
+				price,
+				qty,
 			};
-			this.modifyOrder(quote.idNum, update, quote.timestamp, false, isPrivate);
+			let verbose = false;
+			this.modifyOrder(quote.idNum, update, quote.timestamp, verbose, isPrivate);
 			objectUpdate(quote, update);
 		}
-		quote.fulfilled = 0;
 		this.trader_quotes[instrument][label] = Object.assign({status: 'quoted'}, quote);
 		return quote.idNum;
 	}
