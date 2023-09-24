@@ -285,24 +285,29 @@ class SimuLOB extends OrderBook {
 	async init() {
 		let result = new Promise((resolve, reject) => {
 			super.init()
-				.then(
-					value => {
-						this.ticks = [];
-						this.loading = document.querySelector('#loading');
-						this.paused = document.querySelector('#paused');
-						let chain = Promise.resolve();
-						if ('afterInit_hook' in window) {
-							chain = chain.then(afterInit_hook(this, value));
-						}
-						resolve(chain.then(value));
+			.then(
+				value => {
+					this.ticks = [];
+					this.loading = document.querySelector('#loading');
+					this.paused = document.querySelector('#paused');
+					let chain = Promise.resolve();
+					if ('afterInit_hook' in window) {
+						chain = chain.then(
+							value => {return afterInit_hook(this);});
 					}
-				)
-			;
-		});
-		return result
+					return chain;
+				}
+			)
+			.then(value => {
+				return fetchPricesZIP(this);
+			})
 			.then(value => {
 				this.simu_initialized = true;
-			});
+				resolve();
+			})
+		;
+		});
+		return result;
 	}
 	
 	isInitialized() {
@@ -593,7 +598,8 @@ class SimuLOB extends OrderBook {
 					if (msg) {
 						console.error(msg);
 					}
-					return csvLoad(this, day);
+					return csvExtract(this, day);
+					//return csvLoad(this, day);
 				}
 			);
 		}
@@ -635,6 +641,7 @@ class SimuLOB extends OrderBook {
 					simu.newChartStart = true;
 					let prevLabel = simu.chartLabel;
 					simu.chartLabel = tick.title;
+					//todo move to chartInit, maybe?
 					simu.charts[simu.chartLabel] = {
 						dataBuffer: {},
 						updateCounters: 
@@ -660,18 +667,14 @@ class SimuLOB extends OrderBook {
 						newChartStart_hook(simu);
 					}
 				}
+				if (simu.firstTickFollows) {
+					simu.firstTickFollows = false;
+					simu.firstTime = tick.timestamp;
+				}
 				if (tick.label == 'price') {
-					if (simu.firstTickFollows) {
-						simu.firstTickFollows = false;
-						simu.firstTime = tick.timestamp;
-					}
 					simu.setLastPrice(tick.instrument, tick.price);
 				}
 				else if (simu.order_branches.includes(tick.label)) {
-					if (simu.firstTickFollows) {
-						simu.firstTime = tick.timestamp;
-						simu.firstTickFollows = false;
-					}
 					quote = {
 						...tick,
 						trader: simu.market_tid,

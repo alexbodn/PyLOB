@@ -1,6 +1,6 @@
 'use strict';
 
-function csvLoad(simu, label) {
+function csvParse(simu, label, text) {
 	let fieldTransforms = [
 		(val) => val,
 		(ts) => parseInt(ts) * 1000,
@@ -52,10 +52,25 @@ function csvLoad(simu, label) {
 			},
 		};
 		simu.dataComing = true;
+		simu.ticks.push({
+			label: 'chartReset',
+			title: label,
+		});
+		console.time('loading csv')
+		Papa.parse(text, parserConfig);
+	});
+	return resp.then(() => `loaded ${label}`);
+}
+
+function csvLoad(simu, label) {
+	let resp = new Promise(
+		(resolve, reject) => {
+		simu.dataComing = true;
 		simu.file_loader(
 			label, simu.location + '/data/lobdata/' + label + '.csv'
 		).then(result => {
 			let [label, csv] = result;
+		return csvParse(simu, ...result);
 			simu.ticks.push({
 				label: 'chartReset',
 				title: label,
@@ -65,6 +80,35 @@ function csvLoad(simu, label) {
 		});
 	});
 	return resp.then(() => `loaded ${label}`);
+}
+
+async function fetchPricesZIP(simu) {
+	let result = new Promise((resolve, reject) => {
+		fetch(simu.location + '/data/lobdata.zip')
+		.then(function (response) {					   // 2) filter on 200 OK
+			if (response.status === 200 || response.status === 0) {
+				return Promise.resolve(response.blob());
+			} else {
+				return Promise.reject(new Error(response.statusText));
+			}
+		})
+		.then(JSZip.loadAsync)							// 3) chain with the zip promise
+		.then(function (zip) {
+			simu.pricesZip = zip;
+			resolve();
+		});
+	});
+	return result;
+}
+
+function csvExtract(simu, label) {
+	simu.dataComing = true;
+	simu.pricesZip.file(`lobdata/${label}.csv`).async("string") // 4) chain with the text content promise
+	.then(function success(text) {					// 5) display the result
+		return csvParse(simu, label, text);
+	}, function error(e) {
+		throw e;
+	});
 }
 
 function fetchPricesCSV(label, location) {
