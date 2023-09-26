@@ -464,8 +464,20 @@ class SimuLOB extends OrderBook {
 		return ds ? ds.data : null;
 	}
 	
+	chartDoUpdate(chartInfo) {
+		chartInfo.updating = true;
+		chartInfo.chart.update();
+	}
+	
 	chartDataUpdate(label, ticks, chartLabel) {
 		let chartInfo = this.getChartInfo(chartLabel || this.chartLabel);
+		if (chartInfo.updating || !chartInfo.initialized) {
+			setTimeout(
+				this.chartDataUpdate,
+				300, label, ticks, chartLabel
+			);
+			return;
+		}
 		let updateGroup = this.updateGroups[label];
 		//update the counter for the group and instrument
 		let groups = [updateGroup, 'sum'];
@@ -476,9 +488,14 @@ class SimuLOB extends OrderBook {
 				shouldUpdate = true;
 			}
 		}
-		if (shouldUpdate && !chartInfo.updating && chartInfo.initialized) {
-			chartInfo.updating = true;
-			chartInfo.chart.update();
+		if (0&&shouldUpdate) {
+			this.chartDoUpdate(chartInfo);
+		}
+		else {
+			setTimeout(
+				this.chartDoUpdate,
+				300, chartInfo
+			);
 		}
 	}
 	
