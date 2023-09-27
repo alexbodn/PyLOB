@@ -207,7 +207,7 @@
 	}).then(function(sqlite3){
 		//log("Done initializing. Running demo...");
 		try {
-			//const 
+			//const
 			oo = sqlite3.oo1/*high-level OO API*/;
 			let buttons = document.querySelector("#buttons");
 			buttons.style.display = 'block';
@@ -263,11 +263,11 @@ console.log('label done?');
 			runsob(oo);
 		}
 	}
-	function studyBid() {
-		sob.studySide('bid');
+	function studyBid(chartLabel) {
+		sob.studySide('bid', chartLabel);
 	}
-	function studyAsk() {
-		sob.studySide('ask');
+	function studyAsk(chartLabel) {
+		sob.studySide('ask', chartLabel);
 	}
 	function runsob(oo) {
 		let dbname = "/mydb.sqlite3";
@@ -285,7 +285,7 @@ console.log('label done?');
 			});
 			//finally
 			window.sob = new SimuLOB(
-				mydir + '/PyLOB', fetchText, db, 
+				mydir + '/PyLOB', fetchText, db,
 				undefined, undefined, 'div#charts', 'c1');
 			window.sob.init().then(
 				obj => {

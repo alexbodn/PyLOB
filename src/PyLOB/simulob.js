@@ -469,8 +469,8 @@ class SimuLOB extends OrderBook {
 		chartInfo.chart.update();
 	}
 	
-	chartDataUpdate(label, ticks, chartLabel) {
-		let chartInfo = this.getChartInfo(chartLabel || this.chartLabel);
+	chartDataUpdate = (label, ticks, chartLabel) => {
+		let chartInfo = this.getChartInfo(chartLabel);
 		if (chartInfo.updating || !chartInfo.initialized) {
 			setTimeout(
 				this.chartDataUpdate,
@@ -488,7 +488,7 @@ class SimuLOB extends OrderBook {
 				shouldUpdate = true;
 			}
 		}
-		if (0&&shouldUpdate) {
+		if (shouldUpdate) {
 			this.chartDoUpdate(chartInfo);
 		}
 		else {
@@ -586,7 +586,11 @@ class SimuLOB extends OrderBook {
 			let chartsDiv = document.querySelector(this.chartContainer);
 			chartsDiv.insertAdjacentHTML(
 				'beforeend',
-				`<div class="flex-child"><canvas class="chart-${chartLabel}" height="320px"></canvas></div>`
+				`<div class="flex-child">
+				<canvas class="chart-${chartLabel}" height="320px"></canvas>
+				<input value="🧐 bid" title="study bid" class="study-bid" type="button" onclick="studyBid('${chartLabel}');" />
+				<input value="🧐 ask" title="study ask" class="study-ask" type="button" onclick="studyAsk('${chartLabel}');" />
+				</div>`
 			);
 			hostElem = document.querySelector(hostElemQuery);
 		}
@@ -661,7 +665,7 @@ class SimuLOB extends OrderBook {
 					//todo move to chartInit, maybe?
 					simu.charts[simu.chartLabel] = {
 						dataBuffer: {},
-						updateCounters: 
+						updateCounters:
 							Object.keys(simu.updateFrequency)
 								.reduce((a, b) => {a[b] = 0; return a;}, {}),
 						initialized: false,
@@ -920,23 +924,24 @@ if (!(idNum in this.order_names)) {
 	}
 	
 	studySide(side, chartLabel) {
-		let chart = this.getChartInfo(chartLabel);
-		let labels = this.market_orders
-			.filter(label => label != side)
+		let labels =
+			this.market_orders
+				.filter(label => label != side)
 			.concat(
 				this.trader_orders
 					.filter(label => label.slice(0, 3) == side)
 			);
+		let info = this.getChartInfo(chartLabel);
 		for (let label of this.branches) {
 			let ix = this.chartIndex[label].dataset;
 			if (labels.includes(label)) {
-				chart.chart.show(ix);
+				info.chart.show(ix);
 			}
 			else {
-				chart.chart.hide(ix);
+				info.chart.hide(ix);
 			}
 		}
-		chart.chart.update();
+		info.chart.update();
 	}
 	
 	quotesQueueLock(lock=true) {
