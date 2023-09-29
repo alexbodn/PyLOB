@@ -89,7 +89,7 @@ class SimuLOB extends OrderBook {
 	trader_tid = undefined;
 	
 	price_branch = ['price', 'midpoint'];
-	balance_branch = ['balance'];
+	balance_branch = ['nlv'];
 	executions_branch = ['executions'];
 	market_orders = ['ask', 'bid'];
 	
@@ -113,10 +113,10 @@ class SimuLOB extends OrderBook {
 			borderColor: 'orange',
 			pointStyle: 'star',
 		},
-		balance: {
+		nlv: {
 			borderColor: 'gold',
 			pointStyle: 'star',
-			yAxisID: 'yBalance',
+			yAxisID: 'yNLV',
 			//hidden: true,
 			updateGroup: 'balance',
 		},
@@ -243,13 +243,32 @@ class SimuLOB extends OrderBook {
 					stack: 'data',
 					stackWeight: 3,
 					offset: true,
+					title: {
+						text: 'prices',
+						display: true,
+					},
 				},
-				yBalance: {
+				yNLV: {
 					type: 'linear',
 					position: 'left',
 					stack: 'data',
 					stackWeight: 1,
 					offset: true,
+					title: {
+						text: 'nlv',
+						display: true,
+					},
+				},
+				yBalance: {
+					type: 'linear',
+					position: 'left',
+					stack: 'data',
+					stackWeight: 2,
+					offset: true,
+					title: {
+						text: 'balance',
+						display: true,
+					},
 				},
 			},
 		},
@@ -406,6 +425,7 @@ class SimuLOB extends OrderBook {
 	}
 	
 	getChartInfo(chartLabel) {
+//console.log('getChartInfo', chartLabel,this.charts[chartLabel]);
 		return this.charts[chartLabel || this.chartLabel] || {};
 	}
 	
@@ -436,13 +456,13 @@ class SimuLOB extends OrderBook {
 		if (!chartLabel) {
 			chartLabel = this.chartLabel;
 		}
-		if (!chartLabel) {
+		let chart = this.charts[chartLabel];
+		if (!chartLabel || !chart || !chart.dataBuffer) {
 			if (!this.chartBuffer[label]) {
 				this.chartBuffer[label] = {data: []};
 			}
 			return this.chartBuffer[label];
 		}
-		let chart = this.charts[chartLabel];
 		if (!(label in chart.dataBuffer)) {
 			chart.dataBuffer[label] = {data: []};
 		}
@@ -471,7 +491,7 @@ class SimuLOB extends OrderBook {
 	
 	chartDataUpdate = (label, ticks, chartLabel) => {
 		let chartInfo = this.getChartInfo(chartLabel);
-		if (chartInfo.updating || !chartInfo.initialized) {
+		if (!chartInfo || !chartInfo.initialized) {
 			setTimeout(
 				this.chartDataUpdate,
 				300, label, ticks, chartLabel
@@ -488,13 +508,19 @@ class SimuLOB extends OrderBook {
 				shouldUpdate = true;
 			}
 		}
+		if (chartInfo.updating) {
+			return;
+		}
 		if (shouldUpdate) {
 			this.chartDoUpdate(chartInfo);
 		}
 		else {
-			setTimeout(
+			if (chartInfo.updateTimeout) {
+				clearTimeout(chartInfo.updateTimeout);
+			}
+			chartInfo.updateTimeout = setTimeout(
 				this.chartDoUpdate,
-				300, chartInfo
+				2000, chartInfo
 			);
 		}
 	}
@@ -533,6 +559,14 @@ class SimuLOB extends OrderBook {
 	chartInit(chartLabel) {
 		let timeLabel = `chartInit ${chartLabel}`;
 		console.time(timeLabel);
+		this.charts[chartLabel] = {
+			label: chartLabel,
+			dataBuffer: {},
+			updateCounters:
+				Object.keys(this.updateFrequency)
+					.reduce((a, b) => {a[b] = 0; return a;}, {}),
+			initialized: false,
+		};
 		let additionalPlugins = {
 			afterInit: (chart, args, options) => {
 				if (!this.charts[chartLabel].initialized) {
@@ -662,15 +696,7 @@ class SimuLOB extends OrderBook {
 					simu.newChartStart = true;
 					let prevLabel = simu.chartLabel;
 					simu.chartLabel = tick.title;
-					//todo move to chartInit, maybe?
-					simu.charts[simu.chartLabel] = {
-						dataBuffer: {},
-						updateCounters:
-							Object.keys(simu.updateFrequency)
-								.reduce((a, b) => {a[b] = 0; return a;}, {}),
-						initialized: false,
-					};
-					if (!prevLabel) {
+					if (1||!prevLabel) {
 						this.chartLoadInitial();
 					}
 					simu.firstTickFollows = true;
@@ -932,6 +958,7 @@ if (!(idNum in this.order_names)) {
 					.filter(label => label.slice(0, 3) == side)
 			);
 		let info = this.getChartInfo(chartLabel);
+console.log('studySide', side, chartLabel, info);
 		for (let label of this.branches) {
 			let ix = this.chartIndex[label].dataset;
 			if (labels.includes(label)) {
