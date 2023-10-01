@@ -362,9 +362,16 @@ class SimuLOB extends OrderBook {
 	}
 	
 	chartSetTitle(title, chartLabel) {
-		let chart = this.getChartInfo(chartLabel);
-		if (chart.chart) {
-			chart.chart.options.plugins.title.text = title;
+		let info = this.getChartInfo(chartLabel);
+		if (info.chart) {
+			info.chart.options.plugins.title.text = title;
+		}
+	}
+	
+	chartGetTitle(chartLabel) {
+		let info = this.getChartInfo(chartLabel);
+		if (info.chart) {
+			return info.chart.options.plugins.title.text;
 		}
 	}
 	
@@ -517,6 +524,7 @@ class SimuLOB extends OrderBook {
 		else {
 			if (chartInfo.updateTimeout) {
 				clearTimeout(chartInfo.updateTimeout);
+				chartInfo.updateTimeout = 0;
 			}
 			chartInfo.updateTimeout = setTimeout(
 				this.chartDoUpdate,
@@ -530,13 +538,16 @@ class SimuLOB extends OrderBook {
 	}
 	
 	_chartPushTicks(label, chartLabel, ...ticks) {
-		let data = this.chartData(label, chartLabel || this.chartLabel);
+		if (!chartLabel) {
+			chartLabel = this.chartLabel;
+		}
+		let data = this.chartData(label, chartLabel);
 		if (data) {
 			if (data.length && data.at(-1).sentinel) {
 				data.pop();
 			}
 			data.push(...ticks);
-			this.chartDataUpdate(label, ticks, chartLabel || this.chartLabel);
+			this.chartDataUpdate(label, ticks, chartLabel);
 		}
 	}
 	
@@ -567,6 +578,7 @@ class SimuLOB extends OrderBook {
 					.reduce((a, b) => {a[b] = 0; return a;}, {}),
 			initialized: false,
 		};
+		this.chartLoadInitial();
 		let additionalPlugins = {
 			afterInit: (chart, args, options) => {
 				if (!this.charts[chartLabel].initialized) {
@@ -577,7 +589,6 @@ class SimuLOB extends OrderBook {
 						return chart.data.datasets[point.datasetIndex].data[point.index];
 					};
 					chart.ctx.canvas.onclick = (evt) => {
-						
 						let points = chart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true)
 							.map(pointValue)
 							.filter(point => {return 'onclick' in point;});
@@ -585,10 +596,11 @@ class SimuLOB extends OrderBook {
 							this.chartAction(chartLabel, points[0].onclick);
 						}
 					};
+					this.charts[chartLabel].chart = chart;
+					this.charts[chartLabel].id = chart.id;
+					this.charts[chartLabel].initialized = true;
+console.log(this.charts);
 				}
-				this.charts[chartLabel].chart = chart;
-				this.charts[chartLabel].id = chart.id;
-				this.charts[chartLabel].initialized = true;
 			},
 			beforeUpdate: (chart, args, options) => {
 				if ('beforeUpdateChart_hook' in window) {
@@ -636,8 +648,24 @@ class SimuLOB extends OrderBook {
 		new Chart(hostElem.getContext("2d"), chartConfig);
 	}
 	
+	afterTicks(chartLabel) {
+		for (let label of Object.keys(this.chartIndex)) {
+			let data = this.chartData(label, chartLabel);
+			if (data && data.length) {
+				data.at(-1).sentinel = undefined;
+			}
+		}
+		if (this.loading) {
+			this.loading.style.display = 'none';
+		}
+		if (this.paused) {
+			this.paused.style.display = 'none';
+		}
+	}
+	
 	async endOfDay(title) {
 		this.modificationsCharge();
+		this.afterTicks(title);
 		if ('afterTicks_hook' in window) {
 			await afterTicks_hook(this, title);
 		}
@@ -958,7 +986,7 @@ if (!(idNum in this.order_names)) {
 					.filter(label => label.slice(0, 3) == side)
 			);
 		let info = this.getChartInfo(chartLabel);
-console.log('studySide', side, chartLabel, info);
+console.log('studySide', side, chartLabel, info.id, info.chart.id);
 		for (let label of this.branches) {
 			let ix = this.chartIndex[label].dataset;
 			if (labels.includes(label)) {
