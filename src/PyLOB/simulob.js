@@ -134,148 +134,150 @@ class SimuLOB extends OrderBook {
 		},
 	};
 	
-	chartConfig = {
-		type: 'line',
-		plugins: [
-			ChartDataLabels,
-			//bgPlugin,
-		],
-		options: {
-			animation: false,
-//			responsive: true,
-			normalized: true,
-			plugins: {
-				datalabels: {
-					backgroundColor: function(context) {
-						return labelattr(context, 'backgroundColor') ||
-							context.dataset.backgroundColor;
+	chartConfig() {
+		return {
+			type: 'line',
+			plugins: [
+				ChartDataLabels,
+				//bgPlugin,
+			],
+			options: {
+				animation: false,
+	//			responsive: true,
+				normalized: true,
+				plugins: {
+					datalabels: {
+						backgroundColor: function(context) {
+							return labelattr(context, 'backgroundColor') ||
+								context.dataset.backgroundColor;
+						},
+						borderRadius: 4,
+						color: function(context) {
+							return labelattr(context, 'color');
+						},
+						//color: 'white',
+						font: {
+							//weight: 'bold',
+							size: '8px',
+						},
+						formatter: function(value, context) {
+							//return value;
+							return labelattr(context, 'text');
+						},
+						padding: 1
 					},
-					borderRadius: 4,
-					color: function(context) {
-						return labelattr(context, 'color');
-					},
-					//color: 'white',
-					font: {
-						//weight: 'bold',
-						size: '8px',
-					},
-					formatter: function(value, context) {
-						//return value;
-						return labelattr(context, 'text');
-					},
-					padding: 1
-				},
-				title: {
-					display: true,
-					text: 'initial title',
-					fontSize: 14,
-					fontFamily: 'Roboto',
-					fontColor: '#474747',
-				},
-				legend: {
 					title: {
 						display: true,
-						text: 'Datasets',
+						text: 'initial title',
 						fontSize: 14,
 						fontFamily: 'Roboto',
 						fontColor: '#474747',
 					},
-					display: true,
-					position: 'bottom',
-					labels: {
-						//fontColor: '#333',
-						usePointStyle: true,
-						boxWidth: 9,
-						fontColor: '#474747',
-						fontFamily: '6px Montserrat',
-						filter: (item, chart) => {
-							return (item.text !== 'hidden');
-						}
-					}
-				},
-				//zoom: zoomOptions,
-			},
-			scales: {
-				x: {
-					type: 'time',
-					time: {
-						unit: "minute",
-						tooltipFormat: "HH:mm:ss.SSS",
-						tooltipFormat0: "x",
-						displayFormats: {
-							millisecond: 'HH:mm:ss.SSS',
-							second: 'HH:mm:ss',
-							minute: 'HH:mm:ss',
-							millisecond0: 'x',
-							second0: 'x',
-							minute0: 'x',
-							/*'hour': 'HH:mm:ss',
-							'day': 'HH:mm:ss',
-							'week': 'HH:mm:ss',
-							'month': 'HH:mm:ss',
-							'quarter': 'HH:mm:ss',
-							'year': 'HH:mm:ss',*/
+					legend: {
+						title: {
+							display: true,
+							text: 'Datasets',
+							fontSize: 14,
+							fontFamily: 'Roboto',
+							fontColor: '#474747',
 						},
-					},
-					adapters: {
-						date: {
-							zone: 'America/New_York',
-						},
-					},
-					ticks: {
-						source: 'data',
-						/*callback: function(value, index, ticks) {
-							//unformatted value for showing
-							if (ticks.at(index).label) {
-								console.log(ticks.at(index).label);
+						display: true,
+						position: 'bottom',
+						labels: {
+							//fontColor: '#333',
+							usePointStyle: true,
+							boxWidth: 9,
+							fontColor: '#474747',
+							fontFamily: '6px Montserrat',
+							filter: (item, chart) => {
+								return (item.text !== 'hidden');
 							}
-							return this.getLabelForValue(value);
+						}
+					},
+					//zoom: zoomOptions,
+				},
+				scales: {
+					x: {
+						type: 'time',
+						time: {
+							unit: "minute",
+							tooltipFormat: "HH:mm:ss.SSS",
+							tooltipFormat0: "x",
+							displayFormats: {
+								millisecond: 'HH:mm:ss.SSS',
+								second: 'HH:mm:ss',
+								minute: 'HH:mm:ss',
+								millisecond0: 'x',
+								second0: 'x',
+								minute0: 'x',
+								/*'hour': 'HH:mm:ss',
+								'day': 'HH:mm:ss',
+								'week': 'HH:mm:ss',
+								'month': 'HH:mm:ss',
+								'quarter': 'HH:mm:ss',
+								'year': 'HH:mm:ss',*/
+							},
+						},
+						adapters: {
+							date: {
+								zone: 'America/New_York',
+							},
+						},
+						ticks: {
+							source: 'data',
+							/*callback: function(value, index, ticks) {
+								//unformatted value for showing
+								if (ticks.at(index).label) {
+									console.log(ticks.at(index).label);
+								}
+								return this.getLabelForValue(value);
+							}*/
+						},
+						/*title: {
+							display: true,
+							text: 'minutes'
 						}*/
 					},
-					/*title: {
-						display: true,
-						text: 'minutes'
-					}*/
-				},
-				yPrices: {
-					type: 'linear',
-					position: 'left',
-					stack: 'data',
-					stackWeight: 3,
-					offset: true,
-					title: {
-						text: 'prices',
-						display: true,
+					yPrices: {
+						type: 'linear',
+						position: 'left',
+						stack: 'data',
+						stackWeight: 3,
+						offset: true,
+						title: {
+							text: 'prices',
+							display: true,
+						},
 					},
-				},
-				yNLV: {
-					type: 'linear',
-					position: 'left',
-					stack: 'data',
-					stackWeight: 1,
-					offset: true,
-					title: {
-						text: 'nlv',
-						display: true,
+					yNLV: {
+						type: 'linear',
+						position: 'left',
+						stack: 'data',
+						stackWeight: 1,
+						offset: true,
+						title: {
+							text: 'nlv',
+							display: true,
+						},
 					},
-				},
-				yBalance: {
-					type: 'linear',
-					position: 'left',
-					stack: 'data',
-					stackWeight: 2,
-					offset: true,
-					title: {
-						text: 'balance',
-						display: true,
+					yBalance: {
+						type: 'linear',
+						position: 'left',
+						stack: 'data',
+						stackWeight: 2,
+						offset: true,
+						title: {
+							text: 'balance',
+							display: true,
+						},
 					},
 				},
 			},
-		},
-		/*data: {
-			datasets: []
-		},*/
-	};
+			/*data: {
+				datasets: []
+			},*/
+		};
+	}
 	
 	constructor(
 		location, file_loader, db,
@@ -432,28 +434,32 @@ class SimuLOB extends OrderBook {
 	}
 	
 	getChartInfo(chartLabel) {
-//console.log('getChartInfo', chartLabel,this.charts[chartLabel]);
 		return this.charts[chartLabel || this.chartLabel] || {};
 	}
 	
 	chartLoadBuffer(chartLabel) {
-		let chart = this.getChartInfo(chartLabel);
-		if (!chart.chart) {
+		let info = this.getChartInfo(chartLabel);
+		if (!info.chart) {
 			return;
 		}
-		for (let [label, info] of Object.entries(chart.dataBuffer)) {
-			let ticks = info.data || [];
+		for (let [label, ds] of Object.entries(info.dataBuffer)) {
+			let ticks = ds.data || [];
 			while (ticks.length) {
 				let tick = ticks.shift();
-				this.chartPushTicks(label, tick);
+				let tickChart =
+					this.order_branches.includes(label) && tick.x < info.firstTime ?
+					info.prevLabel : info.label;
+				console.log(tickChart, info.label, tick.x, info.firstTime);
+				this._chartPushTicks(label, tickChart, tick);
 			}
 		}
 	}
 	
 	chartLoadInitial() {
-		for (let [label, info] of Object.entries(this.chartBuffer)) {
-			while ((info.data || []).length) {
-				let tick = info.data.shift();
+		for (let [label, ds] of Object.entries(this.chartBuffer)) {
+			let ticks = ds.data || [];
+			while (ticks.length) {
+				let tick = ticks.shift();
 				this.chartPushTicks(label, tick);
 			}
 		}
@@ -567,24 +573,24 @@ class SimuLOB extends OrderBook {
 		}
 	}
 	
-	chartInit(chartLabel) {
+	chartInit(chartLabel, prevLabel, firstTime) {
 		let timeLabel = `chartInit ${chartLabel}`;
 		console.time(timeLabel);
 		this.charts[chartLabel] = {
 			label: chartLabel,
+			prevLabel,
+			firstTime,
 			dataBuffer: {},
 			updateCounters:
 				Object.keys(this.updateFrequency)
 					.reduce((a, b) => {a[b] = 0; return a;}, {}),
 			initialized: false,
 		};
+		let chartInfo = this.charts[chartLabel];
 		this.chartLoadInitial();
 		let additionalPlugins = {
 			afterInit: (chart, args, options) => {
-				if (!this.charts[chartLabel].initialized) {
-					console.timeEnd(timeLabel);
-					//this.chartSetTitle(chartLabel, chartLabel);
-					this.chartLoadBuffer(chartLabel);
+				if (!chartInfo.initialized) {
 					const pointValue = (point) => {
 						return chart.data.datasets[point.datasetIndex].data[point.index];
 					};
@@ -596,10 +602,28 @@ class SimuLOB extends OrderBook {
 							this.chartAction(chartLabel, points[0].onclick);
 						}
 					};
-					this.charts[chartLabel].chart = chart;
-					this.charts[chartLabel].id = chart.id;
-					this.charts[chartLabel].initialized = true;
-console.log(this.charts);
+					Object.assign(
+						chartInfo,
+						{
+							chart,
+							id: chart.id,
+							initialized: true,
+						},
+					);
+					console.timeEnd(timeLabel);
+					for (let [instrument, label] of Object.entries(this.trader_quotes)) {
+						let quote = this.trader_quotes[instrument][label];
+						if (!quote) {
+							continue;
+						}
+						this._chartPushTicks(
+							label,
+							chartLabel,
+							{x: firstTime, y: quote.price},
+							{x: firstTime + 1, y: quote.price, sentinel: true},
+						);
+					}
+					this.chartLoadBuffer(chartLabel);
 				}
 			},
 			beforeUpdate: (chart, args, options) => {
@@ -622,13 +646,13 @@ console.log(this.charts);
 				return true;
 			},
 			afterUpdate: (chart, args, options) => {
-				this.charts[chartLabel].updating = false;
+				chartInfo.updating = false;
 				return true;
 			}
 		};
-		let hostElemQuery = `${this.chartContainer} .chart-${chartLabel}`;
-		let hostElem = document.querySelector(hostElemQuery);
-		if (!hostElem) {
+		let canvasQuery = `${this.chartContainer} canvas.chart-${chartLabel}`;
+		let canvas = document.querySelector(canvasQuery);
+		if (!canvas) {
 			let chartsDiv = document.querySelector(this.chartContainer);
 			chartsDiv.insertAdjacentHTML(
 				'beforeend',
@@ -638,14 +662,14 @@ console.log(this.charts);
 				<input value="🧐 ask" title="study ask" class="study-ask" type="button" onclick="studyAsk('${chartLabel}');" />
 				</div>`
 			);
-			hostElem = document.querySelector(hostElemQuery);
+			canvas = document.querySelector(canvasQuery);
 		}
-		let chartConfig = {...this.chartConfig};
+		let chartConfig = this.chartConfig();
 		chartConfig.data = {
 			datasets: this.chartBuildDataset()};
 		chartConfig.plugins.push(additionalPlugins);
 		chartConfig.options.plugins.title.text = chartLabel;
-		new Chart(hostElem.getContext("2d"), chartConfig);
+		new Chart(canvas.getContext("2d"), chartConfig);
 	}
 	
 	afterTicks(chartLabel) {
@@ -661,14 +685,14 @@ console.log(this.charts);
 		if (this.paused) {
 			this.paused.style.display = 'none';
 		}
+		if ('afterTicks_hook' in window) {
+			afterTicks_hook(this, chartLabel);
+		}
 	}
 	
-	async endOfDay(title) {
+	endOfDay(title) {
 		this.modificationsCharge();
 		this.afterTicks(title);
-		if ('afterTicks_hook' in window) {
-			await afterTicks_hook(this, title);
-		}
 	}
 	
 	run(dates) {
@@ -722,21 +746,20 @@ console.log(this.charts);
 				let tick = this.ticks.shift();
 				if (tick.label == 'chartReset') {
 					simu.newChartStart = true;
-					let prevLabel = simu.chartLabel;
+					simu.prevLabel = simu.chartLabel;
 					simu.chartLabel = tick.title;
-					if (1||!prevLabel) {
-						this.chartLoadInitial();
-					}
+					this.chartLoadInitial();
 					simu.firstTickFollows = true;
 					return;
 				}
 				if (tick.label == 'endOfDay') {
-					await this.endOfDay();					return;
+					await this.endOfDay(tick.title);
+					return;
 				}
 				tick.timestamp = simu.updateTime(tick.timestamp);
-				if (simu.newChartStart && !simu.chart) {
+				if (simu.newChartStart) {
 					simu.newChartStart = false;
-					this.chartInit(simu.chartLabel);
+					this.chartInit(simu.chartLabel, simu.prevLabel, tick.timestamp);
 					///this.chart.options.scales.x.min = tick.timestamp;
 					if ('newChartStart_hook' in window) {
 						newChartStart_hook(simu);
@@ -766,9 +789,6 @@ console.log(this.charts);
 				tickInterval = 0;
 				error('sent:', sent);
 				console.timeEnd('data process');
-				if ('afterTicks_hook' in window) {
-					afterTicks_hook(simu);
-				}
 				return;
 			}
 			
@@ -1012,9 +1032,5 @@ console.log('studySide', side, chartLabel, info.id, info.chart.id);
 		else {
 			this.quotesQueueLocked = false;
 		}
-	}
-	
-	_quotesQueueLock(value=true) {
-		this.quotesQueueLocked = value;
 	}
 };

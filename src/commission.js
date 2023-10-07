@@ -1,6 +1,6 @@
 
 let commission_params = {
-	commission_min: 0.35,
+	commission_min: 0.35, //this is american. hk is 2.5
 	commission_per_unit: 0.01,
 	commission_max_percnt: 1,
 	decimals: 4
@@ -8,7 +8,7 @@ let commission_params = {
 
 let instrument_execution = {
 	IVE: {
-		modification_fee: 0.01, 
+		modification_fee: 0.01,
 		execution_credit: 0.25,
 	}
 };
