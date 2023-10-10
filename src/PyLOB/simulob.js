@@ -445,12 +445,7 @@ class SimuLOB extends OrderBook {
 		for (let [label, ds] of Object.entries(info.dataBuffer)) {
 			let ticks = ds.data || [];
 			while (ticks.length) {
-				let tick = ticks.shift();
-				let tickChart =
-					this.order_branches.includes(label) && tick.x < info.firstTime ?
-					info.prevLabel : info.label;
-				console.log(tickChart, info.label, tick.x, info.firstTime);
-				this._chartPushTicks(label, tickChart, tick);
+				this._chartPushTicks(label, info.label, ticks.shift());
 			}
 		}
 	}
@@ -547,6 +542,18 @@ class SimuLOB extends OrderBook {
 		if (!chartLabel) {
 			chartLabel = this.chartLabel;
 		}
+		let chartInfo = this.getChartInfo(chartLabel);
+		if (chartInfo.prevLabel) {
+			let prevTicks = [], currentTicks = [];
+			for (let tick of ticks) {
+				((tick.x < chartInfo.firstTime - 1000 && !tick.timeInPast) ?
+				 prevTicks : currentTicks).push(tick);
+			}
+			if (prevTicks.length) {
+				this._chartPushTicks(label, chartInfo.prevLabel, ...prevTicks);
+			}
+			ticks = currentTicks;
+		}
 		let data = this.chartData(label, chartLabel);
 		if (data) {
 			if (data.length && data.at(-1).sentinel) {
@@ -630,17 +637,19 @@ class SimuLOB extends OrderBook {
 				if ('beforeUpdateChart_hook' in window) {
 					beforeUpdateChart_hook(this, chartLabel);
 				}
+				let chartInfo = this.getChartInfo(chartLabel);
+				let sentinelTime = chartInfo.lastTime || this.getTime();
 				chart.data.datasets.forEach(
 					ds => {
 						if (ds.data && ds.data.length && ds.data.at(-1).y) {
 							let last = ds.data.at(-1);
 							if (last.sentinel) {
-								last.x = this.getTime();
+								last.x = sentinelTime;
 							}
 						}
 					}
 				);
-				let counters = this.charts[chartLabel].updateCounters;
+				let counters = chartInfo.updateCounters;
 				Object.keys(counters)
 					.map(key => {counters[key] = 0;});
 				return true;
@@ -673,6 +682,8 @@ class SimuLOB extends OrderBook {
 	}
 	
 	afterTicks(chartLabel) {
+		let chartInfo = this.getChartInfo(chartLabel);
+		chartInfo.lastTime = this.getTime();
 		for (let label of Object.keys(this.chartIndex)) {
 			let data = this.chartData(label, chartLabel);
 			if (data && data.length) {
@@ -690,9 +701,9 @@ class SimuLOB extends OrderBook {
 		}
 	}
 	
-	endOfDay(title) {
+	endOfDay(chartLabel) {
+		this.afterTicks(chartLabel);
 		this.modificationsCharge();
-		this.afterTicks(title);
 	}
 	
 	run(dates) {
