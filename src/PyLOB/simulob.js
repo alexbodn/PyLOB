@@ -270,6 +270,9 @@ class SimuLOB extends OrderBook {
 							text: 'balance',
 							display: true,
 						},
+						ticks: {
+							//stepSize: 5000,
+						}
 					},
 				},
 			},
@@ -494,7 +497,7 @@ class SimuLOB extends OrderBook {
 	
 	chartDoUpdate(chartInfo) {
 		chartInfo.updating = true;
-		chartInfo.chart.update();
+		chartInfo.chart.update('none');
 	}
 	
 	chartDataUpdate = (label, ticks, chartLabel) => {
@@ -547,7 +550,7 @@ class SimuLOB extends OrderBook {
 			let prevTicks = [], currentTicks = [];
 			for (let tick of ticks) {
 				((tick.x < chartInfo.firstTime - 1000 && !tick.timeInPast) ?
-				 prevTicks : currentTicks).push(tick);
+				prevTicks : currentTicks).push(tick);
 			}
 			if (prevTicks.length) {
 				this._chartPushTicks(label, chartInfo.prevLabel, ...prevTicks);
@@ -659,19 +662,29 @@ class SimuLOB extends OrderBook {
 				return true;
 			}
 		};
-		let canvasQuery = `${this.chartContainer} canvas.chart-${chartLabel}`;
+		let canvasQuery = `${this.chartContainer} .tab-${chartLabel} canvas.chart-${chartLabel}`;
 		let canvas = document.querySelector(canvasQuery);
 		if (!canvas) {
-			let chartsDiv = document.querySelector(this.chartContainer);
+			let tabsDiv = document.querySelector(`${this.chartContainer} .tabs`);
+			let chartsDiv = document.querySelector(`${this.chartContainer} .tab-content`);
+			const tabInfos = chartsDiv.querySelectorAll('[data-tab-info]');
+			tabInfos.forEach(tabInfo => {
+				tabInfo.classList.remove('active');
+			});
+			tabsDiv.insertAdjacentHTML(
+				'beforeend',
+				`<span data-tab-value="${this.chartContainer} .tab-${chartLabel}">${chartLabel}</span>`
+			);
 			chartsDiv.insertAdjacentHTML(
 				'beforeend',
-				`<div class="flex-child">
-				<canvas class="chart-${chartLabel}" height="320px"></canvas>
+				`<div class="flex-child tabs__tab active tab-${chartLabel}" data-tab-info>
+				<canvas class="chart-${chartLabel}" height="320"></canvas>
 				<input value="🧐 bid" title="study bid" class="study-bid" type="button" onclick="studyBid('${chartLabel}');" />
 				<input value="🧐 ask" title="study ask" class="study-ask" type="button" onclick="studyAsk('${chartLabel}');" />
 				</div>`
 			);
 			canvas = document.querySelector(canvasQuery);
+			tabClicks();
 		}
 		let chartConfig = this.chartConfig();
 		chartConfig.data = {

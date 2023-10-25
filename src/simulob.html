@@ -31,23 +31,15 @@
 			float: left;
 		}
 	</style>
-	<style>
-		/*.flex-container {
-			display: flex;
-		}
-		
-		.flex-child {
-			flex: 1;
-			border: 2px solid yellow;
-		}*/
-	</style>
+	<!--link rel="stylesheet" href="./flex.css" /-->
+	<link rel="stylesheet" href="./tabs.css" />
+	<!--style>
+	</style-->
 	<script src="./PyLOB/sqlquery.js"></script>
 </head>
 <body>
-	<h1>simulob</h1>
-	
-	<div id="charts" class="flex-container"></div>
 	<div>
+		<h1>simulob</h1>
 		<h3 class="lob-header">
 			<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
 			<img id="paused" src="./paused.png" style="display: none; height: 20px;" />
@@ -85,6 +77,10 @@
 		</tr-->
 		</tbody>
 	</table>
+	<div id="charts" class="flex-container container">
+		<div class="tabs"></div>
+		<div class="tab-content"></div>
+	</div>
 	<table>
 		<tbody id="status"></tbody>
 	</table>
@@ -305,6 +301,24 @@ console.log('label done?');
 			);
 		});
 	}
+	</script>
+	<script>
+		function tabClicks() {
+			// function to get each tab details
+			const tabs = document.querySelectorAll('[data-tab-value]');
+			const tabInfos = document.querySelectorAll('[data-tab-info]');
+			
+			tabs.forEach(tab => {
+				tab.addEventListener('click', () => {
+					const target = document
+						.querySelector(tab.dataset.tabValue);
+					tabInfos.forEach(tabInfo => {
+						tabInfo.classList.remove('active');
+					});
+					target.classList.add('active');
+				});
+			});
+		}
 	</script>
 	<script>window.eruda && (eruda._isInit || eruda.init());</script>
 </body>

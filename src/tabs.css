@@ -1,0 +1,43 @@
+
+.container {
+    border: 1px solid grey;
+    margin: 1rem;
+}
+
+[data-tab-info] {
+    display: none;
+}
+
+.active[data-tab-info] {
+    display: block;
+}
+
+.tab-content {
+    margin-top: 1rem;
+    padding-left: 1rem;
+    font-size: 20px;
+    font-family: sans-serif;
+    font-weight: bold;
+    color: rgb(0, 0, 0);
+}
+
+.tabs {
+    border-bottom: 1px solid grey;
+    background-color: rgb(16, 153, 9);
+    font-size: 25px;
+    color: rgb(0, 0, 0);
+    display: flex;
+    margin: 0;
+}
+
+.tabs span {
+    background: rgb(16, 153, 9);
+    padding: 10px;
+    border: 1px solid rgb(255, 255, 255);
+}
+
+.tabs span:hover {
+    background: rgb(55, 219, 46);
+    cursor: pointer;
+    color: black;
+}
