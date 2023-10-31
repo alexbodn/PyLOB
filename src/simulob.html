@@ -303,21 +303,19 @@ console.log('label done?');
 	}
 	</script>
 	<script>
-		function tabClicks() {
-			// function to get each tab details
-			const tabs = document.querySelectorAll('[data-tab-value]');
-			const tabInfos = document.querySelectorAll('[data-tab-info]');
-			
-			tabs.forEach(tab => {
-				tab.addEventListener('click', () => {
-					const target = document
-						.querySelector(tab.dataset.tabValue);
-					tabInfos.forEach(tabInfo => {
-						tabInfo.classList.remove('active');
-					});
-					target.classList.add('active');
-				});
+		function tabClick(tab, chartContainer) {
+			chartContainer = document.querySelector(chartContainer);
+			const tabLabels = chartContainer.querySelectorAll('[data-tab-value]');
+			tabLabels.forEach(tabLabel => {
+				tabLabel.classList.remove('active');
 			});
+			tab.classList.add('active');
+			const tabInfos = chartContainer.querySelectorAll('[data-tab-info]');
+			tabInfos.forEach(tabInfo => {
+				tabInfo.classList.remove('active');
+			});
+			const target = document.querySelector(tab.dataset.tabValue);
+			target.classList.add('active');
 		}
 	</script>
 	<script>window.eruda && (eruda._isInit || eruda.init());</script>

@@ -2,6 +2,8 @@
 .container {
     border: 1px solid grey;
     margin: 1rem;
+    width: 100vw;
+    height: 100;
 }
 
 [data-tab-info] {
@@ -36,7 +38,7 @@
     border: 1px solid rgb(255, 255, 255);
 }
 
-.tabs span:hover {
+.tabs span:hover, .tabs span.active {
     background: rgb(55, 219, 46);
     cursor: pointer;
     color: black;

@@ -139,13 +139,33 @@ class SimuLOB extends OrderBook {
 			type: 'line',
 			plugins: [
 				ChartDataLabels,
-				//bgPlugin,
+				bgPlugin,
 			],
 			options: {
 				animation: false,
-	//			responsive: true,
+				responsive: true,
 				normalized: true,
+				parsing: false,
+				interaction: {
+					mode: 'point',
+					axis: 'xy',
+					includeInvisible: true,
+				},
+				ticks: {
+					format: {
+						minimumFractionDigits: 4,
+						maximumFractionDigits: 4,
+					},
+				},
+				/*elements: {
+					point: {
+						radius: 10,
+					}
+				},*/
 				plugins: {
+					custom_canvas_background_color: {
+						color: 'white',
+					},
 					datalabels: {
 						backgroundColor: function(context) {
 							return labelattr(context, 'backgroundColor') ||
@@ -194,6 +214,17 @@ class SimuLOB extends OrderBook {
 							}
 						}
 					},
+					tooltip: {
+						itemSort: (a, b) => {
+							return ((a.raw.x > b.raw.x) - (a.raw.x < b.raw.x));
+						},
+						/*callbacks: {
+							label: function(tooltipItem, data) {
+								console.log('labeling', tooltipItem, data);
+								return "Daily Ticket Sales: $ " + tooltipItem.yLabel;
+							},
+						},*/
+					},
 					//zoom: zoomOptions,
 				},
 				scales: {
@@ -231,48 +262,53 @@ class SimuLOB extends OrderBook {
 									console.log(ticks.at(index).label);
 								}
 								return this.getLabelForValue(value);
-							}*/
+							},*/
 						},
 						/*title: {
 							display: true,
 							text: 'minutes'
 						}*/
 					},
-					yPrices: {
-						type: 'linear',
-						position: 'left',
-						stack: 'data',
-						stackWeight: 3,
-						offset: true,
-						title: {
-							text: 'prices',
-							display: true,
-						},
-					},
 					yNLV: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
-						stackWeight: 1,
-						offset: true,
+						display: 'auto',
+						stackWeight: 0.5,
 						title: {
 							text: 'nlv',
 							display: true,
+						},
+						ticks: {
+							source: 'data',
 						},
 					},
 					yBalance: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
-						stackWeight: 2,
-						offset: true,
+						display: 'auto',
+						stackWeight: 0.5,
 						title: {
 							text: 'balance',
 							display: true,
 						},
 						ticks: {
-							//stepSize: 5000,
-						}
+							source: 'data',
+						},
+					},
+					yPrices: {
+						type: 'linear',
+						position: 'left',
+						stack: 'data',
+						stackWeight: 3,
+						title: {
+							text: 'prices',
+							display: true,
+						},
+						ticks: {
+							source: 'data',
+						},
 					},
 				},
 			},
@@ -667,24 +703,29 @@ class SimuLOB extends OrderBook {
 		if (!canvas) {
 			let tabsDiv = document.querySelector(`${this.chartContainer} .tabs`);
 			let chartsDiv = document.querySelector(`${this.chartContainer} .tab-content`);
+			const mouseout = new Event("mouseout");
+			const tabLabels = tabsDiv.querySelectorAll('[data-tab-value]');
+			tabLabels.forEach(tabLabel => {
+				tabLabel.classList.remove('active');
+				tabLabel.dispatchEvent(mouseout);
+			});
 			const tabInfos = chartsDiv.querySelectorAll('[data-tab-info]');
 			tabInfos.forEach(tabInfo => {
 				tabInfo.classList.remove('active');
 			});
 			tabsDiv.insertAdjacentHTML(
 				'beforeend',
-				`<span data-tab-value="${this.chartContainer} .tab-${chartLabel}">${chartLabel}</span>`
+				`<span data-tab-value="${this.chartContainer} .tab-${chartLabel}" class="active" onclick="tabClick(this, '${this.chartContainer}');">${chartLabel}</span>`
 			);
 			chartsDiv.insertAdjacentHTML(
-				'beforeend',
-				`<div class="flex-child tabs__tab active tab-${chartLabel}" data-tab-info>
-				<canvas class="chart-${chartLabel}" height="320"></canvas>
+				'beforeend', `
+				<div class="flex-child tabs__tab active tab-${chartLabel}" data-tab-info>
+				<div><canvas class="chart-${chartLabel}"></canvas></div>
 				<input value="🧐 bid" title="study bid" class="study-bid" type="button" onclick="studyBid('${chartLabel}');" />
 				<input value="🧐 ask" title="study ask" class="study-ask" type="button" onclick="studyAsk('${chartLabel}');" />
 				</div>`
 			);
 			canvas = document.querySelector(canvasQuery);
-			tabClicks();
 		}
 		let chartConfig = this.chartConfig();
 		chartConfig.data = {
