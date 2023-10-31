@@ -84,7 +84,7 @@ function csvLoad(simu, label) {
 
 async function fetchPricesZIP(simu) {
 	let result = new Promise((resolve, reject) => {
-		fetch(simu.location + '/data/lobdata.zip')
+		fetch(simu.location + '/data/lobdata-2009.zip')
 		.then(function (response) {					   // 2) filter on 200 OK
 			if (response.status === 200 || response.status === 0) {
 				return Promise.resolve(response.blob());

@@ -234,7 +234,8 @@ class OrderBook {
 	 
 	constructor(location, file_loader, db, tick_size=0.0001, verbose=false, isAuthonomous=true) {
 		this.tickSize = tick_size;
-		this.rounder = Math.pow(10, (Math.floor(Math.log10(1 / this.tickSize))));
+		this.decimalDigits = Math.log10(1 / this.tickSize);
+		this.rounder = Math.pow(10, (Math.floor(this.decimalDigits)));
 		this.time = 0;
 		this.nextQuoteID = 0;
 		this.db = db;
@@ -288,7 +289,14 @@ class OrderBook {
 	isInitialized() {
 		return this.initialized;
 	}
-	
+
+	// rounder is 10**decimalDigits, for direct use in js
+	setRounder(rounder) {
+		this.decimalDigits = Math.log10(rounder);
+		this.rounder = rounder;
+		this.tickSize = 1 / this.rounder;
+	}
+
 	close() {
 		this.db &&
 		this.db.close();

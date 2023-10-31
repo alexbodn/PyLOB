@@ -134,7 +134,7 @@ class SimuLOB extends OrderBook {
 		},
 	};
 	
-	chartConfig() {
+	chartConfig(maximumFractionDigits) {
 		return {
 			type: 'line',
 			plugins: [
@@ -153,8 +153,7 @@ class SimuLOB extends OrderBook {
 				},
 				ticks: {
 					format: {
-						minimumFractionDigits: 4,
-						maximumFractionDigits: 4,
+						maximumFractionDigits: maximumFractionDigits,
 					},
 				},
 				/*elements: {
@@ -281,7 +280,10 @@ class SimuLOB extends OrderBook {
 						},
 						ticks: {
 							source: 'data',
+							//display: false,
 						},
+						offset: true,
+						order: 2,
 					},
 					yBalance: {
 						type: 'linear',
@@ -296,6 +298,8 @@ class SimuLOB extends OrderBook {
 						ticks: {
 							source: 'data',
 						},
+						offset: true,
+						order: 3,
 					},
 					yPrices: {
 						type: 'linear',
@@ -309,6 +313,12 @@ class SimuLOB extends OrderBook {
 						ticks: {
 							source: 'data',
 						},
+						border: {
+							display: true,
+							color: 'green',
+						},
+						offset: true,
+						order: 1,
 					},
 				},
 			},
@@ -727,7 +737,7 @@ class SimuLOB extends OrderBook {
 			);
 			canvas = document.querySelector(canvasQuery);
 		}
-		let chartConfig = this.chartConfig();
+		let chartConfig = this.chartConfig(this.decimalDigits);
 		chartConfig.data = {
 			datasets: this.chartBuildDataset()};
 		chartConfig.plugins.push(additionalPlugins);
