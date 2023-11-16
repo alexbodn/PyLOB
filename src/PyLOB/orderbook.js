@@ -225,22 +225,27 @@ class OrderBook {
 		'modifications_charge',
 		'insert_order_log',
 		'select_order_log',
+		'orderbook'
 	];
 	queries = {};
 	initialized = false;
 	tickGap = 10;
 	
 	debug = false;
-	 
-	constructor(location, file_loader, db, tick_size=0.0001, verbose=false, isAuthonomous=true) {
+
+	constructor(oo, tick_size=0.0001, verbose=false, isAuthonomous=true) {
 		this.tickSize = tick_size;
 		this.decimalDigits = Math.log10(1 / this.tickSize);
 		this.rounder = Math.pow(10, (Math.floor(this.decimalDigits)));
 		this.time = 0;
 		this.nextQuoteID = 0;
-		this.db = db;
-		this.location = location;
-		this.file_loader = file_loader;
+		
+		this.oo = oo;
+		// isolation_level: null
+		this.db = new oo.DB('file:orderbook?mode=memory', 'c');
+
+		this.location = new URL('./PyLOB', window.location.href).toString();
+		this.file_loader = fetchText;
 		this.verbose = verbose;
 		this.isAuthonomous = isAuthonomous;
 		this.instrument_cache = {};
@@ -248,10 +253,30 @@ class OrderBook {
 	
 	async init() {
 		let result = new Promise((resolve, reject) => {
+			this.init_queries(this.query_names, this.queries).then(() => {
+				this.db.exec(this.queries.orderbook);
+				this.queries.best_quotes_order_asc =
+					this.queries.best_quotes_order.replaceAll(':direction', 'asc');
+				this.queries.best_quotes_order_desc =
+					this.queries.best_quotes_order.replaceAll(':direction', 'desc');
+				this.queries.best_quotes_order_map = {
+					desc: this.queries.best_quotes_order_desc,
+					asc: this.queries.best_quotes_order_asc,
+				};
+				delete this.queries.best_quotes_order;
+				this.initialized = true;
+				resolve('init done');
+			});
+		});
+		return result;
+	}
+	
+	async init_queries(query_names, queries, subdir) {
+		let result = new Promise((resolve, reject) => {
 		let query_promises = [];
-		for (let query of this.query_names) {
+		for (let query of query_names) {
 			let promise = this.file_loader(
-				query, this.location + '/sql/' + query + '.sql');
+				query, `${this.location}${subdir || ''}/sql/${query}.sql`);
 			query_promises.push(promise);
 		}
 		let allDone = Promise.allSettled(query_promises);
@@ -262,24 +287,13 @@ class OrderBook {
 						reject(`could not open ${one.value[0]}`);
 					}
 					let [name, text] = one.value;
-					this.queries[name] =
+					queries[name] =
 						`--<${name}>--
 						${text}
 						--</${name}>--
-						`
-						;
+						`;
 				}
-				this.queries.best_quotes_order_asc =
-					this.queries.best_quotes_order.replaceAll(':direction', 'asc');
-				this.queries.best_quotes_order_desc =
-					this.queries.best_quotes_order.replaceAll(':direction', 'desc');
-				this.queries.best_quotes_order_map = {
-					desc: this.queries.best_quotes_order_desc,
-					asc: this.queries.best_quotes_order_asc,
-				};
-				this.initialized = true;
-				delete this.queries.best_quotes_order;
-				resolve('init done');
+				resolve('init_queries done');
 			}
 		);
 		});

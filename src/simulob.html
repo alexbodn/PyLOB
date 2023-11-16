@@ -116,7 +116,7 @@
 	<script src="./simuhooks.js"></script>
 	<script src="./commission.js"></script>
 	<script src="./peakdet.js"></script>
-	<script src="./PyLOB/simulob.js"></script>
+	<script src="./PyLOB/simulob/simulob.js"></script>
 	
 	<script src="./PyLOB/chart/chartjs-4.4.0/chart.umd.min.js"></script>
 	<!--script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script-->
@@ -264,42 +264,25 @@ console.log('label done?');
 		sob.studySide('ask', chartLabel);
 	}
 	function runsob(oo) {
-		let dbname = "/mydb.sqlite3";
-		dbname = ':memory:';
-		const db = new oo.DB(dbname,'c');
-		// isolation_level: null
-		let myurl = window.location.href;
-		let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
-		fetchText('create_db', mydir + '/create_lob.sql')
-		.then(function(sql) {
-			//sql[1] = sql[1].replaceAll('begin transaction;', '').replaceAll('commit;');
-			//try
-			db.exec({
-				sql: sql[1],
-			});
-			//finally
-			window.sob = new SimuLOB(
-				mydir + '/PyLOB', fetchText, db,
-				undefined, undefined, 'div#charts', 'c1');
-			window.sob.init().then(
-				obj => {
-					//log(obj);
-					/*let chartSelect = document.querySelector('select#charts');
-					chartSelect.textContent = '';
-					for (let dataset of window.sob.chartDatasets()) {
-						let row =
-							`<option value="${dataset}">
-								${dataset}
-							</option>`;
-						chartSelect.insertAdjacentHTML('beforeend', row);
-					}*/
+		window.sob = new SimuLOB(oo, undefined, undefined, 'div#charts', 'c1');
+		window.sob.init().then(
+			obj => {
+				//log(obj);
+				/*let chartSelect = document.querySelector('select#charts');
+				chartSelect.textContent = '';
+				for (let dataset of window.sob.chartDatasets()) {
+					let row =
+						`<option value="${dataset}">
+							${dataset}
+						</option>`;
+					chartSelect.insertAdjacentHTML('beforeend', row);
+				}*/
 //todo build dataset select list
-					window.sqlConsole = new SQLQuery('div#sqlQuery', db, 'sqlConsole');
-					
-					window.sob.run(dates);
-				}
-			);
-		});
+				window.sqlConsole = new SQLQuery('div#sqlQuery', window.sob.db, 'sqlConsole');
+				
+				window.sob.run(dates);
+			}
+		);
 	}
 	</script>
 	<script>

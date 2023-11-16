@@ -94,33 +94,18 @@
 	}).then(function(sqlite3){
 		//log("Done initializing. Running demo...");
 		try {
-			let myurl = window.location.href;
-			let mydir = myurl.slice(0, myurl.lastIndexOf('/'));
 			const oo = sqlite3.oo1/*high-level OO API*/;
-			const db = new oo.DB("/mydb.sqlite3", sqliteFlags);
-			// isolation_level: null
-			fetchText('create_db', mydir + '/create_lob.sql')
-			.then(function(sql) {
-				//sql[1] = sql[1].replaceAll('begin transaction;', '').replaceAll('commit;');
-				//try
-				console.time('create_lob');
-				db.exec({
-					sql: sql[1],
-				});
-				console.timeEnd('create_lob');
-				//finally
-				window.sob = new OrderBook(mydir + '/PyLOB', fetchText, db, 0.0001, true);
-				console.time('sob_init');
-				window.sob.init().then(
-					obj => {
-						warn('initialization done.');
-						console.timeEnd('sob_init');
-						window.sqlConsole = new SQLQuery('div#sqlQuery', db, 'sqlConsole');
-						
-						test_perform(window.sob);
-					}
-				); 
-			});
+			window.sob = new OrderBook(oo, 0.0001, true);
+			console.time('sob_init');
+			window.sob.init().then(
+				obj => {
+					warn('initialization done.');
+					console.timeEnd('sob_init');
+					window.sqlConsole = new SQLQuery('div#sqlQuery', window.sob.db, 'sqlConsole');
+					
+					test_perform(window.sob);
+				}
+			); 
 		}
 		catch(e){
 			warn("Exception:",e.message);

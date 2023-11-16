@@ -27,7 +27,7 @@ function parseDate(dt) {
 	return lx.toMillis();
 }
 
-function formatDate(millis, fmt='h:m:s.S') {
+function formatDate(millis, fmt='HH:mm:ss.SSS') {
 	let options = {
 		zone: 'America/New_York',
 		setZone: true,
@@ -327,14 +327,18 @@ class SimuLOB extends OrderBook {
 			},*/
 		};
 	}
+
+	simu_query_names = [
+		'simulob',
+	];
 	
 	constructor(
-		location, file_loader, db,
+		oo,
 		tick_size=0.0001, verbose=true,
 		chartContainer, chartLabel,
 	) {
 		let isAuthonomous = false;
-		super(location, file_loader, db, tick_size, verbose, isAuthonomous);
+		super(oo, tick_size, verbose, isAuthonomous);
 		this.chartContainer = chartContainer;
 		this.chartLabel = chartLabel;
 		this.data_branches = this.price_branch
@@ -346,15 +350,21 @@ class SimuLOB extends OrderBook {
 		this.order_branches = this.market_orders;
 		// an index to the datasets
 		this.chartIndex = {};
-		this.trader_quotes = {};
-		this.order_names = {};
 		this.chartBuffer = {};
 		this.charts = {};
+		this.simu_queries = {};
+		// isolation_level: null
+		this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
+		// move these to local db
+		this.trader_quotes = {};
+		this.order_names = {};
 	}
 	
 	async init() {
 		let result = new Promise((resolve, reject) => {
 			super.init()
+			.then(this.init_queries(this.simu_query_names, this.simu_queries, '/simulob'))
+			.then(() => this.simu_db.exec(this.simu_queries.simulob))
 			.then(
 				value => {
 					this.ticks = [];
@@ -876,6 +886,35 @@ class SimuLOB extends OrderBook {
 		this.ticks.push(tick);
 	}
 	
+	quoteSave(label, quote, db) {
+		let {tid, instrument, idNum, order_id, ...rest} = quote;
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_insert,
+			bind: {
+				trader: tid,
+				instrument,
+				label,
+				quote: JSON.stringify(rest),
+				idNum,
+				order_id,
+			},
+		});
+	}
+
+	quoteGet(trader, instrument, label) {
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_insert,
+			bind: {
+				trader: tid,
+				instrument,
+				label,
+				quote: JSON.stringify(rest),
+				idNum,
+				order_id,
+			},
+		});
+	}
+
 	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
 		let quote = this.trader_quotes[instrument][label];
 		if (typeof quote === 'undefined') {
@@ -884,6 +923,7 @@ class SimuLOB extends OrderBook {
 			}
 			quote = this.createQuote(
 				trader, instrument, side, qty, price);
+			this.quoteSave(label, quote);
 			this.order_names[quote.idNum] = [instrument, label];
 			///quote.fulfilled = 0;
 			this.processOrder(quote, true, false, isPrivate);
@@ -942,7 +982,6 @@ if (!(idNum in this.order_names)) {
 		if (instrument && label) {
 			let quote = this.trader_quotes[instrument][label];
 			delete this.trader_quotes[instrument][label];
-			delete this.order_names[idNum];
 			this.chartPushTicks(
 				label,
 				{
@@ -955,6 +994,7 @@ if (!(idNum in this.order_names)) {
 				}
 			);
 		}
+		delete this.order_names[idNum];
 	}
 	
 	setLastPrice(instrument, price, db) {
@@ -979,11 +1019,11 @@ if (!(idNum in this.order_names)) {
 			return;
 		}
 		let [instrument, label] = this.order_names[idNum];
+		if (instrument && label) {
+			this.trader_quotes[instrument][label].fulfilled = fulfilled;
+		}
 		if (fulfilled == qty) {
 			this.dismissQuote(idNum);
-		}
-		else if (instrument && label) {
-			this.trader_quotes[instrument][label].fulfilled = fulfilled;
 		}
 		if ('orderFulfill_hook' in window) {
 			orderFulfill_hook(this, instrument, label, trader, qty, fulfilled, commission, avgPrice);
@@ -996,6 +1036,13 @@ if (!(idNum in this.order_names)) {
 		if (trader != this.trader_tid) {
 			return;
 		}
+		let [instrument, label] = this.order_names[idNum];
+		if (instrument && label) {
+			this.trader_quotes[instrument][label].fulfilled = qty;
+		}
+		if ('orderExecuted_hook' in window) {
+			orderExecuted_hook(this, instrument, label, trader, time, qty, price);
+		}
 		let side = this.orderGetSide(idNum);
 		let tick = {
 			x: time,
@@ -1007,10 +1054,6 @@ if (!(idNum in this.order_names)) {
 			},
 		};
 		this.chartPushTicks('executions', tick);
-		if ('orderExecuted_hook' in window) {
-			let [instrument, label] = this.order_names[idNum];
-			orderExecuted_hook(this, instrument, label, trader, time, qty, price);
-		}
 		return ret;
 	}
 	
@@ -1059,7 +1102,7 @@ if (!(idNum in this.order_names)) {
 		if (data.idNum in this.order_names) {
 			let [instrument, order_label] = this.order_names[data.idNum];
 			data.order_label = order_label;
-			data.event_dt = formatDate(data.event_dt);
+			data.event_dt = this.dtFormat(data.event_dt);
 		}
 		return [dolog, data];
 	}
