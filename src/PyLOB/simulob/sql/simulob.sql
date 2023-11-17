@@ -16,6 +16,7 @@ create table if not exists trader_quotes (
     quote text,
     idNum integer unique,
     order_id integer,
+    [status] text default('created'),
     primary key (trader, instrument, label)
     --,
     --foreign key(trader) references trader(tid),

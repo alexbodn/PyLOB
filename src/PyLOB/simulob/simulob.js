@@ -886,36 +886,61 @@ class SimuLOB extends OrderBook {
 		this.ticks.push(tick);
 	}
 	
-	quoteSave(label, quote, db) {
-		let {tid, instrument, idNum, order_id, ...rest} = quote;
+	quoteSave(label, quote, status, db) {
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_insert,
 			bind: {
-				trader: tid,
-				instrument,
+				trader: quote.tid,
+				instrument: quote.instrument,
 				label,
-				quote: JSON.stringify(rest),
-				idNum,
-				order_id,
+				quote: JSON.stringify(quote),
+				idNum: quote.idNum,
+				order_id: quote.order_id,
+				status,
 			},
 		});
 	}
 
-	quoteGet(trader, instrument, label) {
+	quoteGet(trader, instrument, label, db) {
+		let ret;
 		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_insert,
-			bind: {
-				trader: tid,
-				instrument,
-				label,
-				quote: JSON.stringify(rest),
-				idNum,
-				order_id,
-			},
+			sql: this.simu_queries.quote_get,
+			bind: prepKeys(
+				{
+					trader,
+					instrument,
+					label,
+				},
+				this.simu_queries.quote_get),
+			rowMode: 'object',
+			callback: row => {
+				ret = JSON.parse(row.quote);
+			}
 		});
+		return ret;
+	}
+
+	quoteGetNum(trader, instrument, label, db) {
+		let ret;
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_getnum,
+			bind: prepKeys(
+				{
+					trader,
+					instrument,
+					label,
+				},
+				this.simu_queries.quote_getnum),
+			rowMode: 'object',
+			callback: row => {
+				ret = row.idNum;
+			}
+		});
+		return ret;
 	}
 
 	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
+		let quote = this.quoteGet(trader, instrument, label);
 		let quote = this.trader_quotes[instrument][label];
 		if (typeof quote === 'undefined') {
 			if (!side) {
@@ -941,6 +966,7 @@ class SimuLOB extends OrderBook {
 			objectUpdate(quote, update);
 		}
 		this.trader_quotes[instrument][label] = Object.assign({status: 'quoted'}, quote);
+		this.quoteSave(label, quote, 'quoted');
 		return quote.idNum;
 	}
 	
