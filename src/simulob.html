@@ -30,6 +30,11 @@
 		.lob-header * {
 			float: left;
 		}
+
+		table#buttons td {
+			padding-left: 15px;
+			padding-right: 15px;
+		}
 	</style>
 	<!--link rel="stylesheet" href="./flex.css" /-->
 	<link rel="stylesheet" href="./tabs.css" />
@@ -84,7 +89,7 @@
 	<table>
 		<tbody id="status"></tbody>
 	</table>
-	<div id="sqlQuery"></div>
+	<div id="sqlQuery" class="sqlQuery"></div>
 	<table>
 		<tbody id="config"></tbody>
 	</table>
@@ -113,7 +118,7 @@
 	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
-	<script src="./simuhooks.js"></script>
+	<script src="./PyLOB/simulob/simuhooks.js"></script>
 	<script src="./commission.js"></script>
 	<script src="./peakdet.js"></script>
 	<script src="./PyLOB/simulob/simulob.js"></script>
@@ -204,7 +209,7 @@
 			//const
 			oo = sqlite3.oo1/*high-level OO API*/;
 			let buttons = document.querySelector("#buttons");
-			buttons.style.display = 'block';
+			buttons.style.display = 'table';
 			showConfig();
 		}
 		catch(e){
@@ -278,7 +283,7 @@ console.log('label done?');
 					chartSelect.insertAdjacentHTML('beforeend', row);
 				}*/
 //todo build dataset select list
-				window.sqlConsole = new SQLQuery('div#sqlQuery', window.sob.db, 'sqlConsole');
+				window.sqlConsole = new SQLQuery('div#sqlQuery', window.sob.simu_db, 'sqlConsole');
 				
 				window.sob.run(dates);
 			}

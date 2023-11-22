@@ -1,5 +1,6 @@
 
---PRAGMA foreign_keys=ON;
+PRAGMA foreign_keys=on;
+PRAGMA recursive_triggers=1;
 
 begin transaction;
 
@@ -43,7 +44,7 @@ create trigger if not exists base_currency
 BEGIN
     update instrument
 	set lastprice=1,
-	    lastbid=1,
+        lastbid=1,
 		lastask=1
     where new.currency is null and symbol=new.symbol;
 END;

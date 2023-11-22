@@ -31,7 +31,7 @@
 */
 
 var sqlite3InitModule = (() => {
-  var _scriptDir = typeof document !== 'undefined' && document.currentScript ? document.currentScript.src : undefined;
+  var _scriptDir = import.meta.url;
   
   return (
 function(config) {
@@ -75,25 +75,7 @@ sqlite3InitModuleState.debugModule('globalThis.location =',globalThis.location);
 
 
 Module['locateFile'] = function(path, prefix) {
-  'use strict';
-  let theFile;
-  const up = this.urlParams;
-  if(up.has(path)){
-    theFile = up.get(path);
-  }else if(this.sqlite3Dir){
-    theFile = this.sqlite3Dir + path;
-  }else if(this.scriptDir){
-    theFile = this.scriptDir + path;
-  }else{
-    theFile = prefix + path;
-  }
-  sqlite3InitModuleState.debugModule(
-    "locateFile(",arguments[0], ',', arguments[1],")",
-    'sqlite3InitModuleState.scriptDir =',this.scriptDir,
-    'up.entries() =',Array.from(up.entries()),
-    "result =", theFile
-  );
-  return theFile;
+  return new URL(path, import.meta.url).href;
 }.bind(sqlite3InitModuleState);
 
 
@@ -743,10 +725,15 @@ function isFileURI(filename) {
 
 
 var wasmBinaryFile;
+if (Module['locateFile']) {
   wasmBinaryFile = 'sqlite3.wasm';
   if (!isDataURI(wasmBinaryFile)) {
     wasmBinaryFile = locateFile(wasmBinaryFile);
   }
+} else {
+  
+  wasmBinaryFile = new URL('sqlite3.wasm', import.meta.url).href;
+}
 
 function getBinary(file) {
   try {
@@ -11035,7 +11022,7 @@ const installOpfsVfs = function callee(options){
       return promiseResolve_(sqlite3);
     };
     const W =
-    new Worker(options.proxyUri);
+    new Worker(new URL(options.proxyUri, import.meta.url));
     setTimeout(()=>{
       
       if(undefined===promiseWasRejected){
@@ -12815,15 +12802,9 @@ if('undefined' !== typeof Module){
 }
 );
 })();
-if (typeof exports === 'object' && typeof module === 'object')
-  module.exports = sqlite3InitModule;
-else if (typeof define === 'function' && define['amd'])
-  define([], function() { return sqlite3InitModule; });
-else if (typeof exports === 'object')
-  exports["sqlite3InitModule"] = sqlite3InitModule;
 
 
-
+const toExportForESM =
 (function(){
   
   const originalInit = sqlite3InitModule;
@@ -12885,15 +12866,7 @@ else if (typeof exports === 'object')
                    document?.currentScript?.src);
     }
   }
-
-
-
-  
-  if (typeof exports === 'object' && typeof module === 'object'){
-    module.exports = sqlite3InitModule;
-  }else if (typeof exports === 'object'){
-    exports["sqlite3InitModule"] = sqlite3InitModule;
-  }
-  
   return globalThis.sqlite3InitModule ;
 })();
+sqlite3InitModule = toExportForESM;
+export default sqlite3InitModule;

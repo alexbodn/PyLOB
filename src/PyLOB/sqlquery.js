@@ -6,15 +6,21 @@ class SQLQuery {
 		INTEGER: ['^([+-]?[1-9]\\d*([Ee][+-]?[1-9]\\d*)?|0)$', '', parseInt, false, '123'],
 		REAL: ['^([+-]?[1-9]\\d*(\\.\\d*)?([Ee][+-]?[1-9]\\d*)?|0)$', '', parseFloat, false, '123.45'],
 		TEXT: ['.*', '', x => x, false, 'abc'],
-		BLOB: ['.*', '', x => x, false, 'abc'],
+		BLOB: ['.*', '', x => x, false, "x'495051'"],
 		DATETIME: ['^[1-9]\\d{3}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$', '', x => parseDate(x), false, '2009-09-28T09:15:15'],
 	};
 	
 	constructor(selector, db, thisName) {
 		this.sqlQuerySelector = selector;
+		this.sqlQuery = document.querySelector(selector)
+		this.sqlQuery.setAttribute('data-object', this);
 		this.db = db;
 		this.thisName = thisName;
 		this.buildForm();
+	}
+
+	findConsole(control) {
+		return control.closest(this.selector);
 	}
 	
 	paramType(_this) {
@@ -50,13 +56,14 @@ class SQLQuery {
 				<td style="width: 10%"><button onclick="${this.thisName}.delParam(this)">del</button></td>
 			</tr>
 			`;
-		let params = document.querySelector(this.sqlQuerySelector + ' .sqlParams');
+		let params = this.sqlQuery.querySelector('.sqlParams');
 		params.insertAdjacentHTML('beforeend', row);
-		params.querySelector('tr:last-child input.variable').focus();
+		let newVar = params.querySelector('tr:last-child');
+		newVar.querySelector('input.variable').focus();
 	}
 	
 	buildParams(testValues=true) {
-		let paramsDiv = document.querySelector(this.sqlQuerySelector + ' .sqlParams');
+		let paramsDiv = this.sqlQuery.querySelector('.sqlParams');
 		let rows = paramsDiv.querySelectorAll('tr');
 		let params = {};
 		const nameRegex = /^[a-z_A-Z][a-z_A-Z0-9]*$/;
@@ -90,7 +97,7 @@ class SQLQuery {
 	
 	makeParams() {
 		let params = this.buildParams(false);
-		let query = document.querySelector(this.sqlQuerySelector + ' .query').value;
+		let query = this.sqlQuery.querySelector('.query').value;
 		let paramRe = /:([a-z_A-Z][a-z_A-Z0-9]*)/g;
 		let param;
 		while (param = paramRe.exec(query)) {
@@ -103,15 +110,15 @@ class SQLQuery {
 	
 	runQuery() {
 		let params = this.buildParams();
-		let query = document.querySelector(`${this.sqlQuerySelector} .query`);
+		let query = this.sqlQuery.querySelector('.query');
 		
 		this.sql(query.value, params);
 	}
 	
 	showResults(results) {
-		let target = document.querySelector(`${this.sqlQuerySelector} .sqlResults`);
+		let target = this.sqlQuery.querySelector('.sqlResults');
 		target.textContent = '';
-		if (results) {
+		if (results.length) {
 			let colnames = Object.keys(results[0]);
 			let columns = colnames
 				.map(col => `<th>${col}</th>`)
@@ -172,8 +179,7 @@ class SQLQuery {
 			<textarea class="query" style="width: 100%" placeholder="select 'hello';" rows="7"></textarea>
 			<table border="1"><tbody class="sqlResults"></tbody></table>
 		`;
-		let target = document.querySelector(this.sqlQuerySelector);
-		target.textContent = '';
-		target.insertAdjacentHTML('beforeend', html);
+		this.sqlQuery.textContent = '';
+		this.sqlQuery.insertAdjacentHTML('beforeend', html);
 	}
 };

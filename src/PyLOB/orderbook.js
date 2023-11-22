@@ -179,7 +179,9 @@ function prepKeys(obj, query, label) {
 			ret[param[0]] = val;
 		}
 	}
-//console.log(obj, ret, query);
+if (label == 1) {
+console.log(obj, ret, query);
+}
 	return ret;
 }
 
@@ -610,7 +612,7 @@ class OrderBook {
 						quote.order_id = res.lastorder;
 						this.order_log(
 							this.time, res.lastorder, 'create_order',
-							this.printQuote(quote), D);
+							this.printQuote(quote, D), D);
 						/*this.order_log(
 							this.time, res.lastorder, 'order_detail',
 							this.printOrder(quote.idNum, 'id: {order_id}', D), D);
@@ -682,69 +684,61 @@ class OrderBook {
 		let fulfills = [];
 		let balance_updates = [];
 		let totalprice = 0;
-		let loopBreak = 'loopBreak';
 		
-		try {
-			db.exec({
-				sql: sql_matches,
-				bind: prepKeys({
-					instrument: quote.instrument,
-					side: quote.side,
-					price: quote.price,
-					lastprice: quote.lastprice,
-					tid: quote.tid,
-				}, sql_matches),
-				rowMode: 'object',
-				callback: match => {
-					if (this.debug) {
-						this.logobj(qtyToExec, match.available, match);
-					}
-					if (qtyToExec <= 0) {
-						//stop the loop
-						throw new Error(loopBreak);
-					}
-					let {order_id, idNum, counterparty, price, available, currency} = match;
-					let qty = Math.min(available, qtyToExec);
-					qtyToExec -= qty;
-					if (justquery) {
-						totalprice += qty * price;
-						return;
-					}
-					let bid_order = quote.side == 'bid' ? quote.order_id : order_id;
-					let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
-					let trade = this.tradeExecute(
-						bid_order, ask_order, price, qty, instrument, db, verbose);
-					trade.bid_trader = quote.side == 'bid' ? quote.tid : counterparty;
-					trade.ask_trader = quote.side == 'ask' ? quote.tid : counterparty;
-					trade.bid_idNum = quote.side == 'bid' ? quote.idNum : idNum;
-					trade.ask_idNum = quote.side == 'ask' ? quote.idNum : idNum;
-					trades.push(trade);
-					db.exec({
-						sql: this.queries.trade_fulfills,
-						bind: prepKeys({
-							bid_order: bid_order,
-							ask_order: ask_order,
-						}, this.queries.trade_fulfills),
-						rowMode: 'object',
-						callback: row => {
-							fulfills.push(row);
-							this.order_log(
-								this.time, row.order_id, 'fulfill_order',
-								`<u style="color: ${row.side == 'ask' ? 'red' : 'mediumblue'}">FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
-							);
-						}
-					});
-					balance_updates = this.orderBalance(
-						quote.order_id, order_id, quote.tid, counterparty, instrument, currency, db);
+		db.exec({
+			sql: sql_matches,
+			bind: prepKeys({
+				instrument: quote.instrument,
+				side: quote.side,
+				price: quote.price,
+				lastprice: quote.lastprice,
+				tid: quote.tid,
+			}, sql_matches),
+			rowMode: 'object',
+			callback: match => {
+				if (this.debug) {
+					this.logobj(qtyToExec, match.available, match);
 				}
-			});
-		}
-		catch (catched) {
-			if (catched.message != loopBreak) {
-				throw catched;
+				if (qtyToExec <= 0) {
+					//stop the loop
+					return false;
+				}
+				let {order_id, idNum, counterparty, price, available, currency} = match;
+				let qty = Math.min(available, qtyToExec);
+				qtyToExec -= qty;
+				if (justquery) {
+					totalprice += qty * price;
+					return;
+				}
+				let bid_order = quote.side == 'bid' ? quote.order_id : order_id;
+				let ask_order = quote.side == 'ask' ? quote.order_id : order_id;
+				let trade = this.tradeExecute(
+					bid_order, ask_order, price, qty, instrument, db, verbose);
+				trade.bid_trader = quote.side == 'bid' ? quote.tid : counterparty;
+				trade.ask_trader = quote.side == 'ask' ? quote.tid : counterparty;
+				trade.bid_idNum = quote.side == 'bid' ? quote.idNum : idNum;
+				trade.ask_idNum = quote.side == 'ask' ? quote.idNum : idNum;
+				trades.push(trade);
+				db.exec({
+					sql: this.queries.trade_fulfills,
+					bind: prepKeys({
+						bid_order,
+						ask_order,
+					}, this.queries.trade_fulfills),
+					rowMode: 'object',
+					callback: row => {
+						fulfills.push(row);
+						let color = row.side == 'ask' ? 'red' : 'mediumblue';
+						this.order_log(
+							this.time, row.order_id, 'fulfill_order',
+							`<u style="color: ${color}">FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
+						);
+					}
+				});
+				balance_updates = this.orderBalance(
+					quote.order_id, order_id, quote.tid, counterparty, instrument, currency, db);
 			}
-			//console.warn(loopBreak);
-		}
+		});
 		if (justquery) {
 			let volume = quote.qty - qtyToExec;
 			return [volume, totalprice];
@@ -817,6 +811,7 @@ class OrderBook {
 				fulfill.idNum, fulfill.trader,
 				fulfill.qty, fulfill.fulfilled,
 				fulfill.commission,
+				//this.clipPrice(currency, price)
 				formatRounder(fulfill.fulfill_price / fulfill.fulfilled));
 		}
 		for (let update of balance_updates) {
@@ -834,9 +829,21 @@ class OrderBook {
 		}
 	}
 	
+	/*
+	def openOrder(self, orderId: OrderId, contract: Contract, order: Order, orderState: OrderState):
+		print(f"openOrder. orderId: {orderId}, contract: {contract}, order: {order}")
+	*/
 	//openOrder on IB
 	//todo should provide order_id
 	orderSent(idNum, quote) {
+		// to be overriden
+	}
+	
+	/*
+	def orderStatus(self, orderId: OrderId, status: str, filled: Decimal, remaining: Decimal, avgFillPrice: float, permId: int, parentId: int, lastFillPrice: float, clientId: int, whyHeld: str, mktCapPrice: float):
+		print(f"orderId: {orderId}, status: {status}, filled: {filled}, remaining: {remaining}, avgFillPrice: {avgFillPrice}, permId: {permId}, parentId: {parentId}, lastFillPrice: {lastFillPrice}, clientId: {clientId}, whyHeld: {whyHeld}, mktCapPrice: {mktCapPrice}")
+	*/
+	orderRejected(idNum, why) {
 		// to be overriden
 	}
 	
@@ -870,7 +877,7 @@ class OrderBook {
 							}, this.queries.cancel_order)
 						});
 						_trader = trader;
-						this.order_log(time, order_id, 'cancel_order', '<u>CANCEL ORDER</u>', D);
+						this.order_log(time, order_id, 'cancel_order', '<u>CANCEL</u> <s>@@order@@</s>', D);
 					}
 				});
 			}
@@ -962,7 +969,7 @@ class OrderBook {
 								orderUpdate,
 								this.queries.modify_order)
 						});
-						this.order_log(this.time, order_id, 'modify_order', this.printQuote(orderUpdate), D);
+						this.order_log(this.time, order_id, 'modify_order', this.printQuote(orderUpdate, D), D);
 						this.order_log(this.time, order_id, 'modify_detail', `${loginfo}`, D);
 						if (this.betterPrice(side, price, orderUpdate.price)) {
 							ret = this.processMatchesDB(orderUpdate, false, D, verbose);
@@ -977,6 +984,9 @@ class OrderBook {
 		}
 		if (updateSide) {
 			this.orderSent(idNum, orderUpdate);
+		}
+		else {
+			this.orderRejected(idNum, 'tryed to modify inactive order');
 		}
 		if (ret != null) {
 //console.log('modified', orderUpdate);
@@ -1193,6 +1203,7 @@ class OrderBook {
 			return;
 		}
 		if (this.verbose) {
+			info = info.replace('@@order@@', this.printQuote(data, db));
 			log(`id:${data.idNum}${data.order_label ? '/' + data.order_label : ''}(tid:${data.trader})@${this.dtFormat(event_dt)} => ${info}`);
 		}
 		db.exec({
@@ -1252,11 +1263,10 @@ class OrderBook {
 			arg => arg == undefined ? 'undefined' : stringify(arg, this.logReplacer)));
 	}
 	
-	printQuote(quote) {
-		let action = quote.side.toUpperCase();
-		let order_type = quote.order_type == 'limit' ? 'LMT' : 'MKT';
-		let price = quote.order_type == 'limit' ? ' ' + formatRounder(quote.price) : '';
-		let ret = `<u>${action}</u> ${quote.qty} ${quote.instrument} @${order_type}${price}`;
+	printQuote(quote, db) {
+		let side = quote.side.toUpperCase();
+		let price = quote.order_type == 'limit' ? 'LMT ' + this.clipPrice(quote.instrument, quote.price, db) : 'MKT';
+		let ret = `<u>${side}</u> ${quote.qty} ${quote.instrument} @${price}`;
 		return ret;
 	}
 	

@@ -330,6 +330,14 @@ class SimuLOB extends OrderBook {
 
 	simu_query_names = [
 		'simulob',
+		'quote_dismiss',
+		'quote_get',
+		'quote_getall',
+		'quote_getbynum',
+		'quote_getkeys',
+		'quote_getnum',
+		'quote_insert',
+		'quote_update',
 	];
 	
 	constructor(
@@ -352,9 +360,12 @@ class SimuLOB extends OrderBook {
 		this.chartIndex = {};
 		this.chartBuffer = {};
 		this.charts = {};
+
+		this.persist = true;
 		this.simu_queries = {};
 		// isolation_level: null
-		this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
+		//this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
+		this.simu_db = new oo.DB(':memory:', 'c');
 		// move these to local db
 		this.trader_quotes = {};
 		this.order_names = {};
@@ -363,7 +374,7 @@ class SimuLOB extends OrderBook {
 	async init() {
 		let result = new Promise((resolve, reject) => {
 			super.init()
-			.then(this.init_queries(this.simu_query_names, this.simu_queries, '/simulob'))
+			.then(() => this.init_queries(this.simu_query_names, this.simu_queries, '/simulob'))
 			.then(() => this.simu_db.exec(this.simu_queries.simulob))
 			.then(
 				value => {
@@ -677,8 +688,8 @@ class SimuLOB extends OrderBook {
 						},
 					);
 					console.timeEnd(timeLabel);
-					for (let [instrument, label] of Object.entries(this.trader_quotes)) {
-						let quote = this.trader_quotes[instrument][label];
+					let quotes = this.quoteGetAll(this.trader_tid, this.instrument, null, 'sent');
+					for (let [label, quote] of Object.entries(quotes)) {
 						if (!quote) {
 							continue;
 						}
@@ -886,23 +897,37 @@ class SimuLOB extends OrderBook {
 		this.ticks.push(tick);
 	}
 	
-	quoteSave(label, quote, status, db) {
+	quoteSave(label, quote, status='created', db) {
+		if (!this.persist) {
+			quote.status = status;
+			this.order_names[quote.idNum] = [quote.instrument, label];
+			this.trader_quotes[quote.instrument][label] = quote;
+			return;
+		}
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_insert,
-			bind: {
-				trader: quote.tid,
-				instrument: quote.instrument,
-				label,
-				quote: JSON.stringify(quote),
-				idNum: quote.idNum,
-				order_id: quote.order_id,
-				status,
-			},
+			bind: prepKeys(
+				{
+					trader: quote.tid,
+					instrument: quote.instrument,
+					label,
+					quote: JSON.stringify(quote),
+					price: quote.price,
+					qty: quote.qty,
+					fulfilled: quote.fulfilled || 0,
+					idNum: quote.idNum,
+					order_id: quote.order_id || null,
+					status,
+				},
+				this.simu_queries.quote_insert)
 		});
 	}
 
 	quoteGet(trader, instrument, label, db) {
-		let ret;
+		if (!this.persist) {
+			return this.trader_quotes[instrument][label];
+		}
+		let ret = null;
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_get,
 			bind: prepKeys(
@@ -921,7 +946,11 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteGetNum(trader, instrument, label, db) {
-		let ret;
+		if (!this.persist) {
+			quote = this.trader_quotes[instrument][label];
+			return quote.idNum;
+		}
+		let ret = null;
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_getnum,
 			bind: prepKeys(
@@ -939,22 +968,153 @@ class SimuLOB extends OrderBook {
 		return ret;
 	}
 
+	quoteGetAll(trader, instrument, side=null, status=null, db) {
+		if (!this.persist) {
+			return Object.entries(this.trader_quotes[instrument])
+				.filter(entry => trader == entry[1].tid &&
+					(side === null || entry[1].side == side) &&
+					(status === null || entry[1].status == status)
+				)
+				.reduce((a, b) => {a[b[0]] = b[1]; return a;}, {});
+		}
+		let ret = {};
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_getall,
+			bind: prepKeys(
+				{
+					trader,
+					instrument,
+					side,
+					status,
+				},
+				this.simu_queries.quote_getall),
+			rowMode: 'object',
+			callback: row => {
+				//console.log(row);
+				ret[row.label] = JSON.parse(row.quote);
+			}
+		});
+		return ret;
+	}
+
+	quoteGetKeys(trader, instrument, side=null, db) {
+		if (!this.persist) {
+			return Object.keys(this.trader_quotes[instrument])
+				.filter(label => side === null || label.slice(0, 3) == side)
+				.map(label => ([trader, instrument, label]));
+		}
+		let ret = [];
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_getkeys,
+			bind: prepKeys(
+				{
+					trader,
+					instrument,
+					side,
+				},
+				this.simu_queries.quote_getkeys),
+			rowMode: 'object',
+			callback: row => {
+				ret.push(row);
+			}
+		});
+		return ret;
+	}
+
+	quoteGetByNum(idNum, db) {
+		if (!this.persist) {
+			if (!(idNum in this.order_names)) {
+				return null;
+			}
+			let [instrument, label] = this.order_names[idNum];
+			let quote = this.trader_quotes[instrument][label];
+			return {
+				trader: quote.tid,
+				instrument,
+				label,
+				quote,
+			};
+		}
+		let ret = null;
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_getbynum,
+			bind: prepKeys(
+				{
+					idNum,
+				},
+				this.simu_queries.quote_getbynum),
+			rowMode: 'object',
+			callback: row => {
+				row.quote = JSON.parse(row.quote);
+				ret = row;
+			}
+		});
+		return ret;
+	}
+
+	quoteUpdate(quote, db) {
+		if (!this.persist) {
+			let idNum = quote.idNum;
+			if (!(idNum in this.order_names)) {
+				return;
+			}
+			let [instrument, label] = this.order_names[idNum];
+			this.trader_quotes[instrument][label] = quote;
+			return;
+		}
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_update,
+			bind: prepKeys(
+				{
+					idNum: quote.idNum,
+					quote: JSON.stringify(quote),
+					price: quote.price,
+					qty: quote.qty,
+					fulfilled: quote.fulfilled || 0,
+					order_id: quote.order_id || null,
+					status: quote.status || null,
+				},
+				this.simu_queries.quote_update
+			),
+		});
+	}
+
+	quoteDismiss(idNum, db) {
+		if (!this.persist) {
+			let [instrument, label] = this.order_names[idNum];
+//console.log('will dismiss', idNum, instrument, label);
+			delete this.trader_quotes[instrument][label];
+			this.trader_quotes = Object.assign({}, this.trader_quotes);
+//console.log('deleted?', Object.keys(this.trader_quotes[instrument]));
+			delete this.order_names[idNum];
+			this.order_names = Object.assign({}, this.order_names);
+//console.log('deleted?', Object.keys(this.order_names));
+			return;
+		}
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_dismiss,
+			bind: prepKeys(
+				{idNum},
+				this.simu_queries.quote_dismiss
+			),
+		});
+	}
+
 	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
 		let quote = this.quoteGet(trader, instrument, label);
-		let quote = this.trader_quotes[instrument][label];
-		if (typeof quote === 'undefined') {
+		if (!quote) {
 			if (!side) {
 				side = label.slice(0, 3);
 			}
 			quote = this.createQuote(
 				trader, instrument, side, qty, price);
-			this.quoteSave(label, quote);
-			this.order_names[quote.idNum] = [instrument, label];
+			this.quoteSave(label, quote); //todo is this needed?
 			///quote.fulfilled = 0;
 			this.processOrder(quote, true, false, isPrivate);
 		}
 		else if (cancelQuote) {
 			super.cancelOrder(quote.idNum);
+			return quote.idNum;
 		}
 		else {
 			let update = {
@@ -963,51 +1123,57 @@ class SimuLOB extends OrderBook {
 			};
 			let verbose = false;
 			this.modifyOrder(quote.idNum, update, quote.timestamp, verbose, isPrivate);
-			objectUpdate(quote, update);
+			quote = Object.assign(quote, update);
 		}
-		this.trader_quotes[instrument][label] = Object.assign({status: 'quoted'}, quote);
 		this.quoteSave(label, quote, 'quoted');
 		return quote.idNum;
 	}
 	
 	cancelQuote(trader, instrument, label) {
-		let quote = this.trader_quotes[instrument][label];
-		if (quote) {
-			super.cancelOrder(quote.idNum);
+		let idNum = this.quoteGetNum(trader, instrument, label);
+		if (idNum !== null) {
+			super.cancelOrder(idNum);
 		}
 	}
 	
 	cancelAllQuotes(trader, instrument) {
-		for (let label of this.trader_quotes[instrument]) {
-			this.cancelQuote(trader, instrument, label);
+		let quotes = this.quoteGetKeys(trader, instrument);
+		for (let quote of quotes) {
+			this.cancelQuote(quote.trader, quote.instrument, quote.label);
 		}
 	}
 	
 	//todo take and subsequently use order_id
 	orderSent(idNum, quote) {
-if (!(idNum in this.order_names)) {
-	console.error('sent order not found', idNum, quote, this.findOrder(idNum));
-}
-		let [instrument, label] = this.order_names[idNum];
-		if (instrument && label) {
-			this.trader_quotes[instrument][label] = quote;
-			this.chartPushTicks(
-				label,
-				{x: quote.timestamp, y: quote.price},
-				{x: quote.timestamp + 1, y: quote.price, sentinel: true},
-			);
-			if ('orderSent_hook' in window) {
-				orderSent_hook(this, quote.tid, instrument, label, quote.price);
-			}
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			console.error('sent order not found', idNum, quote, this.findOrder(idNum));
+			return;
+		}
+		let {instrument, label} = order;
+		quote.status = 'sent';
+		this.quoteUpdate(quote);
+		this.chartPushTicks(
+			label,
+			{x: quote.timestamp, y: quote.price},
+			{x: quote.timestamp + 1, y: quote.price, sentinel: true},
+		);
+		if ('orderSent_hook' in window) {
+			orderSent_hook(this, quote.tid, instrument, label, quote.price);
 		}
 	}
 	
 	//todo use order_id
 	dismissQuote(idNum) {
-		let [instrument, label] = this.order_names[idNum];
-		if (instrument && label) {
-			let quote = this.trader_quotes[instrument][label];
-			delete this.trader_quotes[instrument][label];
+		this.simu_db.transaction(D => {
+		//let D;
+			let order = this.quoteGetByNum(idNum, D);
+			if (!order) {
+				console.error('dismissed order not found', idNum, this.findOrder(idNum));
+				return;
+			}
+			let {label, quote} = order;
+				this.quoteDismiss(idNum, D);
 			this.chartPushTicks(
 				label,
 				{
@@ -1019,8 +1185,7 @@ if (!(idNum in this.order_names)) {
 					y: null,
 				}
 			);
-		}
-		delete this.order_names[idNum];
+		});
 	}
 	
 	setLastPrice(instrument, price, db) {
@@ -1044,10 +1209,14 @@ if (!(idNum in this.order_names)) {
 		if (trader != this.trader_tid) {
 			return;
 		}
-		let [instrument, label] = this.order_names[idNum];
-		if (instrument && label) {
-			this.trader_quotes[instrument][label].fulfilled = fulfilled;
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			console.error('fulfilled order not found', idNum, this.findOrder(idNum));
+			return;
 		}
+		let {instrument, label, quote} = order;
+		quote.fulfilled = fulfilled;
+		this.quoteUpdate(quote);
 		if (fulfilled == qty) {
 			this.dismissQuote(idNum);
 		}
@@ -1062,10 +1231,12 @@ if (!(idNum in this.order_names)) {
 		if (trader != this.trader_tid) {
 			return;
 		}
-		let [instrument, label] = this.order_names[idNum];
-		if (instrument && label) {
-			this.trader_quotes[instrument][label].fulfilled = qty;
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			console.error('executed order not found', idNum, this.findOrder(idNum));
+			return;
 		}
+		let {instrument, label} = order;
 		if ('orderExecuted_hook' in window) {
 			orderExecuted_hook(this, instrument, label, trader, time, qty, price);
 		}
@@ -1088,7 +1259,12 @@ if (!(idNum in this.order_names)) {
 		if (trader != this.trader_tid) {
 			return;
 		}
-		let [instrument, label] = this.order_names[idNum];
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			console.error('cancelled order not found', idNum, this.findOrder(idNum));
+			return;
+		}
+		let {instrument, label} = order;
 		this.dismissQuote(idNum);
 		//why
 		//this.derailedLabels[instrument][label] = true;
@@ -1096,6 +1272,13 @@ if (!(idNum in this.order_names)) {
 		if ('orderCancelled_hook' in window) {
 			orderCancelled_hook(this, instrument, label, trader, time);
 		}
+		return ret;
+	}
+	
+	orderRejected(idNum, why) {
+		let ret = super.orderRejected(idNum, why);
+		console.log('rejected order', idNum, why);
+		this.quoteDismiss(idNum);
 		return ret;
 	}
 	
