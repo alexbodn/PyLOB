@@ -923,7 +923,7 @@ class SimuLOB extends OrderBook {
 		});
 	}
 
-	quoteGet(trader, instrument, label, db) {
+	quoteGet(trader, instrument, label, status=null, db) {
 		if (!this.persist) {
 			return this.trader_quotes[instrument][label];
 		}
@@ -935,6 +935,7 @@ class SimuLOB extends OrderBook {
 					trader,
 					instrument,
 					label,
+					status,
 				},
 				this.simu_queries.quote_get),
 			rowMode: 'object',
@@ -1101,14 +1102,14 @@ class SimuLOB extends OrderBook {
 	}
 
 	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
-		let quote = this.quoteGet(trader, instrument, label);
+		let quote = this.quoteGet(trader, instrument, label, 'sent');
 		if (!quote) {
 			if (!side) {
 				side = label.slice(0, 3);
 			}
 			quote = this.createQuote(
 				trader, instrument, side, qty, price);
-			this.quoteSave(label, quote); //todo is this needed?
+			this.quoteSave(label, quote, 'saved'); //todo is this needed?
 			///quote.fulfilled = 0;
 			this.processOrder(quote, true, false, isPrivate);
 		}
@@ -1122,10 +1123,10 @@ class SimuLOB extends OrderBook {
 				qty,
 			};
 			let verbose = false;
+			this.quoteSave(label, quote, 'quoted');
 			this.modifyOrder(quote.idNum, update, quote.timestamp, verbose, isPrivate);
 			quote = Object.assign(quote, update);
 		}
-		this.quoteSave(label, quote, 'quoted');
 		return quote.idNum;
 	}
 	
