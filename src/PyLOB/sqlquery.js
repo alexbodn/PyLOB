@@ -10,12 +10,9 @@ class SQLQuery {
 		DATETIME: ['^[1-9]\\d{3}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$', '', x => parseDate(x), false, '2009-09-28T09:15:15'],
 	};
 	
-	constructor(selector, db, thisName) {
-		this.sqlQuerySelector = selector;
-		this.sqlQuery = document.querySelector(selector)
-		this.sqlQuery.setAttribute('data-object', this);
+	constructor(selector, db) {
+		this.sqlQuery = document.querySelector(selector);
 		this.db = db;
-		this.thisName = thisName;
 		this.buildForm();
 	}
 
@@ -43,22 +40,26 @@ class SQLQuery {
 		let row = `
 			<tr>
 				<td style="width: 30%">
-					<input class="variable" onblur="${this.thisName}.buildParams(false)" type="text" value="${name}" placeholder="name" style="width: 100%" />
+					<input class="variable" type="text" value="${name}" placeholder="name" style="width: 100%" />
 				</td>
 				<td style="width: 30%">
-					<select class="type" style="width: 100%" onchange="${this.thisName}.paramType(this);">
+					<select class="type" style="width: 100%">
 						${typeOptions(this.fieldTypes)}
 					</select>
 				</td>
 				<td style="width: 30%">
-					<input class="value" onblur="${this.thisName}.buildParams()" pattern="/^$/" disabled="disabled" value="" placeholder="null" style="width: 100%" />
+					<input class="value" pattern="/^$/" disabled="disabled" value="" placeholder="null" style="width: 100%" />
 				</td>
-				<td style="width: 10%"><button onclick="${this.thisName}.delParam(this)">del</button></td>
+				<td style="width: 10%"><button class="del-param">del</button></td>
 			</tr>
 			`;
 		let params = this.sqlQuery.querySelector('.sqlParams');
 		params.insertAdjacentHTML('beforeend', row);
 		let newVar = params.querySelector('tr:last-child');
+		newVar.querySelector('input.variable').addEventListener('blur', e => {this.buildParams(false);});
+		newVar.querySelector('select.type').addEventListener('change', e => {this.paramType(e.currentTarget);});
+		newVar.querySelector('input.value').addEventListener('blur', e => {this.buildParams();});
+		newVar.querySelector('button.del-param').addEventListener('click', e => {this.delParam(e.currentTarget);});
 		newVar.querySelector('input.variable').focus();
 	}
 	
@@ -172,14 +173,17 @@ class SQLQuery {
 		let html = `
 			<table border="0"><tbody class="sqlParams"></tbody></table>
 			<div>
-				<button onclick="${this.thisName}.addParam()">add param</button>
-				<button onclick="${this.thisName}.makeParams()">make params</button>
-				<button onclick="${this.thisName}.runQuery()">run</button>
+				<button class="add-param">add param</button>
+				<button class="make-params">make params</button>
+				<button class="run-query">run</button>
 			</div>
 			<textarea class="query" style="width: 100%" placeholder="select 'hello';" rows="7"></textarea>
 			<table border="1"><tbody class="sqlResults"></tbody></table>
 		`;
 		this.sqlQuery.textContent = '';
 		this.sqlQuery.insertAdjacentHTML('beforeend', html);
+		this.sqlQuery.querySelector('button.add-param').addEventListener('click', e => {this.addParam();});
+		this.sqlQuery.querySelector('button.make-params').addEventListener('click', e => {this.makeParams();});
+		this.sqlQuery.querySelector('button.run-query').addEventListener('click', e => {this.runQuery();});
 	}
 };

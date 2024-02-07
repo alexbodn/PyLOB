@@ -88,6 +88,7 @@ class SimuLOB extends OrderBook {
 	market_tid = undefined;
 	trader_tid = undefined;
 	
+	title_branch = ['title'];
 	price_branch = ['price', 'midpoint'];
 	balance_branch = ['nlv'];
 	executions_branch = ['executions'];
@@ -112,6 +113,12 @@ class SimuLOB extends OrderBook {
 		midpoint: {
 			borderColor: 'orange',
 			pointStyle: 'star',
+		},
+		title: {
+			borderColor: 'green',
+			pointStyle: false,
+			yAxisID: 'yTitle',
+			updateGroup: null,
 		},
 		nlv: {
 			borderColor: 'gold',
@@ -268,6 +275,23 @@ class SimuLOB extends OrderBook {
 							text: 'minutes'
 						}*/
 					},
+					yTitle: {
+						type: 'linear',
+						position: 'left',
+						stack: 'data',
+						display: 'auto',
+						stackWeight: 0.2,
+						title: {
+							text: 'title',
+							display: true,
+						},
+						ticks: {
+							source: 'data',
+							//display: false,
+						},
+						offset: true,
+						order: 0,
+					},
 					yNLV: {
 						type: 'linear',
 						position: 'left',
@@ -343,13 +367,16 @@ class SimuLOB extends OrderBook {
 	constructor(
 		oo,
 		tick_size=0.0001, verbose=true,
-		chartContainer, chartLabel,
+		chartContainerSelector, chartLabel,
 	) {
 		let isAuthonomous = false;
 		super(oo, tick_size, verbose, isAuthonomous);
-		this.chartContainer = chartContainer;
+		this.chartContainerSelector = chartContainerSelector;
+		this.chartContainer = document.querySelector(chartContainerSelector);
 		this.chartLabel = chartLabel;
-		this.data_branches = this.price_branch
+		this.data_branches = []
+			.concat(this.title_branch)
+			.concat(this.price_branch)
 			.concat(this.market_orders);
 		this.core_branches = this.data_branches
 			.concat(this.executions_branch)
@@ -361,11 +388,9 @@ class SimuLOB extends OrderBook {
 		this.chartBuffer = {};
 		this.charts = {};
 
-		this.persist = true;
 		this.simu_queries = {};
 		// isolation_level: null
-		//this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
-		this.simu_db = new oo.DB(':memory:', 'c');
+		this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
 		// move these to local db
 		this.trader_quotes = {};
 		this.order_names = {};
@@ -381,6 +406,8 @@ class SimuLOB extends OrderBook {
 					this.ticks = [];
 					this.loading = document.querySelector('#loading');
 					this.paused = document.querySelector('#paused');
+					this.chartContainer.querySelector('.tabs').textContent = '';
+					this.chartContainer.querySelector('.tab-content').textContent = '';
 					let chain = Promise.resolve();
 					if ('afterInit_hook' in window) {
 						chain = chain.then(
@@ -729,11 +756,11 @@ class SimuLOB extends OrderBook {
 				return true;
 			}
 		};
-		let canvasQuery = `${this.chartContainer} .tab-${chartLabel} canvas.chart-${chartLabel}`;
-		let canvas = document.querySelector(canvasQuery);
+		let canvasQuery = `.tab-${chartLabel} canvas.chart-${chartLabel}`;
+		let canvas = this.chartContainer.querySelector(canvasQuery);
 		if (!canvas) {
-			let tabsDiv = document.querySelector(`${this.chartContainer} .tabs`);
-			let chartsDiv = document.querySelector(`${this.chartContainer} .tab-content`);
+			let tabsDiv = this.chartContainer.querySelector('.tabs');
+			let chartsDiv = this.chartContainer.querySelector('.tab-content');
 			const mouseout = new Event("mouseout");
 			const tabLabels = tabsDiv.querySelectorAll('[data-tab-value]');
 			tabLabels.forEach(tabLabel => {
@@ -746,7 +773,11 @@ class SimuLOB extends OrderBook {
 			});
 			tabsDiv.insertAdjacentHTML(
 				'beforeend',
-				`<span data-tab-value="${this.chartContainer} .tab-${chartLabel}" class="active" onclick="tabClick(this, '${this.chartContainer}');">${chartLabel}</span>`
+				`<span
+					data-tab-value="${this.chartContainerSelector} .tab-${chartLabel}" class="active"
+					onclick="tabClick(this, '${this.chartContainerSelector}');">
+						${chartLabel}
+				</span>`
 			);
 			chartsDiv.insertAdjacentHTML(
 				'beforeend', `
@@ -756,7 +787,7 @@ class SimuLOB extends OrderBook {
 				<input value="🧐 ask" title="study ask" class="study-ask" type="button" onclick="studyAsk('${chartLabel}');" />
 				</div>`
 			);
-			canvas = document.querySelector(canvasQuery);
+			canvas = this.chartContainer.querySelector(canvasQuery);
 		}
 		let chartConfig = this.chartConfig(this.decimalDigits);
 		chartConfig.data = {
@@ -786,9 +817,9 @@ class SimuLOB extends OrderBook {
 		}
 	}
 	
-	endOfDay(chartLabel) {
-		this.afterTicks(chartLabel);
-		this.modificationsCharge();
+	async endOfDay(chartLabel) {
+		await this.modificationsCharge();
+		this.afterTicks(chartLabel); //should move to newchartstart
 	}
 	
 	run(dates) {
@@ -840,7 +871,7 @@ class SimuLOB extends OrderBook {
 			}
 			else if (this.ticks.length) {
 				let tick = this.ticks.shift();
-				if (tick.label == 'chartReset') {
+				if (tick.label == 'chartReset') { //todo should trigger explicitly
 					simu.newChartStart = true;
 					simu.prevLabel = simu.chartLabel;
 					simu.chartLabel = tick.title;
@@ -898,12 +929,6 @@ class SimuLOB extends OrderBook {
 	}
 	
 	quoteSave(label, quote, status='created', db) {
-		if (!this.persist) {
-			quote.status = status;
-			this.order_names[quote.idNum] = [quote.instrument, label];
-			this.trader_quotes[quote.instrument][label] = quote;
-			return;
-		}
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_insert,
 			bind: prepKeys(
@@ -924,9 +949,6 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteGet(trader, instrument, label, status=null, db) {
-		if (!this.persist) {
-			return this.trader_quotes[instrument][label];
-		}
 		let ret = null;
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_get,
@@ -947,10 +969,6 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteGetNum(trader, instrument, label, db) {
-		if (!this.persist) {
-			quote = this.trader_quotes[instrument][label];
-			return quote.idNum;
-		}
 		let ret = null;
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_getnum,
@@ -970,14 +988,6 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteGetAll(trader, instrument, side=null, status=null, db) {
-		if (!this.persist) {
-			return Object.entries(this.trader_quotes[instrument])
-				.filter(entry => trader == entry[1].tid &&
-					(side === null || entry[1].side == side) &&
-					(status === null || entry[1].status == status)
-				)
-				.reduce((a, b) => {a[b[0]] = b[1]; return a;}, {});
-		}
 		let ret = {};
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_getall,
@@ -999,11 +1009,6 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteGetKeys(trader, instrument, side=null, db) {
-		if (!this.persist) {
-			return Object.keys(this.trader_quotes[instrument])
-				.filter(label => side === null || label.slice(0, 3) == side)
-				.map(label => ([trader, instrument, label]));
-		}
 		let ret = [];
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_getkeys,
@@ -1023,19 +1028,6 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteGetByNum(idNum, db) {
-		if (!this.persist) {
-			if (!(idNum in this.order_names)) {
-				return null;
-			}
-			let [instrument, label] = this.order_names[idNum];
-			let quote = this.trader_quotes[instrument][label];
-			return {
-				trader: quote.tid,
-				instrument,
-				label,
-				quote,
-			};
-		}
 		let ret = null;
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_getbynum,
@@ -1054,15 +1046,6 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteUpdate(quote, db) {
-		if (!this.persist) {
-			let idNum = quote.idNum;
-			if (!(idNum in this.order_names)) {
-				return;
-			}
-			let [instrument, label] = this.order_names[idNum];
-			this.trader_quotes[instrument][label] = quote;
-			return;
-		}
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_update,
 			bind: prepKeys(
@@ -1081,17 +1064,6 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteDismiss(idNum, db) {
-		if (!this.persist) {
-			let [instrument, label] = this.order_names[idNum];
-//console.log('will dismiss', idNum, instrument, label);
-			delete this.trader_quotes[instrument][label];
-			this.trader_quotes = Object.assign({}, this.trader_quotes);
-//console.log('deleted?', Object.keys(this.trader_quotes[instrument]));
-			delete this.order_names[idNum];
-			this.order_names = Object.assign({}, this.order_names);
-//console.log('deleted?', Object.keys(this.order_names));
-			return;
-		}
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_dismiss,
 			bind: prepKeys(
@@ -1246,9 +1218,9 @@ class SimuLOB extends OrderBook {
 			x: time,
 			y: price,
 			label: {
-				text: `${side == 'ask' ? 'S' : 'B'} ${qty}`,
-				color: side == 'ask' ? 'red' : 'blue',
-				backgroundColor: 'yellow',
+				text: `${qty}`,
+				color: 'white',
+				backgroundColor: side == 'ask' ? 'red' : 'blue',
 			},
 		};
 		this.chartPushTicks('executions', tick);

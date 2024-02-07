@@ -23,6 +23,10 @@ let simuDefaults = {
 			'number of ev for price delta',
 			2
 		],
+	priceDeltaMultiplier: [
+		'multiplies the calculated priceDelta',
+		1
+	],
 	ignoreOffTime: [
 			'ignore time diff while offtime',
 			1
@@ -56,15 +60,18 @@ let simuDefaults = {
 			2,
 		],
 	steepTime: [
-			'do nothing with evt closer',
+			'do nothing with evt closer than',
+			//0,
 			2 * 60 * 1000,
 		],
 	staleTime: [
 			'ignore older ev',
+			//0,
 			2 * 3600 * 1000,
 		],
 	balanceTTL: [
 			'use cache before it elapses',
+			//todo: should check if implemented
 			2 * 60 * 1000,
 		],
 	templateCreator: [
@@ -215,7 +222,7 @@ class templateCreator {
 		const chunk = this.qtyChunk(qty);
 //setTableField('status', 'avg', avg);
 		for (let c = 0; c < this.simu.config.nSteps; ++c) {
-			const level = step * this.priceMultipliers[c] / 2;
+			const level = step * this.priceMultipliers[c] / 2 * this.simu.config.priceDeltaMultiplier;
 			const levelQty = Math.floor(chunk * this.qtyMultipliers[c]);
 			template[`bid_${c}`] = {
 				price: avg - level,
@@ -813,6 +820,44 @@ function inputScalar(form, field, fallBack) {
 	return value;
 }
 
+/*
+simuDefaults = {
+	"capital": 22000,
+	"bidPercent": 0.7,
+	"minProfit": 3,
+	"minProfitTolerance": 0.8,
+	"evForPriceAvg": 1,
+	"evForPriceDelta": 5,
+	"priceDeltaMultiplier": 1.5,
+	"ignoreOffTime": 1,
+	"nSteps": 20,
+	"avgChangeThreshold": 10,
+	"quoteModifyThreshold": 0.1,
+	"fulfillRecycle": 0,
+	"qtyChangeTolerance": 0.1,
+	"deltaIsMedianStep": "yes",
+	"stepsInDelta": 2,
+	"steepTime": 0,
+	"staleTime": 0,
+	"balanceTTL": 120000,
+	"templateCreator": "arithmeticSequence",
+	"stickToLast": "yes",
+	"dynamicStep": "yes",
+	"pastTimeScale": 0.2
+};
+
+for (let [k, v] of Object.entries(simuDefaults)) {
+	let options = window[k + '_options'];
+	if (options) {
+		console.log(options);
+		if (v in options) {
+			simuDefaults[k] = Array.isArray(options[v]) ? options[v][1] : options[v];
+		}
+		console.log(k, options, v, simuDefaults[k]);
+	}
+}
+*/
+
 function showConfig() {
 	let tableRows = [];
 	let configTable = document.querySelector('#config');
@@ -1259,6 +1304,7 @@ console.log('step changed:', simu.dynamicStep);
 			}
 			//compare and do needed changes
 			simu.avg = avg;
+console.log('mul', avg, simu.config.priceDeltaMultiplier);
 			let template = simu.templateCreator.createTemplate(avg, step, qty);
 			let events = {
 				onclick: {

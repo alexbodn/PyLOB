@@ -83,6 +83,7 @@ function csvLoad(simu, label) {
 }
 
 async function fetchPricesZIP(simu) {
+	const cleanLabel = /^lobdata\/(.*?)\.csv$/;
 	let result = new Promise((resolve, reject) => {
 		fetch(simu.location + '/data/lobdata-2009.zip')
 		.then(function (response) {					   // 2) filter on 200 OK
@@ -95,6 +96,9 @@ async function fetchPricesZIP(simu) {
 		.then(JSZip.loadAsync)							// 3) chain with the zip promise
 		.then(function (zip) {
 			simu.pricesZip = zip;
+			simu.pricesLabels = Object.keys(zip.files)
+				.map(label => label.replace(cleanLabel, '$1'));
+			console.log(simu.pricesLabels);
 			resolve();
 		});
 	});

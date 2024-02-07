@@ -72,14 +72,6 @@
 				</div>
 			</td>
 		</tr-->
-		<!--tr>
-			<td colspan="4">
-				<select id="charts"></select>
-			</td>
-			<td colspan="3">
-				<button onclick="saveChart()">save chart</button>
-			</td>
-		</tr-->
 		</tbody>
 	</table>
 	<div id="charts" class="flex-container container">
@@ -219,21 +211,6 @@
 	});
 	</script>
 	<script>
-	function saveChart() {
-		let label = document.querySelector('select#charts').value;
-console.log(label);
-		let data = window.sob.chartData(label);
-console.log(data.length);
-		let json = JSON.stringify(data, null, 2);
-		let fileName = `${label}-data.json`;
-console.log(json.length);
-		let file = new File([json], fileName, {type: "text/plain;charset=utf-8"});
-console.log(file);
-var blob = new Blob([json], {type: "text/plain;charset=utf-8"});
-		//saveAs(file);
-		saveAs(blob, fileName);
-console.log('label done?');
-	}
 	function datasetIndex(chart, label) {
 		return chart.legend.legendItems.findIndex(item => item.text == label);
 	}
@@ -283,7 +260,7 @@ console.log('label done?');
 					chartSelect.insertAdjacentHTML('beforeend', row);
 				}*/
 //todo build dataset select list
-				window.sqlConsole = new SQLQuery('div#sqlQuery', window.sob.simu_db, 'sqlConsole');
+				new SQLQuery('div#sqlQuery', window.sob.simu_db);
 				
 				window.sob.run(dates);
 			}
