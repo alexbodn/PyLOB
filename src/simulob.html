@@ -21,12 +21,6 @@
 	<style>
 		.warning, .error {color: red}
 		.error {background-color: yellow}
-		div#log {
-			display: flex;
-			flex-direction: column;
-			font-family: monospace;
-			white-space: break-spaces;
-		}
 		.lob-header * {
 			float: left;
 		}
@@ -36,11 +30,12 @@
 			padding-right: 15px;
 		}
 	</style>
-	<!--link rel="stylesheet" href="./flex.css" /-->
-	<link rel="stylesheet" href="./tabs.css" />
-	<!--style>
-	</style-->
-	<script src="./PyLOB/sqlquery.js"></script>
+	<style>
+		div#sqlQuery {
+			height: 90vh;
+		}
+	</style>
+	<script src="./node_modules/sqlitexplorer/lib/sqlitexplorer.js"></script>
 </head>
 <body>
 	<div>
@@ -82,12 +77,14 @@
 		<tbody id="status"></tbody>
 	</table>
 	<div id="sqlQuery" class="sqlQuery"></div>
+	<!----
 	<table>
 		<tbody id="config"></tbody>
 	</table>
 	<div style="overflow: scroll; height: 320px; border-style: ridge;">
 		<div id="log"></div>
 	</div>
+	---->
 
 
 <!-- The `multiple` attribute lets users select multiple files. -->
@@ -107,7 +104,7 @@
 			};
 		});
 	</script-->
-	<script src="./PyLOB/sqlitejs/sqlite3.js"></script>
+	<script src="./node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
 	<script src="./PyLOB/simulob/simuhooks.js"></script>
@@ -148,7 +145,7 @@
 			//const ln = document.createElement('div');
 			//if(cssClass) ln.classList.add(cssClass);
 			//ln.append(document.createTextNode(args.join(' ')));
-			let logDiv = document.querySelector("div#log");
+			let logDiv = document.querySelector("div#simu_log");
 			logDiv.insertAdjacentHTML(
 				'beforeend', `<div class="${cssClass}">${args.join(' ')}</div>`
 			);
@@ -163,9 +160,11 @@
 			});
 		};
 	}
-	const log = (...args)=>logHtml('',...args);
-	const warn = (...args)=>logHtml('warning',...args);
-	const error = (...args)=>logHtml('error',...args);
+	window.sqlConsole = new SQLiteXplorer('div#sqlQuery');
+	const log = (...args)=>sqlConsole.log(...args);
+	const warn = (...args)=>sqlConsole.warn(...args);
+	const error = (...args)=>sqlConsole.error(...args);
+	showConfig();
 	</script>
 	<script>
 	if(self.window!==self) /*worker thread*/{
@@ -202,7 +201,6 @@
 			oo = sqlite3.oo1/*high-level OO API*/;
 			let buttons = document.querySelector("#buttons");
 			buttons.style.display = 'table';
-			showConfig();
 		}
 		catch(e){
 			oo = null;
@@ -223,8 +221,6 @@
 		}
 	}
 	function simuStop() {
-		let logDiv = document.querySelector("div#log");
-		logDiv.textContent = '';
 		if (window.sob) {
 			sob.close();
 			window.sob = undefined;
@@ -249,40 +245,13 @@
 		window.sob = new SimuLOB(oo, undefined, undefined, 'div#charts', 'c1');
 		window.sob.init().then(
 			obj => {
-				//log(obj);
-				/*let chartSelect = document.querySelector('select#charts');
-				chartSelect.textContent = '';
-				for (let dataset of window.sob.chartDatasets()) {
-					let row =
-						`<option value="${dataset}">
-							${dataset}
-						</option>`;
-					chartSelect.insertAdjacentHTML('beforeend', row);
-				}*/
-//todo build dataset select list
-				new SQLQuery('div#sqlQuery', window.sob.simu_db);
+				window.sqlConsole.setDb(sob.db);
 				
 				window.sob.run(dates);
 			}
 		);
 	}
 	</script>
-	<script>
-		function tabClick(tab, chartContainer) {
-			chartContainer = document.querySelector(chartContainer);
-			const tabLabels = chartContainer.querySelectorAll('[data-tab-value]');
-			tabLabels.forEach(tabLabel => {
-				tabLabel.classList.remove('active');
-			});
-			tab.classList.add('active');
-			const tabInfos = chartContainer.querySelectorAll('[data-tab-info]');
-			tabInfos.forEach(tabInfo => {
-				tabInfo.classList.remove('active');
-			});
-			const target = document.querySelector(tab.dataset.tabValue);
-			target.classList.add('active');
-		}
-	</script>
-	<script>window.eruda && (eruda._isInit || eruda.init());</script>
+	<!--script>window.eruda && (eruda._isInit || eruda.init());</script-->
 </body>
 </html>

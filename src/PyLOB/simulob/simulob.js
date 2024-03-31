@@ -756,39 +756,33 @@ class SimuLOB extends OrderBook {
 				return true;
 			}
 		};
-		let canvasQuery = `.tab-${chartLabel} canvas.chart-${chartLabel}`;
-		let canvas = this.chartContainer.querySelector(canvasQuery);
-		if (!canvas) {
-			let tabsDiv = this.chartContainer.querySelector('.tabs');
-			let chartsDiv = this.chartContainer.querySelector('.tab-content');
-			const mouseout = new Event("mouseout");
-			const tabLabels = tabsDiv.querySelectorAll('[data-tab-value]');
-			tabLabels.forEach(tabLabel => {
-				tabLabel.classList.remove('active');
-				tabLabel.dispatchEvent(mouseout);
-			});
-			const tabInfos = chartsDiv.querySelectorAll('[data-tab-info]');
-			tabInfos.forEach(tabInfo => {
-				tabInfo.classList.remove('active');
-			});
-			tabsDiv.insertAdjacentHTML(
-				'beforeend',
-				`<span
-					data-tab-value="${this.chartContainerSelector} .tab-${chartLabel}" class="active"
-					onclick="tabClick(this, '${this.chartContainerSelector}');">
-						${chartLabel}
-				</span>`
+		
+		let tab = sqlConsole.tabSearch(chartLabel);
+		let tabInfo = sqlConsole.tabInfo(tab);
+		if (!tabInfo) {
+			[tab, tabInfo] = sqlConsole.createTab(
+				chartLabel, `
+				<div class="query-container">
+					<div style="height: 90%; border: 1">
+						<canvas class="chart-${chartLabel}" height="100%"></canvas>
+					</div>
+					<div style="height: 10%; border: 1">
+						<input value="🧐 bid" title="study bid" class="study-bid" type="button" onclick="studyBid('${chartLabel}');" />
+						<input value="🧐 ask" title="study ask" class="study-ask" type="button" onclick="studyAsk('${chartLabel}');" />
+					</div>
+				</div>`, {
+					withClose: true,
+					searchTag: chartLabel,
+				}
 			);
-			chartsDiv.insertAdjacentHTML(
-				'beforeend', `
-				<div class="flex-child tabs__tab active tab-${chartLabel}" data-tab-info>
-				<div><canvas class="chart-${chartLabel}"></canvas></div>
-				<input value="🧐 bid" title="study bid" class="study-bid" type="button" onclick="studyBid('${chartLabel}');" />
-				<input value="🧐 ask" title="study ask" class="study-ask" type="button" onclick="studyAsk('${chartLabel}');" />
-				</div>`
-			);
-			canvas = this.chartContainer.querySelector(canvasQuery);
-		}
+			sqlConsole.tabActivate(tab);
+ 		}
+		let canvas = tabInfo?.querySelector('canvas');
+		const observer = new ResizeObserver((entries) => {
+			canvas.width = canvas.clientWidth;
+			canvas.height = canvas.clientHeight;
+		});
+		observer.observe(canvas);
 		let chartConfig = this.chartConfig(this.decimalDigits);
 		chartConfig.data = {
 			datasets: this.chartBuildDataset()};

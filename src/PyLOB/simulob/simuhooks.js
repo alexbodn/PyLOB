@@ -858,9 +858,45 @@ for (let [k, v] of Object.entries(simuDefaults)) {
 }
 */
 
-function showConfig() {
+function showConfig(simu) {
 	let tableRows = [];
-	let configTable = document.querySelector('#config');
+	let tab, tabInfo;
+	tab = sqlConsole.tabSearch('simu_config');
+	if (!tab) {
+		[tab, tabInfo] = sqlConsole.createTab(
+			'config', `
+			<div>
+			<table>
+				<colgroup>
+					<col style="width:70%">
+					<col style="width:30%">
+				</colgroup>
+				<tbody>
+				</tbody>
+				<tfoot>
+					<tr>
+					<td>
+						<!--button class="load-config">load</button-->
+					</td>
+					<td>
+						<button class="copy-config">copy</button>
+					</td>
+					</tr>
+				</tfoot>
+			</table>
+			</div>`, {
+				searchTag: 'simu_config',
+			}
+		);
+		//tabInfo.querySelector('button.load-config').addEventListener(
+		//	'click', e => {loadConfig(simu);});
+		tabInfo.querySelector('button.copy-config').addEventListener(
+			'click', e => {let config = getConfig(); console.log(config);});
+	}
+	else {
+		tabInfo = sqlConsole.tabInfo(tab);
+	}
+	let configTable = tabInfo.querySelector('tbody');
 	for (let [key, value] of Object.entries(simuDefaults)) {
 		let val = inputScalar(
 			'config', key,
@@ -886,8 +922,8 @@ function showConfig() {
 		}
 		let row =
 			`<tr>
-				<td style="width:70%">${label}</td>
-				<td style="width:30%">${field}</td>
+				<td>${label}</td>
+				<td>${field}</td>
 			</tr>`;
 		tableRows.push(row);
 	}
@@ -898,15 +934,8 @@ function showConfig() {
 }
 
 function loadConfig(simu) {
-	let tableRows = [];
-	let configTable = document.querySelector('#config');
-	for (let [key, value] of Object.entries(simuDefaults)) {
-		let val = inputScalar(
-			'config', key,
-			(Array.isArray(value) ? value[1] : value).toString()
-		);
-		simu.config[key] = val;
-	}
+	let config = getDialogConfig();
+	simu.config = config;
 	let templateCreator_class = templateCreator_options[simu.config.templateCreator][1];
 	simu.templateCreator = new templateCreator_class(simu);
 	simu.stickToLast = stickToLast_options[simu.config.stickToLast][1];
@@ -915,6 +944,40 @@ function loadConfig(simu) {
 	let rounder = simu.getRounder(simu.instrument);
 	simu.setRounder(rounder);
 	simu.avgChangeThreshold = simu.config.avgChangeThreshold / rounder;
+}
+
+function getDialogConfig() {
+	let config = {};
+	let tab = sqlConsole.tabSearch('simu_config');
+	let configTable = sqlConsole.tabInfo(tab);
+	configTable.querySelectorAll('input,select').forEach(input => {
+		let key = input.classList[0];
+		let value = input.value;
+		let val = inputScalar(
+			'config', key,
+			(Array.isArray(value) ? value[1] : value).toString()
+		);
+		config[key] = val;
+	});
+	return config;
+}
+
+function makeDefaults(config) {
+	let result = {};
+	for (let [key, value] of Object.entries(simuDefaults)) {
+		result[key] = value;
+		let val = config[key];
+		if (isString(val)) {
+			val += '*';
+		}
+		if (Array.isArray(value)) {
+			result[key][1] = val;
+		}
+		else {
+			result[key] = val;
+		}
+	}
+	return result;
 }
 
 function chartBuildDataset_hook(simu, datasets) {
