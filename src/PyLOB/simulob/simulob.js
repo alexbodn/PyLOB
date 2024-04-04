@@ -133,13 +133,12 @@ class SimuLOB extends OrderBook {
 		title: {
 			borderColor: 'green',
 			pointStyle: false,
-			yAxisID: 'y00Title',
+			yAxisID: 'y99Date',
 			updateGroup: null,
 			datalabels: {
 				color: 'black',
 				backgroundColor: 'yellow',
 				align: 'right',
-				//anchor: 'end',
 			},
 		},
 		nlv: {
@@ -355,7 +354,7 @@ class SimuLOB extends OrderBook {
 						offset: true,
 						//order: 2,
 					},
-					y00Title: {
+					y99Date: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
@@ -561,27 +560,11 @@ class SimuLOB extends OrderBook {
 	}
 	
 	getChartInfo(chartLabel) {
-	if (!this.charts[chartLabel || this.chartLabel]) {
-	console.log(chartLabel, this.chartLabel);
-	}
 		return this.charts[chartLabel || this.chartLabel] || {};
 	}
 	
 	chartLoadBuffer(chartLabel) {
-		let info = this.getChartInfo(chartLabel);
-		if (!info.chart) {
-			return;
-		}
-		for (let [label, ds] of Object.entries(info.dataBuffer)) {
-			let ticks = ds.data || [];
-			while (ticks.length) {
-				this._chartPushTicks(label, info.label, ticks.shift());
-			}
-		}
-	}
-	
-	chartLoadInitial() {
-		for (let [label, ds] of Object.entries(this.chartBuffer)) {
+		for (let [label, ds] of Object.entries(this.chartBuffer[chartLabel] || {})) {
 			let ticks = ds.data || [];
 			while (ticks.length) {
 				let tick = ticks.shift();
@@ -594,21 +577,21 @@ class SimuLOB extends OrderBook {
 		if (!chartLabel) {
 			chartLabel = this.chartLabel;
 		}
+		if (!chartLabel) {
+			return;
+		}
 		let chart = this.charts[chartLabel];
-		if (!chartLabel || !chart || !chart.dataBuffer) {
-			if (!this.chartBuffer[label]) {
-				this.chartBuffer[label] = {data: []};
-			}
-			return this.chartBuffer[label];
-		}
-		if (!(label in chart.dataBuffer)) {
-			chart.dataBuffer[label] = {data: []};
-		}
-		if (chart.chart) {
+		if (chart?.chart) {
 			let ix = this.chartIndex[label].dataset;
 			return chart.chart.data.datasets[ix];
 		}
-		return chart.dataBuffer[label];
+		if (!this.chartBuffer[chartLabel]) {
+			this.chartBuffer[chartLabel] = {};
+		}
+		if (!this.chartBuffer[chartLabel][label]) {
+			this.chartBuffer[chartLabel][label] = {data: []};
+		}
+		return this.chartBuffer[chartLabel][label];
 	}
 	
 	chartDatasets(chartLabel) {
@@ -624,7 +607,6 @@ class SimuLOB extends OrderBook {
 	
 	chartDoUpdate(chartInfo) {
 		chartInfo.updating = true;
-		chartInfo.chart.data.labels = Array.from(chartInfo.orderedLabels).sort();
 		chartInfo.chart.update('none');
 	}
 	
@@ -690,12 +672,6 @@ class SimuLOB extends OrderBook {
 			if (data.length && data.at(-1).sentinel) {
 				data.pop();
 			}
-	if (!chartInfo.orderedLabels) {
-	console.log(chartInfo, label, ticks);
-	}
-			for (let tick of ticks) {
-				chartInfo.orderedLabels.add(tick.x);
-			}
 			data.push(...ticks);
 			this.chartDataUpdate(label, ticks, chartLabel);
 		}
@@ -705,7 +681,7 @@ class SimuLOB extends OrderBook {
 		let ds = this.chartDataset(label, chartLabel);
 		if (ds) {
 			ds.data = ticks;
-			this.chartDataUpdate(label, ticks);
+			this.chartDataUpdate(label, ticks, chartLabel);
 		}
 	}
 	
@@ -729,10 +705,8 @@ class SimuLOB extends OrderBook {
 				Object.keys(this.updateFrequency)
 					.reduce((a, b) => {a[b] = 0; return a;}, {}),
 			initialized: false,
-			orderedLabels: new Set([]),
 		};
 		let chartInfo = this.charts[chartLabel];
-		this.chartLoadInitial();
 		let additionalPlugins = {
 			afterInit: (chart, args, options) => {
 				if (!chartInfo.initialized) {
@@ -768,7 +742,6 @@ class SimuLOB extends OrderBook {
 							{x: firstTime + 1, y: quote.price, sentinel: true},
 						);
 					}
-					this.chartLoadBuffer(chartLabel);
 				}
 				this._chartPushTicks(
 					'title',
@@ -781,6 +754,7 @@ class SimuLOB extends OrderBook {
 						},
 					},
 				);
+				this.chartLoadBuffer(chartLabel);
 			},
 			beforeUpdate: (chart, args, options) => {
 				if ('beforeUpdateChart_hook' in window) {
@@ -934,7 +908,6 @@ class SimuLOB extends OrderBook {
 					simu.newChartStart = true;
 					simu.prevLabel = simu.chartLabel;
 					simu.chartLabel = tick.title;
-					this.chartLoadInitial();
 					simu.firstTickFollows = true;
 					return;
 				}

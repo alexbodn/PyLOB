@@ -6,8 +6,8 @@
 			'2009-09-28',
 			'2009-09-29',
 			'2009-09-30',
-			/*
 			'2009-10-01',
+			/*
 			'2009-10-02',
 			'2009-10-05',
 			'2009-10-06',
@@ -121,7 +121,6 @@
 	<script src="./PyLOB/luxon/luxon.min.js"></script>
 	<script src="./PyLOB/chart/chartjs-luxon/chartjs-adapter-luxon.js"></script>
 	
-	<script src="./PyLOB/js-sdsl/js-sdsl.min.js"></script>
 	<script src="./PyLOB/jszip/jszip.min.js"></script>
 	<!--script src="./PyLOB/eruda/eruda.js"></script-->
 	<script src="./PyLOB/file-saver/FileSaver.js"></script>
@@ -209,17 +208,6 @@
 	});
 	</script>
 	<script>
-	function datasetIndex(chart, label) {
-		return chart.legend.legendItems.findIndex(item => item.text == label);
-	}
-	function chartupdate()
-	{
-		let index = datasetIndex(sob.chart, 'ask');
-		if (index >= 0) {
-			sob.chart.setDatasetVisibility(index, !sob.chart.isDatasetVisible(index));
-			sob.chart.update();
-		}
-	}
 	function simuStop() {
 		if (window.sob) {
 			sob.close();
