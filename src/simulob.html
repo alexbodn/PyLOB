@@ -113,7 +113,6 @@
 	<script src="./PyLOB/simulob/simulob.js"></script>
 	
 	<script src="./PyLOB/chart/chartjs-4.4.0/chart.umd.min.js"></script>
-	<!--script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script-->
 	<script src="./PyLOB/chart/chartjs-datalabels/chartjs-plugin-datalabels.min.js"></script>
 
 	<script src="./PyLOB/hammerjs/hammer.min.js"></script>
@@ -122,6 +121,7 @@
 	<script src="./PyLOB/luxon/luxon.min.js"></script>
 	<script src="./PyLOB/chart/chartjs-luxon/chartjs-adapter-luxon.js"></script>
 	
+	<script src="./PyLOB/js-sdsl/js-sdsl.min.js"></script>
 	<script src="./PyLOB/jszip/jszip.min.js"></script>
 	<!--script src="./PyLOB/eruda/eruda.js"></script-->
 	<script src="./PyLOB/file-saver/FileSaver.js"></script>
@@ -234,12 +234,6 @@
 			simuStop();
 			runsob(oo);
 		}
-	}
-	function studyBid(chartLabel) {
-		sob.studySide('bid', chartLabel);
-	}
-	function studyAsk(chartLabel) {
-		sob.studySide('ask', chartLabel);
 	}
 	function runsob(oo) {
 		window.sob = new SimuLOB(oo, undefined, undefined, 'div#charts', 'c1');

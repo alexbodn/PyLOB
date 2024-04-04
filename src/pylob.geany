@@ -27,14 +27,13 @@ long_line_behaviour=1
 long_line_column=80
 
 [files]
-current_page=4
-FILE_NAME_0=5303;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
-FILE_NAME_1=5670;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
-FILE_NAME_2=5653;Diff;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Flob.diff;0;4
-FILE_NAME_3=1722;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
-FILE_NAME_4=22752;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimuhooks.js;0;4
-FILE_NAME_5=11683;Diff;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fsimuhooks.diff;0;4
-FILE_NAME_6=22861;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fnode_modules%2Fsqlitexplorer%2Flib%2Fsqlitexplorer.js;0;4
+current_page=1
+FILE_NAME_0=26492;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimuhooks.js;0;4
+FILE_NAME_1=15552;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
+FILE_NAME_2=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
+FILE_NAME_3=3803;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
+FILE_NAME_4=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fnode_modules%2Fsqlitexplorer%2Flib%2Fsqlitexplorer.js;0;4
+FILE_NAME_5=405;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsnippet.html;0;4
 
 [VTE]
 last_dir=/home/alex/python3/PyLOB/src/PyLOB/simulob

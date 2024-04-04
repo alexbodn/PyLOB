@@ -8,6 +8,22 @@
 //var scriptDirectory = _scriptDir.substr(0, _scriptDir.replace(/[?#].*/, "").lastIndexOf('/')+1);
 //console.log(scriptDirectory);
 
+function objectStringify(obj, sep) {
+	var placeholder = '____PLACEHOLDER____';
+	var fns = [];
+	var json = JSON.stringify(obj, function(key, value) {
+		if (typeof value === 'function') {
+			fns.push(value);
+			return placeholder;
+		}
+		return value;
+	}, sep);
+	json = json.replace(new RegExp('"' + placeholder + '"', 'g'), function(_) {
+		return fns.shift();
+	});
+	return json;
+};
+
 function labelattr(context, attr)
 {
 	let label = context.dataset.data[context.dataIndex].label;
@@ -117,13 +133,19 @@ class SimuLOB extends OrderBook {
 		title: {
 			borderColor: 'green',
 			pointStyle: false,
-			yAxisID: 'yTitle',
+			yAxisID: 'y00Title',
 			updateGroup: null,
+			datalabels: {
+				color: 'black',
+				backgroundColor: 'yellow',
+				align: 'right',
+				//anchor: 'end',
+			},
 		},
 		nlv: {
 			borderColor: 'gold',
 			pointStyle: 'star',
-			yAxisID: 'yNLV',
+			yAxisID: 'y03NLV',
 			//hidden: true,
 			updateGroup: 'balance',
 		},
@@ -189,6 +211,12 @@ class SimuLOB extends OrderBook {
 						formatter: function(value, context) {
 							//return value;
 							return labelattr(context, 'text');
+						},
+						anchor: function(context) {
+							return labelattr(context, 'anchor');
+						},
+						align: function(context) {
+							return labelattr(context, 'align');
 						},
 						padding: 1
 					},
@@ -275,24 +303,7 @@ class SimuLOB extends OrderBook {
 							text: 'minutes'
 						}*/
 					},
-					yTitle: {
-						type: 'linear',
-						position: 'left',
-						stack: 'data',
-						display: 'auto',
-						stackWeight: 0.2,
-						title: {
-							text: 'title',
-							display: true,
-						},
-						ticks: {
-							source: 'data',
-							//display: false,
-						},
-						offset: true,
-						order: 0,
-					},
-					yNLV: {
+					y03NLV: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
@@ -307,9 +318,9 @@ class SimuLOB extends OrderBook {
 							//display: false,
 						},
 						offset: true,
-						order: 2,
+						//order: 3,
 					},
-					yBalance: {
+					y02Balance: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
@@ -323,9 +334,9 @@ class SimuLOB extends OrderBook {
 							source: 'data',
 						},
 						offset: true,
-						order: 3,
+						//order: 4,
 					},
-					yPrices: {
+					y01Prices: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
@@ -342,7 +353,24 @@ class SimuLOB extends OrderBook {
 							color: 'green',
 						},
 						offset: true,
-						order: 1,
+						//order: 2,
+					},
+					y00Title: {
+						type: 'linear',
+						position: 'left',
+						stack: 'data',
+						display: true,
+						stackWeight: 0.2,
+						title: {
+							text: 'title',
+							display: true,
+						},
+						ticks: {
+							source: 'data',
+							//display: false,
+						},
+						offset: true,
+						//order: 1,
 					},
 				},
 			},
@@ -374,14 +402,16 @@ class SimuLOB extends OrderBook {
 		this.chartContainerSelector = chartContainerSelector;
 		this.chartContainer = document.querySelector(chartContainerSelector);
 		this.chartLabel = chartLabel;
-		this.data_branches = []
-			.concat(this.title_branch)
-			.concat(this.price_branch)
-			.concat(this.market_orders);
-		this.core_branches = this.data_branches
-			.concat(this.executions_branch)
-			.concat(this.balance_branch)
-			;
+		this.data_branches = [
+			...this.title_branch,
+			...this.price_branch,
+			...this.market_orders,
+		];
+		this.core_branches = [
+			...this.data_branches,
+			...this.executions_branch,
+			...this.balance_branch,
+		];
 		this.order_branches = this.market_orders;
 		// an index to the datasets
 		this.chartIndex = {};
@@ -490,7 +520,7 @@ class SimuLOB extends OrderBook {
 				isQuote: order_branch,
 				label: branch,
 				beginAtZero: false,
-				yAxisID: 'yPrices',
+				yAxisID: 'y01Prices',
 				stepped: order_branch,
 				spanGaps: false,
 				hidden: 0&&!order_branch,
@@ -531,6 +561,9 @@ class SimuLOB extends OrderBook {
 	}
 	
 	getChartInfo(chartLabel) {
+	if (!this.charts[chartLabel || this.chartLabel]) {
+	console.log(chartLabel, this.chartLabel);
+	}
 		return this.charts[chartLabel || this.chartLabel] || {};
 	}
 	
@@ -591,6 +624,7 @@ class SimuLOB extends OrderBook {
 	
 	chartDoUpdate(chartInfo) {
 		chartInfo.updating = true;
+		chartInfo.chart.data.labels = Array.from(chartInfo.orderedLabels).sort();
 		chartInfo.chart.update('none');
 	}
 	
@@ -656,6 +690,12 @@ class SimuLOB extends OrderBook {
 			if (data.length && data.at(-1).sentinel) {
 				data.pop();
 			}
+	if (!chartInfo.orderedLabels) {
+	console.log(chartInfo, label, ticks);
+	}
+			for (let tick of ticks) {
+				chartInfo.orderedLabels.add(tick.x);
+			}
 			data.push(...ticks);
 			this.chartDataUpdate(label, ticks, chartLabel);
 		}
@@ -689,6 +729,7 @@ class SimuLOB extends OrderBook {
 				Object.keys(this.updateFrequency)
 					.reduce((a, b) => {a[b] = 0; return a;}, {}),
 			initialized: false,
+			orderedLabels: new Set([]),
 		};
 		let chartInfo = this.charts[chartLabel];
 		this.chartLoadInitial();
@@ -729,6 +770,17 @@ class SimuLOB extends OrderBook {
 					}
 					this.chartLoadBuffer(chartLabel);
 				}
+				this._chartPushTicks(
+					'title',
+					chartLabel,
+					{
+						x: firstTime,
+						y: 0,
+						label: {
+							text: chartLabel,
+						},
+					},
+				);
 			},
 			beforeUpdate: (chart, args, options) => {
 				if ('beforeUpdateChart_hook' in window) {
@@ -763,17 +815,30 @@ class SimuLOB extends OrderBook {
 			[tab, tabInfo] = sqlConsole.createTab(
 				chartLabel, `
 				<div class="query-container">
-					<div style="height: 90%; border: 1">
+					<div style="height: 90%;">
 						<canvas class="chart-${chartLabel}" height="100%"></canvas>
 					</div>
-					<div style="height: 10%; border: 1">
-						<input value="🧐 bid" title="study bid" class="study-bid" type="button" onclick="studyBid('${chartLabel}');" />
-						<input value="🧐 ask" title="study ask" class="study-ask" type="button" onclick="studyAsk('${chartLabel}');" />
+					<div style="height: 10%;">
+						<button class="study-bid">🧐 bid</button>
+						<button class="study-ask">🧐 ask</button>
+						<button class="chart-copy">📈 copy</button>
 					</div>
 				</div>`, {
 					withClose: true,
 					searchTag: chartLabel,
 				}
+			);
+			tabInfo.querySelector('button.study-bid').addEventListener(
+				'click',
+				e => {this.studySide('bid', chartLabel);}
+			);
+			tabInfo.querySelector('button.study-ask').addEventListener(
+				'click',
+				e => {this.studySide('ask', chartLabel);}
+			);
+			tabInfo.querySelector('button.chart-copy').addEventListener(
+				'click',
+				e => {this.chartCopy(chartLabel);}
 			);
 			sqlConsole.tabActivate(tab);
  		}
@@ -1300,7 +1365,6 @@ class SimuLOB extends OrderBook {
 					.filter(label => label.slice(0, 3) == side)
 			);
 		let info = this.getChartInfo(chartLabel);
-console.log('studySide', side, chartLabel, info.id, info.chart.id);
 		for (let label of this.branches) {
 			let ix = this.chartIndex[label].dataset;
 			if (labels.includes(label)) {
@@ -1311,6 +1375,57 @@ console.log('studySide', side, chartLabel, info.id, info.chart.id);
 			}
 		}
 		info.chart.update();
+	}
+	
+	chartCopy(chartLabel) {
+		let info = this.getChartInfo(chartLabel);
+		let config = this.chartConfig(this.decimalDigits);
+		let data = info.chart.config.data;
+		data.datasets = data.datasets.filter(
+			(ds, i) => info.chart.isDatasetVisible(i))
+			;
+		data.datasets.forEach(ds => {
+			ds.data = ds.data.slice(0, 100);
+		});
+		config.plugins = config.plugins.filter(plugin => plugin.id != "datalabels");
+		let snippet = `
+			<script src="https://cdn.jsdelivr.net/npm/chart.js@^4"></script>
+			<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@^2"></script>
+			<script src="https://cdn.jsdelivr.net/npm/luxon@^2"></script>
+			<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@^1"></script>
+			
+			<div class="chart" style="height:100vh; width:100vw">
+				<canvas id="myChart"></canvas>
+			</div>
+			<script>
+			const data = ${JSON.stringify(data)};
+			
+			function labelattr(context, attr)
+			{
+				let label = context.dataset.data[context.dataIndex].label;
+				if (label) {
+					return label[attr];
+				}
+				return null;
+			}
+			const config = ${objectStringify(config, '\t')};
+			config.plugins.push(ChartDataLabels);
+			config.data = data;
+			
+			const ctx = document.getElementById('myChart');
+			chart = new Chart(
+				ctx,
+				config,
+			);
+			</script>
+		`;
+		navigator.clipboard.writeText(snippet)
+			.then(() => {
+				//alert('clipboard successfully set');
+			})
+			.catch(error => {
+				alert('clipboard write failed', error);
+			});
 	}
 	
 	quotesQueueLock(lock=true) {
