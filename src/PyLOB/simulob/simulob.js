@@ -459,9 +459,9 @@ class SimuLOB extends OrderBook {
 					this.loading = document.querySelector('#loading');
 					this.paused = document.querySelector('#paused');
 					let chain = Promise.resolve();
-					if ('afterInit_hook' in window) {
+					if ('hook_afterInit' in window) {
 						chain = chain.then(
-							value => {return afterInit_hook(this);});
+							value => {return hook_afterInit(this);});
 					}
 					return chain;
 				}
@@ -548,8 +548,8 @@ class SimuLOB extends OrderBook {
 			objectUpdate(dataset, this.chartStyle[branch] || {});
 			datasets.push(dataset);
 		}
-		if ('chartBuildDataset_hook' in window) {
-			chartBuildDataset_hook(this, datasets);
+		if ('hook_chartBuildDataset' in window) {
+			hook_chartBuildDataset(this, datasets);
 		}
 		let branches = [];
 		let order_branches = [];
@@ -785,8 +785,8 @@ class SimuLOB extends OrderBook {
 				this.chartLoadBuffer(chartLabel);
 			},
 			beforeUpdate: (chart, args, options) => {
-				if ('beforeUpdateChart_hook' in window) {
-					beforeUpdateChart_hook(this, chartLabel);
+				if ('hook_beforeUpdateChart' in window) {
+					hook_beforeUpdateChart(this, chartLabel);
 				}
 				let chartInfo = this.getChartInfo(chartLabel);
 				let sentinelTime = chartInfo.lastTime || this.getTime();
@@ -873,8 +873,8 @@ class SimuLOB extends OrderBook {
 		if (this.paused) {
 			this.paused.style.display = 'none';
 		}
-		if ('afterTicks_hook' in window) {
-			afterTicks_hook(this, chartLabel);
+		if ('hook_afterTicks' in window) {
+			hook_afterTicks(this, chartLabel);
 		}
 	}
 	
@@ -948,8 +948,8 @@ class SimuLOB extends OrderBook {
 					simu.newChartStart = false;
 					this.chartInit(simu.chartLabel, simu.prevLabel, tick.timestamp);
 					///this.chart.options.scales.x.min = tick.timestamp;
-					if ('newChartStart_hook' in window) {
-						newChartStart_hook(simu);
+					if ('hook_newChartStart' in window) {
+						hook_newChartStart(simu);
 					}
 				}
 				if (simu.firstTickFollows) {
@@ -1191,8 +1191,8 @@ class SimuLOB extends OrderBook {
 			{x: quote.timestamp, y: quote.price},
 			{x: quote.timestamp + 1, y: quote.price, sentinel: true},
 		);
-		if ('orderSent_hook' in window) {
-			orderSent_hook(this, quote.tid, instrument, label, quote.price);
+		if ('hook_orderSent' in window) {
+			hook_orderSent(this, quote.tid, instrument, label, quote.price);
 		}
 	}
 	
@@ -1223,16 +1223,16 @@ class SimuLOB extends OrderBook {
 	
 	setLastPrice(instrument, price, db) {
 		let ret = super.setLastPrice(instrument, price, db);
-		if ('setLastPrice_hook' in window) {
-			setLastPrice_hook(this, instrument, price);
+		if ('hook_setLastPrice' in window) {
+			hook_setLastPrice(this, instrument, price);
 		}
 		return ret;
 	}
 	
 	tickMidPoint(instrument, midPoint, db) {
 		let ret = super.tickMidPoint(instrument, midPoint, db);
-		if ('tickMidPoint_hook' in window) {
-			tickMidPoint_hook(this, instrument, midPoint);
+		if ('hook_tickMidPoint' in window) {
+			hook_tickMidPoint(this, instrument, midPoint);
 		}
 		return ret;
 	}
@@ -1253,8 +1253,8 @@ class SimuLOB extends OrderBook {
 		if (fulfilled == qty) {
 			this.dismissQuote(idNum);
 		}
-		if ('orderFulfill_hook' in window) {
-			orderFulfill_hook(this, instrument, label, trader, qty, fulfilled, commission, avgPrice);
+		if ('hook_orderFulfill' in window) {
+			hook_orderFulfill(this, instrument, label, trader, qty, fulfilled, commission, avgPrice);
 		}
 		return ret;
 	}
@@ -1270,8 +1270,8 @@ class SimuLOB extends OrderBook {
 			return;
 		}
 		let {instrument, label} = order;
-		if ('orderExecuted_hook' in window) {
-			orderExecuted_hook(this, instrument, label, trader, time, qty, price);
+		if ('hook_orderExecuted' in window) {
+			hook_orderExecuted(this, instrument, label, trader, time, qty, price);
 		}
 		let side = this.orderGetSide(idNum);
 		let tick = {
@@ -1302,8 +1302,8 @@ class SimuLOB extends OrderBook {
 		//why
 		//this.derailedLabels[instrument][label] = true;
 		//this?
-		if ('orderCancelled_hook' in window) {
-			orderCancelled_hook(this, instrument, label, trader, time);
+		if ('hook_orderCancelled' in window) {
+			hook_orderCancelled(this, instrument, label, trader, time);
 		}
 		return ret;
 	}
@@ -1317,16 +1317,16 @@ class SimuLOB extends OrderBook {
 	
 	traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra}) {
 		let ret = super.traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra});
-		if ('traderBalance_hook' in window) {
-			traderBalance_hook(this, trader, instrument, amount, lastprice, value, liquidation, time, extra);
+		if ('hook_traderBalance' in window) {
+			hook_traderBalance(this, trader, instrument, amount, lastprice, value, liquidation, time, extra);
 		}
 		return ret;
 	}
 	
 	traderNLV({trader, nlv, extra}) {
 		let ret = super.traderNLV({trader, nlv, extra});
-		if ('traderNLV_hook' in window) {
-			traderNLV_hook(this, trader, nlv, extra);
+		if ('hook_traderNLV' in window) {
+			hook_traderNLV(this, trader, nlv, extra);
 		}
 		return ret;
 	}
@@ -1444,3 +1444,4 @@ class SimuLOB extends OrderBook {
 		}
 	}
 };
+
