@@ -24,6 +24,28 @@ function objectStringify(obj, sep) {
 	return json;
 };
 
+function clearTableField(tableId, field) {
+	let selector = `#${tableId} tr`;
+	if (field) {
+		selector += `.${field}`;
+	}
+	const rows = document.querySelectorAll(selector);
+	rows.forEach(row => {
+		row.remove();
+	});
+}
+
+function setTableField(tableId, field, value) {
+	clearTableField(tableId, field);
+	const table = document.querySelector(`#${tableId}`);
+	let row =
+		`<tr class="${field}">
+			<td>${field}</td>
+			<td>${value}</td>
+		</tr>`;
+	table.insertAdjacentHTML('beforeend', row);
+}
+
 function labelattr(context, attr)
 {
 	let label = context.dataset.data[context.dataIndex].label;
@@ -104,6 +126,8 @@ class SimuLOB extends OrderBook {
 	market_tid = undefined;
 	trader_tid = undefined;
 	
+	titleLabel = 'title';
+	
 	title_branch = ['title'];
 	price_branch = ['price', 'midpoint'];
 	balance_branch = ['nlv'];
@@ -133,7 +157,7 @@ class SimuLOB extends OrderBook {
 		title: {
 			borderColor: 'green',
 			pointStyle: false,
-			yAxisID: 'y99Date',
+			yAxisID: 'yDate',
 			updateGroup: null,
 			datalabels: {
 				color: 'black',
@@ -144,7 +168,7 @@ class SimuLOB extends OrderBook {
 		nlv: {
 			borderColor: 'gold',
 			pointStyle: 'star',
-			yAxisID: 'y03NLV',
+			yAxisID: 'yNLV',
 			//hidden: true,
 			updateGroup: 'balance',
 		},
@@ -302,12 +326,13 @@ class SimuLOB extends OrderBook {
 							text: 'minutes'
 						}*/
 					},
-					y03NLV: {
+					yNLV: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
 						display: 'auto',
 						stackWeight: 0.5,
+						weight: -3,
 						title: {
 							text: 'nlv',
 							display: true,
@@ -319,12 +344,13 @@ class SimuLOB extends OrderBook {
 						offset: true,
 						//order: 3,
 					},
-					y02Balance: {
+					yBalance: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
 						display: 'auto',
 						stackWeight: 0.5,
+						weight: -2,
 						title: {
 							text: 'balance',
 							display: true,
@@ -335,11 +361,12 @@ class SimuLOB extends OrderBook {
 						offset: true,
 						//order: 4,
 					},
-					y01Prices: {
+					yPrices: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
 						stackWeight: 3,
+						weight: -1,
 						title: {
 							text: 'prices',
 							display: true,
@@ -354,19 +381,20 @@ class SimuLOB extends OrderBook {
 						offset: true,
 						//order: 2,
 					},
-					y99Date: {
+					yDate: {
 						type: 'linear',
 						position: 'left',
 						stack: 'data',
 						display: true,
 						stackWeight: 0.2,
+						weight: 0,
 						title: {
-							text: 'title',
+							text: 'day',
 							display: true,
 						},
 						ticks: {
 							source: 'data',
-							//display: false,
+							display: false,
 						},
 						offset: true,
 						//order: 1,
@@ -391,16 +419,9 @@ class SimuLOB extends OrderBook {
 		'quote_update',
 	];
 	
-	constructor(
-		oo,
-		tick_size=0.0001, verbose=true,
-		chartContainerSelector, chartLabel,
-	) {
+	constructor(oo, defaults, verbose=true) {
 		let isAuthonomous = false;
-		super(oo, tick_size, verbose, isAuthonomous);
-		this.chartContainerSelector = chartContainerSelector;
-		this.chartContainer = document.querySelector(chartContainerSelector);
-		this.chartLabel = chartLabel;
+		super(oo, undefined, verbose, isAuthonomous);
 		this.data_branches = [
 			...this.title_branch,
 			...this.price_branch,
@@ -423,6 +444,8 @@ class SimuLOB extends OrderBook {
 		// move these to local db
 		this.trader_quotes = {};
 		this.order_names = {};
+		
+		this.defaults = defaults;
 	}
 	
 	async init() {
@@ -435,8 +458,6 @@ class SimuLOB extends OrderBook {
 					this.ticks = [];
 					this.loading = document.querySelector('#loading');
 					this.paused = document.querySelector('#paused');
-					this.chartContainer.querySelector('.tabs').textContent = '';
-					this.chartContainer.querySelector('.tab-content').textContent = '';
 					let chain = Promise.resolve();
 					if ('afterInit_hook' in window) {
 						chain = chain.then(
@@ -519,7 +540,7 @@ class SimuLOB extends OrderBook {
 				isQuote: order_branch,
 				label: branch,
 				beginAtZero: false,
-				yAxisID: 'y01Prices',
+				yAxisID: 'yPrices',
 				stepped: order_branch,
 				spanGaps: false,
 				hidden: 0&&!order_branch,
@@ -668,11 +689,18 @@ class SimuLOB extends OrderBook {
 			ticks = currentTicks;
 		}
 		let data = this.chartData(label, chartLabel);
-		if (data) {
+		if (data && ticks.length) {
 			if (data.length && data.at(-1).sentinel) {
 				data.pop();
 			}
 			data.push(...ticks);
+			if (this.titleLabel && label != this.titleLabel) {
+				let titleData = this.chartData(this.titleLabel, chartLabel);
+				if (titleData) {
+					let titleTicks = ticks.map(tick => Object.assign({}, tick, {y: null}));
+					titleData.push(...titleTicks);
+				}
+			}
 			this.chartDataUpdate(label, ticks, chartLabel);
 		}
 	}

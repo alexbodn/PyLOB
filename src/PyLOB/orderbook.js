@@ -235,6 +235,7 @@ class OrderBook {
 	
 	debug = false;
 
+	//@isAuthonomous will set last price by the executed orders
 	constructor(oo, tick_size=0.0001, verbose=false, isAuthonomous=true) {
 		this.tickSize = tick_size;
 		this.decimalDigits = Math.log10(1 / this.tickSize);

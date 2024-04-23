@@ -6,8 +6,8 @@
 			'2009-09-28',
 			'2009-09-29',
 			'2009-09-30',
-			'2009-10-01',
 			/*
+			'2009-10-01',
 			'2009-10-02',
 			'2009-10-05',
 			'2009-10-06',
@@ -69,22 +69,10 @@
 		</tr-->
 		</tbody>
 	</table>
-	<div id="charts" class="flex-container container">
-		<div class="tabs"></div>
-		<div class="tab-content"></div>
-	</div>
 	<table>
 		<tbody id="status"></tbody>
 	</table>
 	<div id="sqlQuery" class="sqlQuery"></div>
-	<!----
-	<table>
-		<tbody id="config"></tbody>
-	</table>
-	<div style="overflow: scroll; height: 320px; border-style: ridge;">
-		<div id="log"></div>
-	</div>
-	---->
 
 
 <!-- The `multiple` attribute lets users select multiple files. -->
@@ -224,7 +212,7 @@
 		}
 	}
 	function runsob(oo) {
-		window.sob = new SimuLOB(oo, undefined, undefined, 'div#charts', 'c1');
+		window.sob = new SimuLOB(oo);
 		window.sob.init().then(
 			obj => {
 				window.sqlConsole.setDb(sob.db);
