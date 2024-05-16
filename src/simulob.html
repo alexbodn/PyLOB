@@ -38,18 +38,29 @@
 	<script src="./node_modules/sqlitexplorer/lib/sqlitexplorer.js"></script>
 </head>
 <body>
+	<h1>simulob</h1>
+	<div style="float0: left;">
 	<div>
-		<h1>simulob</h1>
+		<div>
 		<h3 class="lob-header">
 			<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
 			<img id="paused" src="./paused.png" style="display: none; height: 20px;" />
 			<span>NLV</span>
 			<span id="nlv"></span>
 		</h3>
+		</div>
 		<table>
 			<tbody id="balance"></tbody>
 		</table>
 	</div>
+	<div>
+	<table>
+		<tbody id="status"></tbody>
+	</table>
+	</div>
+	</div>
+	<div class="clear"></div>
+	<div>
 	<table id="buttons" style="display: none">
 		<tbody>
 		<tr>
@@ -69,9 +80,7 @@
 		</tr-->
 		</tbody>
 	</table>
-	<table>
-		<tbody id="status"></tbody>
-	</table>
+	</div>
 	<div id="sqlQuery" class="sqlQuery"></div>
 
 
@@ -213,7 +222,7 @@
 		}
 	}
 	function runsob(oo) {
-		window.sob = new SimuLOB(oo);
+		window.sob = new SimuLOB(oo, PeakSwinger);
 		window.sob.init().then(
 			obj => {
 				window.sqlConsole.setDb(sob.db);
@@ -222,6 +231,37 @@
 			}
 		);
 	}
+	
+	document.addEventListener(
+		"keydown",
+		(event) => {
+		const keyName = event.key;
+		if (keyName === "Control") {
+			// do not alert when only Control key is pressed.
+			return;
+		}
+		if (event.ctrlKey) {
+			switch(keyName) {
+				case 'ArrowRight': {
+					simuPlay();
+					return;
+				}
+				case 'ArrowLeft': {
+					simuStop();
+					return;
+				}
+				default: {
+					// Even though event.key is not 'Control' (e.g., 'a' is pressed),
+					// event.ctrlKey may be true if Ctrl key is pressed at the same time.
+					console.log(`Combination of ctrlKey + ${keyName}`);
+				}
+			}
+		} else {
+			//alert(`Key pressed ${keyName}`);
+		}
+		},
+		false,
+);
 	</script>
 	<!--script>window.eruda && (eruda._isInit || eruda.init());</script-->
 </body>

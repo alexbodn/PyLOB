@@ -136,7 +136,7 @@ create table if not exists trade_order (
     currency text, -- redundant, but frequently used
     foreign key(side) references side(side),
     foreign key(trader) references trader(tid),
-    foreign key(condition) references order_condition(condition),
+    foreign key(condition) references event_condition(condition),
     foreign key(instrument) references instrument(symbol),
     foreign key(currency) references instrument(symbol)
 ) -- STRICT
@@ -466,16 +466,28 @@ create table if not exists event_arg (
     foreign key(reqId) references event(reqId) on delete cascade
 );
 
-create table if not exists order_condition (
+create table if not exists event_condition (
 	condition integer primary key,
-	instrument text,
-	field text,
-	field_relation text check (field_relation in ('lt', 'gt', 'le', 'ge', 'eq')),
-	value real,
-	condition_relation text check (condition_relation in ('and', 'or')),
-	condition_related integer,
+	trader integer null,
+	instrument text null,
+	field text check (
+		case when field is null then field='timestamp'
+		else field in ('price', 'bid', 'ask') end),
+	field_relation text check (field is null or field_relation in ('lt', 'gt', 'le', 'ge', 'eq')),
+	field_value real check (field is null or field_value is not null),
+	condition_relation integer null,
+	foreign key (trader) references trader(tid),
 	foreign key (instrument) references instrument(symbol),
-	foreign key (condition_related) references condition(condition)
+	foreign key (condition_relation) references event_condition_relation(condition_relation)
+);
+
+create table if not exists event_condition_relation (
+	condition_relation integer primary key,
+	relation text check (condition_relation in ('and', 'or')),
+	related1 integer,
+	related2 integer,
+	foreign key (related1) references event_condition(condition),
+	foreign key (related2) references event_condition(condition)
 );
 
 create table if not exists order_log (

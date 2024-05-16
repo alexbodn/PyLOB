@@ -1,35 +1,36 @@
 
 class SimuStrategy {
 	
-	constructor(simu) {
+	constructor(simu, defaults) {
 		this.simu = simu;
+		this.defaults = defaults;
 	}
 	
-	async hook_afterInit(simu) {return Promise.resolve();}
+	async hook_afterInit() {return Promise.resolve();}
 	
-	hook_chartBuildDataset(simu, datasets) {}
+	hook_chartBuildDataset(datasets) {}
 	
-	hook_beforeUpdateChart(simu, chartLabel) {}
+	hook_beforeUpdateChart(chartLabel) {}
 	
-	hook_afterTicks(simu, chartLabel) {}
+	hook_afterTicks(chartLabel) {}
 	
-	hook_newChartStart(simu) {}
+	hook_newChartStart() {}
 	
-	hook_orderSent(simu, tid, instrument, label, price) {}
+	hook_orderSent(tid, instrument, label, price) {}
 	
-	hook_setLastPrice(simu, instrument, price) {}
+	hook_setLastPrice(instrument, price) {}
 	
-	hook_tickMidPoint(simu, instrument, midPoint) {}
+	hook_tickMidPoint(instrument, midPoint) {}
 	
-	hook_orderFulfill(simu, instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
+	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
 	
-	hook_orderExecuted(simu, instrument, label, trader, time, qty, price) {}
+	hook_orderExecuted(instrument, label, trader, time, qty, price) {}
 	
-	hook_orderCancelled(simu, instrument, label, trader, time) {}
+	hook_orderCancelled(instrument, label, trader, time) {}
 	
-	hook_traderBalance(simu, trader, instrument, amount, lastprice, value, liquidation, time, extra) {}
+	hook_traderBalance(trader, instrument, amount, lastprice, value, liquidation, time, extra) {}
 	
-	hook_traderNLV(simu, trader, nlv, extra) {}
+	hook_traderNLV(trader, nlv, extra) {}
 	
 };
 

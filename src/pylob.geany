@@ -27,14 +27,15 @@ long_line_behaviour=1
 long_line_column=80
 
 [files]
-current_page=0
-FILE_NAME_0=25572;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimuhooks.js;0;4
-FILE_NAME_1=9349;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
-FILE_NAME_2=5459;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
-FILE_NAME_3=2798;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
-FILE_NAME_4=51106;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fnode_modules%2Fsqlitexplorer%2Flib%2Fsqlitexplorer.js;0;4
-FILE_NAME_5=119972;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsnippet.html;0;4
-FILE_NAME_6=7;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
+current_page=4
+FILE_NAME_0=4138;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimuhooks.js;0;4
+FILE_NAME_1=16667;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
+FILE_NAME_2=8911;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
+FILE_NAME_3=796;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
+FILE_NAME_4=119972;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsnippet.html;0;4
+FILE_NAME_5=102;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
+FILE_NAME_6=6591;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fpeakdet.html;0;4
+FILE_NAME_7=16179;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Forderbook.sql;0;4
 
 [VTE]
 last_dir=/home/alex/python3/position-swinger/src/position_swinger
