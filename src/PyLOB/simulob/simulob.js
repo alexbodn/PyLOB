@@ -27,13 +27,13 @@ function clearTableField(tableId, field) {
 	});
 }
 
-function setTableField(tableId, field, value) {
+function setTableField(tableId, field, ...value) {
 	clearTableField(tableId, field);
 	const table = document.querySelector(`#${tableId}`);
+	const valueCols = value.map(one => `<td>${one}</td>`);
 	let row =
 		`<tr class="${field}">
-			<td>${field}</td>
-			<td>${value}</td>
+			<th>${field}</th>${valueCols}
 		</tr>`;
 	table.insertAdjacentHTML('beforeend', row);
 }
@@ -121,7 +121,7 @@ class SimuLOB extends OrderBook {
 	titleLabel = 'title';
 	
 	title_branch = ['title'];
-	price_branch = ['price', 'midpoint'];
+	price_branch = ['price'];
 	balance_branch = ['nlv'];
 	executions_branch = ['bought', 'sold'];
 	market_orders = ['ask', 'bid'];
@@ -137,10 +137,10 @@ class SimuLOB extends OrderBook {
 		executions: 1,
 	};
 	
-	scatterTooltip = {
+	static scatterTooltip = {
 		callbacks: {
 			label: ({parsed, formattedValue, dataset}) => {
-				return `${dataset.emoji} ${dataset.label} ${parsed.label.text}: ${formattedValue}`;
+				return `${dataset.emoji} ${parsed.branch || dataset.label} ${parsed.label.text}: ${formattedValue}`;
 			},
 		}
 	};
@@ -179,16 +179,34 @@ class SimuLOB extends OrderBook {
 			borderColor: 'blue',
 			pointStyle: 'star',
 			type: 'scatter',
+			datalabels: {
+				/*
+				align: 135,
+				offset: 15,
+				*/
+				anchor: 'center',
+				color: 'white',
+				backgroundColor: 'blue',
+			},
 			emoji: '🤝',
-			tooltip: this.scatterTooltip,
+			tooltip: this.constructor.scatterTooltip,
 			updateGroup: 'executions',
 		},
 		sold: {
 			borderColor: 'red',
 			pointStyle: 'star',
 			type: 'scatter',
+			datalabels: {
+				/*
+				align: 45,
+				offset: 15,
+				*/
+				anchor: 'center',
+				color: 'white',
+				backgroundColor: 'red',
+			},
 			emoji: '🤝',
-			tooltip: this.scatterTooltip,
+			tooltip: this.constructor.scatterTooltip,
 			updateGroup: 'executions',
 		},
 		ask: {
@@ -437,8 +455,11 @@ class SimuLOB extends OrderBook {
 	
 	constructor(oo, strategyClass, defaults) {
 		let verbose = true;
-		let isAuthonomous = false;
+		const isAuthonomous = false;
 		super(oo, undefined, verbose, isAuthonomous);
+		if (this.isAuthonomous) {
+			this.price_branch.push('midpoint');
+		}
 		this.data_branches = [
 			...this.title_branch,
 			...this.price_branch,
@@ -755,7 +776,7 @@ class SimuLOB extends OrderBook {
 		this.chartUpdate(chartLabel);
 	}
 	
-	chartAction(chartLabel, {action, data}) {
+	chartAction(chartLabel, {action, data, status}) {
 		if (action == 'data_set') {
 			for (let ds in data) {
 				this.chartRestoreTicks(ds, chartLabel);
@@ -764,11 +785,13 @@ class SimuLOB extends OrderBook {
 				if (this.chartHasBackup(ds, chartLabel)) {
 					continue;
 				}
-	console.log('triggered', action, ds);
 				this.chartBackupTicks(ds, chartLabel);
 				this.chartSetTicks(ds, ticks, chartLabel);
 			}
 			this.chartUpdate(chartLabel);
+			for (const [field, value] of Object.entries(status)) {
+				setTableField('status', field, value);
+			}
 		}
 	}
 	
@@ -822,6 +845,7 @@ class SimuLOB extends OrderBook {
 						);
 					}
 				}
+				// todo: do this independently
 				this._chartPushTicks(
 					'title',
 					chartLabel,
@@ -860,7 +884,8 @@ class SimuLOB extends OrderBook {
 			}
 		};
 		
-		let tab = sqlConsole.tabSearch(chartLabel);
+		const tabLabel = `session/chart/${chartLabel}`;
+		let tab = sqlConsole.tabSearch(tabLabel);
 		let tabInfo = sqlConsole.tabInfo(tab);
 		if (!tabInfo) {
 			[tab, tabInfo] = sqlConsole.createTab(
@@ -869,7 +894,7 @@ class SimuLOB extends OrderBook {
 					<div style="height: 90%;">
 						<canvas class="chart-${chartLabel}" height="100%"></canvas>
 					</div>
-					<div style="height: 10%;">
+					<div class="buttons" style="height: 10%;">
 						<button class="study-bid">🧐 bid</button>
 						<button class="study-ask">🧐 ask</button>
 						<button class="backup-restore">🔁 restore</button>
@@ -877,9 +902,20 @@ class SimuLOB extends OrderBook {
 					</div>
 				</div>`, {
 					withClose: true,
-					searchTag: chartLabel,
+					searchTag: tabLabel,
 				}
 			);
+			const buttonsDiv = tabInfo.querySelector('div.buttons');
+			for (const [key, info] of Object.entries(this.strategy.getButtons())) {
+				buttonsDiv.insertAdjacentHTML(
+					'beforeend',
+					`<button class="${key}">${info.label}</button>`
+				);
+				tabInfo.querySelector('button.' + key).addEventListener(
+					'click',
+					e => {info.listener(e, chartLabel);}
+				);
+			}
 			tabInfo.querySelector('button.study-bid').addEventListener(
 				'click',
 				e => {this.studySide('bid', chartLabel);}
@@ -985,9 +1021,11 @@ class SimuLOB extends OrderBook {
 			else if (this.ticks.length) {
 				let tick = this.ticks.shift();
 				if (tick.label == 'chartReset') { //todo should trigger explicitly
+					//if (!simu.chartLabel) {
 					simu.newChartStart = true;
 					simu.prevLabel = simu.chartLabel;
 					simu.chartLabel = tick.title;
+					//}
 					simu.firstTickFollows = true;
 					return;
 				}
@@ -1007,7 +1045,7 @@ class SimuLOB extends OrderBook {
 					simu.firstTime = tick.timestamp;
 				}
 				if (tick.label == 'price') {
-					simu.setLastPrice(tick.instrument, tick.price);
+					simu.setLastPrice(tick.instrument, tick.price, tick.timestamp);
 				}
 				else if (simu.order_branches.includes(tick.label)) {
 					quote = {
@@ -1269,15 +1307,20 @@ class SimuLOB extends OrderBook {
 		});
 	}
 	
-	setLastPrice(instrument, price, db) {
-		let ret = super.setLastPrice(instrument, price, db);
-		this.strategy.hook_setLastPrice(instrument, price);
+	setLastPrice(instrument, price, time, db) {
+		let ret = super.setLastPrice(instrument, price, time, db);
+		this.strategy.hook_setLastPrice(instrument, price, time);
 		return ret;
 	}
 	
-	tickMidPoint(instrument, midPoint, db) {
-		let ret = super.tickMidPoint(instrument, midPoint, db);
-		this.strategy.hook_tickMidPoint(instrument, midPoint);
+	tickMidPoint(instrument, midPoint, time) {
+		let ret = super.tickMidPoint(instrument, midPoint, time);
+		this.strategy.hook_tickMidPoint(instrument, midPoint, time);
+		let tick = {
+			x: time,
+			y: midPoint,
+		};
+		this.chartPushTicks('midpoint', tick);
 		return ret;
 	}
 	
@@ -1320,9 +1363,9 @@ class SimuLOB extends OrderBook {
 			y: price,
 			label: {
 				text: `${qty}`,
-				color: 'white',
-				backgroundColor: side == 'ask' ? 'red' : 'blue',
+//				color: 'white',
 			},
+			branch: label,
 		};
 		this.chartPushTicks(side == 'ask' ? 'sold' : 'bought', tick);
 		return ret;
@@ -1402,6 +1445,7 @@ class SimuLOB extends OrderBook {
 				this.trader_orders
 					.filter(label => label.slice(0, 3) == side)
 			);
+		labels.push('title', (side == 'bid' ? 'bought' : 'sold'));
 		let info = this.getChartInfo(chartLabel);
 		for (let label of this.branches) {
 			let ix = this.chartIndex[label].dataset;

@@ -179,9 +179,6 @@ function prepKeys(obj, query, label) {
 			ret[param[0]] = val;
 		}
 	}
-if (label == 1) {
-console.log(obj, ret, query);
-}
 	return ret;
 }
 
@@ -791,10 +788,10 @@ class OrderBook {
 		//this.order_log(this.time, ask_order, 'execute_order', `<u>SOLD</u> ${qty} @ ${price}`, db);
 		//this.order_log(this.time, bid_order, 'execute_order', `<u>BOUGHT</u> ${qty} @ ${price}`, db);
 		if (this.isAuthonomous) {
-			this.setLastPrice(instrument, price, db);
+			this.setLastPrice(instrument, price, this.getTime(), db);
 		}
 		if (verbose) {
-			log(`>>> TRADE \nt=${this.time} ${price} n=${qty} p1=${counterparty} p2=${quote.tid}`);
+			log(`>>> TRADE \nt=${this.getTime()} ${price} n=${qty} p1=${counterparty} p2=${quote.tid}`);
 		}
 		return trade;
 	}
@@ -1036,20 +1033,20 @@ class OrderBook {
 			this.instrument_cache[instrument] = {};
 		}
 		this.instrument_cache[instrument][field] = value;
-		if (value && ['lastask', 'lastbid'].includes(field)) {
+		if (this.isAuthonomous && value && ['lastask', 'lastbid'].includes(field)) {
 			let other = field === 'lastask' ?
 				this.getLastBid(instrument, db) : this.getLastAsk(instrument, db);
 			if (other) {
 				let midPoint = (value + other) / 2;
 				if (midPoint != this.instrument_cache[instrument].midpoint) {
 					this.instrument_cache[instrument].midpoint = midPoint
-					this.tickMidPoint(instrument, midPoint);
+					this.tickMidPoint(instrument, midPoint, this.getTime());
 				}
 			}
 		}
 	}
 	
-	setLastPrice(instrument, lastprice, db) {
+	setLastPrice(instrument, lastprice, time, db) {
 		//this.logobj({instrument, lastprice, db})
 		this.setInstrument(
 			instrument, db, 'lastprice', lastprice);
@@ -1066,7 +1063,7 @@ class OrderBook {
 			instrument, db, 'lastask', lastask);
 	}
 	
-	tickMidPoint(instrument, midPoint) {
+	tickMidPoint(instrument, midPoint, time) {
 		// to be overloaded
 	}
 	
