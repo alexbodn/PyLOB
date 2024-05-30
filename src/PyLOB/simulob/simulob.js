@@ -38,6 +38,23 @@ function setTableField(tableId, field, ...value) {
 	table.insertAdjacentHTML('beforeend', row);
 }
 
+async function jsLoad(src, module=false) {
+	if (!src) {
+		return Promise.resolve();
+	}
+	return new Promise((resolve, reject) => {
+		let s = document.createElement('script');
+		s.src = src;
+		if (module) {
+			s.type='module';
+		}
+		s.async = false;
+		s.onload = resolve;
+		s.onerror = reject;
+		document.head.append(s);
+	});
+}
+
 function labelattr(context, attr)
 {
 	let label = context.dataset.data[context.dataIndex].label;
@@ -453,7 +470,7 @@ class SimuLOB extends OrderBook {
 		'quote_update',
 	];
 	
-	constructor(oo, strategyClass, defaults) {
+	constructor(oo) {
 		let verbose = true;
 		const isAuthonomous = false;
 		super(oo, undefined, verbose, isAuthonomous);
@@ -482,17 +499,16 @@ class SimuLOB extends OrderBook {
 		// move these to local db
 		this.trader_quotes = {};
 		this.order_names = {};
-		
-		this.strategy = new strategyClass(this, defaults);
 	}
 	
-	async init() {
+	async init(strategyClass, strategyDefaults) {
 		let result = new Promise((resolve, reject) => {
 			super.init()
 			.then(() => this.init_queries(this.simu_query_names, this.simu_queries, '/simulob'))
 			.then(() => this.simu_db.exec(this.simu_queries.simulob))
 			.then(
 				value => {
+					this.strategy = new strategyClass(this, strategyDefaults);
 					this.ticks = [];
 					this.loading = document.querySelector('#loading');
 					this.paused = document.querySelector('#paused');
@@ -884,7 +900,7 @@ class SimuLOB extends OrderBook {
 			}
 		};
 		
-		const tabLabel = `session/chart/${chartLabel}`;
+		const tabLabel = `${this.strategy.getName()}/${chartLabel}`;
 		let tab = sqlConsole.tabSearch(tabLabel);
 		let tabInfo = sqlConsole.tabInfo(tab);
 		if (!tabInfo) {

@@ -66,6 +66,7 @@
 		<tr>
 			<td><input value="👾" title="debug" id="debug" type="button" onclick="sob.setDebug();" /></td>
 			<td><button title="stop debug" id="stop-debug" onclick="sob.setDebug(false);"><strike>👾</strike></button></td>
+			<td><input value="🧹" title="reset" id="pause" type="button" onclick="simuReset();" /></td>
 			<td><input value="⏸️" title="pause" id="pause" type="button" onclick="sob.pause();" /></td>
 			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="simuStop();" /></td>
 			<td><input value="▶️" title="run" id="run" type="button" onclick="simuPlay();" /></td>
@@ -105,7 +106,7 @@
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
 	<script src="./PyLOB/simulob/simu_strategy.js"></script>
-	<script src="./PyLOB/simulob/simuhooks.js"></script>
+	<!--script src="./PyLOB/simulob/simuhooks.js"></script-->
 	<script src="./commission.js"></script>
 	<script src="./peakdet.js"></script>
 	<script src="./PyLOB/simulob/simulob.js"></script>
@@ -161,7 +162,6 @@
 	const log = (...args)=>sqlConsole.log(...args);
 	const warn = (...args)=>sqlConsole.warn(...args);
 	const error = (...args)=>sqlConsole.error(...args);
-	showConfig();
 	</script>
 	<script>
 	if(self.window!==self) /*worker thread*/{
@@ -198,6 +198,14 @@
 			oo = sqlite3.oo1/*high-level OO API*/;
 			let buttons = document.querySelector("#buttons");
 			buttons.style.display = 'table';
+			
+			// loading strategies
+			Promise.all([
+				jsLoad("./PyLOB/simulob/simuhooks.js"),
+			])
+			.then(() => {
+				SimuStrategy.strategyChoice(sqlConsole, oo);
+			});
 		}
 		catch(e){
 			oo = null;
@@ -206,6 +214,14 @@
 	});
 	</script>
 	<script>
+	function simuReset() {
+		let tabs = Array.from(
+			document.querySelectorAll('span.tab-close'), 
+			x => x.closest('span[data-search-tag]'));
+		console.log();
+		tabs.concat(sqlConsole.tabSearch('schema')).forEach(tab => {sqlConsole.tabClose(tab)})
+	}
+	
 	function simuStop() {
 		if (window.sob) {
 			sob.close();
@@ -222,8 +238,12 @@
 		}
 	}
 	function runsob(oo) {
-		window.sob = new SimuLOB(oo, PeakSwinger);
-		window.sob.init().then(
+		if (!window.strategyClass) {
+			alert('please activate one of the strategies');
+			return;
+		}
+		window.sob = new SimuLOB(oo);
+		window.sob.init(window.strategyClass).then(
 			obj => {
 				window.sqlConsole.setDb(sob.db);
 				
