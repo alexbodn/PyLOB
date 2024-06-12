@@ -11,20 +11,29 @@ class SimuStrategy {
 		return this.strategies[name];
 	}
 	
-	static strategyBuildDialog = (key, strategy) => {
+	static strategyBuildDialog = (key, strategy, dates) => {
 		let strategyTab = sqlConsole.tabSearch(key), strategyDialog;
 		if (!strategyTab) {
+			const datesList = dates
+				.map(date => `<label><input type="checkbox" value="${date}"> ${date}</label>`)
+				.join('\n');
 			[strategyTab, strategyDialog] = sqlConsole.createTab(
 				key, `
-				<div class="buttons">
-					<button class="run">run</button>
+				<div class="buttons" style="float: inline-start; width: 10%;">
+					<button class="run" autofocus="autofocus">run</button>
 					<button class="stop">stop</button>
 					<button class="close">close</button>
 					<button class="copy-config">copy</button>
 					<button class="paste-config">paste</button>
 					<button class="reset-config">reset</button>
 				</div>
-				<div class="config"></div>
+				<div class="config" style="float: inline-start; width: 50%"></div>
+				<div style="float: inline-start; width: 10%;">
+					<fieldset class="dates">
+						<p>choose dates</p>
+						${datesList}
+					</fieldset>
+				</div>
 				`, {
 					searchTag: key,
 				}
@@ -77,19 +86,26 @@ class SimuStrategy {
 		window.strategyClass = strategy;
 	}
 	
-	static strategyChoice(sqlConsole, oo) {
+	static strategyChoice(sqlConsole, oo, dates) {
 		let tab, tabInfo;
 		const tag = 'strategies';
 		tab = sqlConsole.tabSearch(tag);
 		if (!tab) {
+			let c = 0;
 			const strategyButtons = Object.keys(this.strategies)
-				.map(key => `<button class="strategy ${key}">${key}</button>`)
-				.join('<br />');
+				.map(key => `
+					<button class="strategy ${key}" style="float: inline-start;" ${c ? '' : 'autofocus="autofocus"'}>
+						${key}
+					</button>`)
+				.join('\n');
 			[tab, tabInfo] = sqlConsole.createTab(
 				tag, `
 				<div>
-				${strategyButtons}
-				</div>`, {
+					<div>
+						${strategyButtons}
+					</div>
+				</div>
+				`, {
 					searchTag: tag,
 				}
 			);
@@ -97,7 +113,7 @@ class SimuStrategy {
 				const button = tabInfo.querySelector(`button.strategy.${key}`)
 				button.addEventListener(
 					'click',
-					e => {this.strategyBuildDialog(key, strategy);}
+					e => {this.strategyBuildDialog(key, strategy, dates);}
 				);
 				if (!c) {
 					button.focus();
@@ -137,6 +153,7 @@ class SimuStrategy {
 	constructor(simu, defaults) {
 		this.simu = simu;
 		this.defaults = defaults;
+		this.logobj = simu.logobj;
 	}
 	
 	async hook_afterInit() {return Promise.resolve();}

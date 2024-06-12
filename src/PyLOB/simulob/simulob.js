@@ -1273,8 +1273,8 @@ class SimuLOB extends OrderBook {
 		}
 	}
 	
-	cancelAllQuotes(trader, instrument) {
-		let quotes = this.quoteGetKeys(trader, instrument);
+	cancelAllQuotes(trader, instrument, side=null) {
+		let quotes = this.quoteGetKeys(trader, instrument, side);
 		for (let quote of quotes) {
 			this.cancelQuote(quote.trader, quote.instrument, quote.label);
 		}

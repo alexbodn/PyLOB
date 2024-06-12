@@ -2,6 +2,10 @@
 <html lang="en-us">
 <head>
 	<script>
+		let strategies = [
+			"peakswinger",
+			"percentnhalf",
+		];
 		let dates = [
 			'2009-09-28',
 			'2009-09-29',
@@ -106,7 +110,6 @@
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
 	<script src="./PyLOB/simulob/simu_strategy.js"></script>
-	<!--script src="./PyLOB/simulob/simuhooks.js"></script-->
 	<script src="./commission.js"></script>
 	<script src="./peakdet.js"></script>
 	<script src="./PyLOB/simulob/simulob.js"></script>
@@ -200,11 +203,13 @@
 			buttons.style.display = 'table';
 			
 			// loading strategies
-			Promise.all([
-				jsLoad("./PyLOB/simulob/simuhooks.js"),
-			])
+			Promise.all(
+				strategies.map(strategy => {
+					return jsLoad(`./PyLOB/simulob/strategies/${strategy}.js`, true);
+				})
+			)
 			.then(() => {
-				SimuStrategy.strategyChoice(sqlConsole, oo);
+				SimuStrategy.strategyChoice(sqlConsole, oo, dates);
 			});
 		}
 		catch(e){
@@ -251,37 +256,6 @@
 			}
 		);
 	}
-	
-	document.addEventListener(
-		"keydown",
-		(event) => {
-		const keyName = event.key;
-		if (keyName === "Control") {
-			// do not alert when only Control key is pressed.
-			return;
-		}
-		if (event.ctrlKey) {
-			switch(keyName) {
-				case 'ArrowRight': {
-					simuPlay();
-					return;
-				}
-				case 'ArrowLeft': {
-					simuStop();
-					return;
-				}
-				default: {
-					// Even though event.key is not 'Control' (e.g., 'a' is pressed),
-					// event.ctrlKey may be true if Ctrl key is pressed at the same time.
-					console.log(`Combination of ctrlKey + ${keyName}`);
-				}
-			}
-		} else {
-			//alert(`Key pressed ${keyName}`);
-		}
-		},
-		false,
-);
 	</script>
 	<!--script>window.eruda && (eruda._isInit || eruda.init());</script-->
 </body>

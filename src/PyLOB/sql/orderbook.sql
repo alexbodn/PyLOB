@@ -449,6 +449,18 @@ inner join trade_order as bidorder on bidorder.order_id=trade.bid_order
 inner join trade_order as askorder on askorder.order_id=trade.ask_order 
 ;
 
+create view if not exists trade_prices as
+select instrument, trader, side,
+	sum(fulfilled) as quantity,
+	round(sum(fulfill_price), instrument_detail.rounder) as price,
+	round(sum(fulfill_price) / sum(fulfilled), instrument_detail.rounder) as avg_price,
+	round(sum(commission), currency_detail.rounder) as commission
+from trade_order
+inner join instrument as instrument_detail on trade_order.instrument=instrument_detail.symbol
+inner join instrument as currency_detail on trade_order.currency=currency_detail.symbol
+group by instrument, trader, side
+;
+
 create table if not exists event (
     reqId integer,
     handler text, -- method on lob that will handle. it will handle using the args
