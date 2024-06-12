@@ -654,7 +654,10 @@ class SimuLOB extends OrderBook {
 		}
 		let chart = this.charts[chartLabel];
 		if (chart?.chart) {
-			let ix = this.chartIndex[label].dataset;
+			let ix = this.chartIndex[label]?.dataset;
+			if (typeof ix === 'undefined') {
+				return;
+			}
 			return chart.chart.data.datasets[ix];
 		}
 		if (!this.chartBuffer[chartLabel]) {
@@ -911,6 +914,7 @@ class SimuLOB extends OrderBook {
 						<canvas class="chart-${chartLabel}" height="100%"></canvas>
 					</div>
 					<div class="buttons" style="height: 10%;">
+						<button class="manual-quote">manual quote</button>
 						<button class="study-bid">🧐 bid</button>
 						<button class="study-ask">🧐 ask</button>
 						<button class="backup-restore">🔁 restore</button>
@@ -947,6 +951,10 @@ class SimuLOB extends OrderBook {
 			tabInfo.querySelector('button.chart-copy').addEventListener(
 				'click',
 				e => {this.chartCopy(chartLabel);}
+			);
+			tabInfo.querySelector('button.manual-quote').addEventListener(
+				'click',
+				e => {this.manualQuote();}
 			);
 			sqlConsole.tabActivate(tab);
  		}
@@ -1099,6 +1107,7 @@ class SimuLOB extends OrderBook {
 				{
 					trader: quote.tid,
 					instrument: quote.instrument,
+					side: quote.side,
 					label,
 					quote: JSON.stringify(quote),
 					price: quote.price,
@@ -1236,7 +1245,22 @@ class SimuLOB extends OrderBook {
 			),
 		});
 	}
-
+	
+	static quoteRe = /^\s*(?<side>ask|bid|sell|buy)\s+(?<qty>\d+)(\s+(?<instrument>([A-Za-z]{1,5})(-[A-Za-z]{1,2})?))?(\s+(limit|lmt)\s*(?<price>(\d+\.?\d*))|mkt|market)?\s*$/;
+	
+	//'buy 10 AAPL lmt 123',
+	parseQuote(str) {
+		const quote = this.constructor.quoteRe.exec(str).groups;
+		quote.trader = this.trader_tid;
+		quote.instrument = quote.instrument || this.instrument;
+		quote.side = (quote.side || '').toLowerCase();
+		quote.side = ['bid', 'buy'].includes(quote.side) ? 'bid' : 'ask';
+		quote.label = 'manual';
+		quote.qty = parseInt(quote.qty);
+		quote.price = quote.price ? parseFloat(quote.price) : null;
+		return quote;
+	}
+	
 	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
 		let quote = this.quoteGet(trader, instrument, label, 'sent');
 		if (!quote) {
@@ -1278,6 +1302,12 @@ class SimuLOB extends OrderBook {
 		for (let quote of quotes) {
 			this.cancelQuote(quote.trader, quote.instrument, quote.label);
 		}
+	}
+	
+	manualQuote() {
+		const str = prompt('please enter a quote string', `bid 10 ${this.instrument} lmt 50`);
+		const quote = this.parseQuote(str);
+		this.processQuote(quote);
 	}
 	
 	//todo take and subsequently use order_id

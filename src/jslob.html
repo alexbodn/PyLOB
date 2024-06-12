@@ -95,15 +95,15 @@
 		//log("Done initializing. Running demo...");
 		try {
 			const oo = sqlite3.oo1/*high-level OO API*/;
-			window.sob = new OrderBook(oo, 0.0001, true);
+			const sob = new OrderBook(oo, 0.0001, true);
 			console.time('sob_init');
-			window.sob.init().then(
+			sob.init().then(
 				obj => {
 					warn('initialization done.');
 					console.timeEnd('sob_init');
-					window.sqlConsole = new SQLQuery('div#sqlQuery', window.sob.db, 'sqlConsole');
+					window.sqlConsole = new SQLQuery('div#sqlQuery', sob.db, 'sqlConsole');
 					
-					test_perform(window.sob);
+					test_perform(sob);
 				}
 			); 
 		}

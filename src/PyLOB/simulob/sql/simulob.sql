@@ -34,7 +34,7 @@ create table if not exists trader_quotes (
     label text not null,
     side text check (side in ('bid', 'ask')),
     quote text,
-    price real not null,
+    price real,
     qty integer not null,
     fulfilled integer not null default(0),
     idNum integer unique,

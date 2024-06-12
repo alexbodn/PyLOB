@@ -1,7 +1,7 @@
 
 insert into trader_quotes 
-    (trader, instrument, label, quote, price, qty, fulfilled, idNum, order_id, [status])
-values (:trader, :instrument, :label, :quote, :price, :qty, :fulfilled, :idNum, :order_id, :status)
+    (trader, instrument, side, label, quote, price, qty, fulfilled, idNum, order_id, [status])
+values (:trader, :instrument, :side, :label, :quote, :price, :qty, :fulfilled, :idNum, :order_id, :status)
 on conflict (trader, instrument, label) -- where expr
 do update
     set quote=:quote,
