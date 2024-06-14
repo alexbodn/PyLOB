@@ -473,7 +473,8 @@ class SimuLOB extends OrderBook {
 	constructor(oo) {
 		let verbose = true;
 		const isAuthonomous = false;
-		super(oo, undefined, verbose, isAuthonomous);
+		const thisLocation = window.location.href;
+		super(oo, undefined, verbose, thisLocation, isAuthonomous);
 		if (this.isAuthonomous) {
 			this.price_branch.push('midpoint');
 		}

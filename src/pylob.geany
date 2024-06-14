@@ -27,18 +27,19 @@ long_line_behaviour=1
 long_line_column=80
 
 [files]
-current_page=10
-FILE_NAME_0=2649;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
-FILE_NAME_1=24819;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
-FILE_NAME_2=6594;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
-FILE_NAME_3=3883;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
-FILE_NAME_4=904;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fexample.js;0;4
-FILE_NAME_5=1789;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Floaddata.js;0;4
-FILE_NAME_6=16125;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Forderbook.sql;0;4
-FILE_NAME_7=32968;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fpeakswinger.js;0;4
-FILE_NAME_8=3448;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fjslob.html;0;4
-FILE_NAME_9=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fob_worker.js;0;4
-FILE_NAME_10=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fgood-swinger.js;0;4
+current_page=11
+FILE_NAME_0=9512;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
+FILE_NAME_1=6594;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
+FILE_NAME_2=3883;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
+FILE_NAME_3=12659;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fexample.js;0;4
+FILE_NAME_4=1789;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Floaddata.js;0;4
+FILE_NAME_5=16125;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Forderbook.sql;0;4
+FILE_NAME_6=32968;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fpeakswinger.js;0;4
+FILE_NAME_7=3160;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fjslob.html;0;4
+FILE_NAME_8=1206;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fjslob2.html;0;4
+FILE_NAME_9=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fgood-swinger.js;0;4
+FILE_NAME_10=3015;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fworker2.js;0;4
+FILE_NAME_11=8873;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
 
 [VTE]
-last_dir=/home/alex/python3/position-swinger/src/position_swinger/strategies
+last_dir=/home/alex/python3/PyLOB/src/PyLOB

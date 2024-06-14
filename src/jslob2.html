@@ -1,0 +1,133 @@
+
+<!doctype html>
+<html lang="en-US">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width" />
+		<title>MDN Example - Queryable worker</title>
+		<style>
+			.warning, .error {color: red}
+			.error {background-color: yellow}
+			div#log {
+				display: flex;
+				flex-direction: column;
+				font-family: monospace;
+				white-space: break-spaces;
+			}
+		</style>
+		<script type="text/javascript">
+			// QueryableWorker instances methods:
+			//	 * sendQuery(queryable function name, argument to pass 1, argument to pass 2, etc. etc.): calls a Worker's queryable function
+			//	 * postMessage(string or JSON Data): see Worker.prototype.postMessage()
+			//	 * terminate(): terminates the Worker
+			//	 * addListener(name, function): adds a listener
+			//	 * removeListener(name): removes a listener
+			// QueryableWorker instances properties:
+			//	 * defaultListener: the default listener executed only when the Worker calls the postMessage() function directly
+			function QueryableWorker(url, defaultListener, onError) {
+				const instance = this;
+				const worker = new Worker(url);
+				const listeners = {};
+
+				this.defaultListener = defaultListener ?? ((args) => {log(args);});
+
+				if (onError) {
+					worker.onerror = onError;
+				}
+
+				this.postMessage = (message) => {
+					worker.postMessage(message);
+				};
+
+				this.terminate = () => {
+					worker.terminate();
+				};
+
+				this.addListener = (name, listener) => {
+					listeners[name] = listener;
+				};
+
+				this.removeListener = (name) => {
+					delete listeners[name];
+				};
+
+				// This functions takes at least one argument, the method name we want to query.
+				// Then we can pass in the arguments that the method needs.
+				this.sendQuery = (queryMethod, ...queryMethodArguments) => {
+					if (!queryMethod) {
+						throw new TypeError(
+							"QueryableWorker.sendQuery takes at least one argument",
+						);
+					}
+					worker.postMessage({
+						queryMethod,
+						queryMethodArguments,
+					});
+				};
+
+				worker.onmessage = (event) => {
+					if (
+						event.data instanceof Object &&
+						Object.hasOwn(event.data, "queryMethodListener") &&
+						Object.hasOwn(event.data, "queryMethodArguments")
+					) {
+						listeners[event.data.queryMethodListener].apply(
+							instance,
+							event.data.queryMethodArguments,
+						);
+					} else {
+						this.defaultListener.call(instance, event.data);
+					}
+				};
+			}
+		</script>
+		<script type="text/javascript">
+			// your custom "queryable" worker
+			const sqlite3Dir = 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
+			const thisLocation = window.location.href;
+			const myTask = new QueryableWorker(
+				`./worker2.js?sqlite3.dir=${sqlite3Dir}&thisLocation=${thisLocation}`
+			);
+
+			let logHtml;
+			if(self.window === self /* UI thread */){
+				console.log("Running demo from main UI thread.");
+				logHtml = function(cssClass,...args){
+					const ln = document.createElement('div');
+					if(cssClass) ln.classList.add(cssClass);
+					//ln.append(document.createTextNode(args.join(' ')));
+					ln.insertAdjacentHTML('beforeend', args.join(' '));
+					let logDiv = document.querySelector("div#log");
+					logDiv.insertAdjacentElement('beforeend', ln);
+				};
+			}
+			const log = (...args)=>logHtml('',...args);
+			const warn = (...args)=>logHtml('warning',...args);
+			const error = (...args)=>logHtml('error',...args);
+
+			// your custom "listeners"
+
+			myTask.addListener("logHtml", ({cssClass, args}) => {
+				logHtml(cssClass, ...args);
+			});
+		</script>
+	</head>
+	<body>
+		<div style="overflow: scroll; height: 320px; border-style: ridge;">
+			<div id="log"></div>
+		</div>
+		<ul>
+			<li>
+				<a
+					id="secondLink"
+					href="javascript:myTask.sendQuery('print', prompt('instrument to print', 'FAKE'));"
+					>print instrument</a
+				>
+			</li>
+			<li>
+				<a href="javascript:myTask.terminate();">terminate() the Worker</a>
+			</li>
+		</ul>
+	</body>
+</html>
+ 

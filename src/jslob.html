@@ -1,117 +1,116 @@
 <!DOCTYPE html>
 <html lang="en-us">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
-    <title>js lob</title>
-    <style>
-      .warning, .error {color: red}
-      .error {background-color: yellow}
-      div#log {
-          display: flex;
-          flex-direction: column;
-          font-family: monospace;
-          white-space: break-spaces;
-      }
-    </style>
-    <script>
-    	var sqliteFlags = 'c';//ct
-    </script>
-  </head>
-  <body>
-    <h1>js lob</h1>
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+		<title>js lob</title>
+		<style>
+			.warning, .error {color: red}
+			.error {background-color: yellow}
+			div#log {
+				display: flex;
+				flex-direction: column;
+				font-family: monospace;
+				white-space: break-spaces;
+			}
+		</style>
+		<script>
+			var sqliteFlags = 'c';//ct
+		</script>
+	</head>
+	<body>
+		<h1>js lob</h1>
 	<div id="sqlQuery"></div>
 	<div style="overflow: scroll; height: 320px; border-style: ridge;">
 		<div id="log"></div>
 	</div>
-    <script src="./PyLOB/sqlitejs/sqlite3.js"></script>
-    <!--script src="./PyLOB/sqlitejs/demo-123.js"></script-->
+	<!--script src="./PyLOB/sqlitejs/sqlite3.js"></script-->
+	<script src="./node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.js"></script>
+	<!--script src="./PyLOB/sqlitejs/demo-123.js"></script-->
 	<script src="./PyLOB/orderbook.js"></script>
-    <script>
-    /**
-	Set up our output channel differently depending
-	on whether we are running in a worker thread or
-	the main (UI) thread.
-	*/
-	let logHtml;
-	if(self.window === self /* UI thread */){
-		console.log("Running demo from main UI thread.");
-		logHtml = function(cssClass,...args){
-			//const ln = document.createElement('div');
-			//if(cssClass) ln.classList.add(cssClass);
-			//ln.append(document.createTextNode(args.join(' ')));
-			///ln.append(createHTMLNode(args.join(' ')));
-			///document.body.append(ln);
-			let logDiv = document.querySelector("div#log");
-			logDiv.insertAdjacentHTML(
-				'beforeend', `<div class="${cssClass}">${args.join(' ')}</div>`
-			);
-		};
-	}
-	else{ /* Worker thread */
-		console.log("Running demo from Worker thread.");
-		logHtml = function(cssClass,...args){
-			postMessage({
-				type:'log',
-				payload:{cssClass, args}
-			});
-		};
-	}
-	const log = (...args)=>logHtml('',...args);
-	const warn = (...args)=>logHtml('warning',...args);
-	const error = (...args)=>logHtml('error',...args);
-	</script>
-    <script src="./example.js"></script>
-    <script>
-    if(self.window!==self) /*worker thread*/{
-		/*
-		If sqlite3.js is in a directory other than this script, in order
-		to get sqlite3.js to resolve sqlite3.wasm properly, we have to
-		explicitly tell it where sqlite3.js is being loaded from. We do
-		that by passing the `sqlite3.dir=theDirName` URL argument to
-		_this_ script. That URL argument will be seen by the JS/WASM
-		loader and it will adjust the sqlite3.wasm path accordingly. If
-		sqlite3.js/.wasm are in the same directory as this script then
-		that's not needed.
-
-		URL arguments passed as part of the filename via importScripts()
-		are simply lost, and such scripts see the self.location of
-		_this_ script.
+	<script>
+		/**
+		Set up our output channel differently depending
+		on whether we are running in a worker thread or
+		the main (UI) thread.
 		*/
-		let sqlite3Js = 'sqlite3.js';
-		const urlParams = new URL(self.location.href).searchParams;
-		if(urlParams.has('sqlite3.dir')){
-			sqlite3Js = urlParams.get('sqlite3.dir') + '/' + sqlite3Js;
+		let logHtml;
+		if(self.window === self /* UI thread */){
+			console.log("Running demo from main UI thread.");
+			logHtml = function(cssClass,...args){
+				const ln = document.createElement('div');
+				if(cssClass) ln.classList.add(cssClass);
+				//ln.append(document.createTextNode(args.join(' ')));
+				ln.insertAdjacentHTML('beforeend', args.join(' '));
+				let logDiv = document.querySelector("div#log");
+				logDiv.insertAdjacentElement('beforeend', ln);
+			};
 		}
-		importScripts(sqlite3Js);
-	}
-	self.sqlite3InitModule({
-		// We can redirect any stdout/stderr from the module
-		// like so...
-		print: log,
-		printErr: console.error
-	}).then(function(sqlite3){
-		//log("Done initializing. Running demo...");
-		try {
-			const oo = sqlite3.oo1/*high-level OO API*/;
-			const sob = new OrderBook(oo, 0.0001, true);
-			console.time('sob_init');
-			sob.init().then(
-				obj => {
-					warn('initialization done.');
-					console.timeEnd('sob_init');
-					window.sqlConsole = new SQLQuery('div#sqlQuery', sob.db, 'sqlConsole');
-					
-					test_perform(sob);
-				}
-			); 
+		else{ /* Worker thread */
+			console.log("Running demo from Worker thread.");
+			logHtml = function(cssClass,...args){
+				postMessage({
+					type:'log',
+					payload:{cssClass, args}
+				});
+			};
 		}
-		catch(e){
-			warn("Exception:",e.message);
+		const log = (...args)=>logHtml('',...args);
+		const warn = (...args)=>logHtml('warning',...args);
+		const error = (...args)=>logHtml('error',...args);
+	</script>
+	<script src="./example.js"></script>
+	<script>
+		if(self.window!==self) /*worker thread*/{
+			/*
+			If sqlite3.js is in a directory other than this script, in order
+			to get sqlite3.js to resolve sqlite3.wasm properly, we have to
+			explicitly tell it where sqlite3.js is being loaded from. We do
+			that by passing the `sqlite3.dir=theDirName` URL argument to
+			_this_ script. That URL argument will be seen by the JS/WASM
+			loader and it will adjust the sqlite3.wasm path accordingly. If
+			sqlite3.js/.wasm are in the same directory as this script then
+			that's not needed.
+
+			URL arguments passed as part of the filename via importScripts()
+			are simply lost, and such scripts see the self.location of
+			_this_ script.
+			*/
+			let sqlite3Js = 'sqlite3.js';
+			const urlParams = new URL(self.location.href).searchParams;
+			if(urlParams.has('sqlite3.dir')){
+				sqlite3Js = urlParams.get('sqlite3.dir') + '/' + sqlite3Js;
+			}
+			importScripts(sqlite3Js);
 		}
-	});
+		self.sqlite3InitModule({
+			// We can redirect any stdout/stderr from the module
+			// like so...
+			print: log,
+			printErr: console.error
+		}).then(function(sqlite3){
+			//log("Done initializing. Running demo...");
+			try {
+				const oo = sqlite3.oo1/*high-level OO API*/;
+				const thisLocation = window.location.href;
+				const sob = new OrderBook(oo, 0.0001, true, thisLocation);
+				console.time('sob_init');
+				sob.init().then(
+					obj => {
+						warn('initialization done.');
+						console.timeEnd('sob_init');
+						window.sqlConsole = new SQLQuery('div#sqlQuery', sob.db, 'sqlConsole');
+						
+						test_perform(sob);
+					}
+				); 
+			}
+			catch(e){
+				warn("Exception:",e.message);
+			}
+		});
 	</script>
 	<script src="./PyLOB/sqlquery.js"></script>
-  </body>
+	</body>
 </html>

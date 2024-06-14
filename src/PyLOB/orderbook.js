@@ -233,7 +233,7 @@ class OrderBook {
 	debug = false;
 
 	//@isAuthonomous will set last price by the executed orders
-	constructor(oo, tick_size=0.0001, verbose=false, isAuthonomous=true) {
+	constructor(oo, tick_size=0.0001, verbose=false, thisLocation, isAuthonomous=true) {
 		this.tickSize = tick_size;
 		this.decimalDigits = Math.log10(1 / this.tickSize);
 		this.rounder = Math.pow(10, (Math.floor(this.decimalDigits)));
@@ -244,7 +244,7 @@ class OrderBook {
 		// isolation_level: null
 		this.db = new oo.DB('file:orderbook?mode=memory', 'c');
 
-		this.location = new URL('./PyLOB', window.location.href).toString();
+		this.location = new URL('./PyLOB', thisLocation);
 		this.file_loader = fetchText;
 		this.verbose = verbose;
 		this.isAuthonomous = isAuthonomous;
@@ -378,8 +378,7 @@ class OrderBook {
 		});
 	}
 	
-	createTrader(name, tid, currency, commission_data,
-		allow_self_matching=0)
+	createTrader(name, tid, currency, commission_data, allow_self_matching=0)
 	{
 		let ret = null;
 		let {commission_per_unit, commission_min, commission_max_percnt} = commission_data;
@@ -479,11 +478,6 @@ class OrderBook {
 			callback: row => {
 				let info = {...row, time: this.getTime(), extra};
 				this.traderBalance(info);
-				/*setTimeout(
-					traderBalance,
-					this.tickGap,
-					this, info,
-				);*/
 			}
 		});
 	}
@@ -507,7 +501,7 @@ class OrderBook {
 			}, this.queries.trader_nlv),
 			rowMode: 'object',
 			callback: row => {
-				let info = {...row, time: this.getTime(), extra}
+				let info = {...row, time: this.getTime(), extra};
 				setTimeout(
 					traderNLV,
 					0*this.tickGap,

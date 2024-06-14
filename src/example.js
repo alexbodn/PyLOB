@@ -47,55 +47,16 @@ function test_lob(lob, instrument, currency) {
 	
 	//# Create some limit orders
 	warn("Create some limit orders");
-	let someOrders = [{'order_type' : 'limit', 
-					 'side' : 'ask', 
-					'instrument': instrument,
-					'qty' : 5, 
-					'price' : 101.0,
-					'tid' : 100},
-					 {'order_type' : 'limit', 
-					'side' : 'ask', 
-					'instrument': instrument,
-					'qty' : 5, 
-					'price' : 103.0,
-					'tid' : 101},
-					 {'order_type' : 'limit', 
-					'side' : 'ask', 
-					'instrument': instrument,
-					'qty' : 5, 
-					'price' : 101.0,
-					'tid' : 102},
-					 {'order_type' : 'limit', 
-					'side' : 'ask', 
-					'instrument': instrument,
-					'qty' : 5, 
-					'price' : 101.0,
-					'tid' : 103},
-					 {'order_type' : 'limit', 
-					'side' : 'bid', 
-					'instrument': instrument,
-					'qty' : 5, 
-					'price' : 99.0,
-					'tid' : 100},
-					 {'order_type' : 'limit', 
-					'side' : 'bid', 
-					'instrument': instrument,
-					'qty' : 5, 
-					'price' : 98.0,
-					'tid' : 101},
-					 {'order_type' : 'limit', 
-					'side' : 'bid', 
-					'instrument': instrument,
-					'qty' : 5, 
-					'price' : 99.0,
-					'tid' : 102},
-					 {'order_type' : 'limit', 
-					'side' : 'bid', 
-					'instrument': instrument,
-					'qty' : 5, 
-					'price' : 97.0,
-					'tid' : 103},
-					 ];
+	let someOrders = [
+		{order_type: 'limit', side: 'ask', instrument, qty: 5, price: 101.0, tid: 100},
+		{order_type: 'limit', side: 'ask', instrument, qty: 5, price: 103.0, tid: 101},
+		{order_type: 'limit', side: 'ask', instrument, qty: 5, price: 101.0, tid: 102},
+		{order_type: 'limit', side: 'ask', instrument, qty: 5, price: 101.0, tid: 103},
+		{order_type: 'limit', side: 'bid', instrument, qty: 5, price: 99.0, tid: 100},
+		{order_type: 'limit', side: 'bid', instrument, qty: 5, price: 98.0, tid: 101},
+		{order_type: 'limit', side: 'bid', instrument, qty: 5, price: 99.0, tid: 102},
+		{order_type: 'limit', side: 'bid', instrument, qty: 5, price: 97.0, tid: 103},
+	];
 	//# Add orders to LOB
 	//someOrders = someOrders.slice(0, 4);
 	for (let order of someOrders) {
@@ -137,12 +98,12 @@ function test_lob(lob, instrument, currency) {
 	//# Submitting a limit order that crosses the opposing best price will 
 	//# result in a trade.
 	warn("Trade occurs as incoming bid limit crosses best ask..");
-	let crossingLimitOrder = {'order_type' : 'limit', 
-							'side' : 'bid', 
-							'instrument': instrument,
-							'qty' : 2, 
-							'price' : 102.0,
-							'tid' : 109};
+	let crossingLimitOrder = {order_type: 'limit', 
+							side: 'bid', 
+							instrument,
+							qty: 2, 
+							price: 102.0,
+							tid: 109};
 
 	//let [trades, orderInBook] = 
 	lob.processOrder(crossingLimitOrder, false, false);
@@ -179,12 +140,12 @@ function test_lob(lob, instrument, currency) {
 	//# If a limit order crosses but is only partially matched, the remaining 
 	//# volume will be placed in the book as an outstanding order
 	warn("Large incoming bid limit crosses best ask. Remaining volume is placed in the book..");
-	let bigCrossingLimitOrder = {'order_type' : 'limit', 
-							 'side' : 'bid', 
-							 'instrument': instrument,
-							 'qty' : 50, 
-							 'price' : 102.0,
-							 'tid' : 110};
+	let bigCrossingLimitOrder = {order_type: 'limit', 
+							 side: 'bid', 
+							 instrument,
+							 qty: 50, 
+							 price: 102.0,
+							 tid: 110};
 	//let [trades, orderInBook] = 
 	lob.processOrder(bigCrossingLimitOrder, false, false);
 	lob.print(instrument);
@@ -219,11 +180,11 @@ function test_lob(lob, instrument, currency) {
 	//# or ask), a quantity and their unique tid.
 	warn("A market order takes the specified volume from the inside of the book, regardless of price");
 	warn("A market ask for 40 results in..");
-	let marketOrder = {'order_type' : 'market', 
-					 'side' : 'ask', 
-					 'instrument': instrument,
-					 'qty' : 40, 
-					 'tid' : 111};
+	let marketOrder = {order_type: 'market', 
+					 side: 'ask', 
+					 instrument,
+					 qty: 40, 
+					 tid: 111};
 	//let [trades, idNum] = 
 	lob.processOrder(marketOrder, false, false);
 	lob.print(instrument);
@@ -278,7 +239,7 @@ function test_lob(lob, instrument, currency) {
 	//# Orders can be modified by submitting a new order with an old idNum
 	warn("Book after decrease amount. Will not move");
 	let decreaseOrder5 = {
-					'qty' : 4, 
+					qty: 4, 
 					};
 	lob.modifyOrder(firstIdNum + 5, decreaseOrder5);
 	lob.print(instrument);
@@ -302,7 +263,7 @@ function test_lob(lob, instrument, currency) {
 	
 	warn("Book after increase amount. Will be put as end of queue");
 	let increaseOrder5 = { 
-					'qty' : 14, 
+					qty: 14, 
 					};
 	lob.modifyOrder(firstIdNum + 5, increaseOrder5);
 	lob.print(instrument);
@@ -328,7 +289,7 @@ function test_lob(lob, instrument, currency) {
 	
 	warn("Book after improve bid price. Will process the order");
 	let improveOrder5 = {
-					'price' : 103.2,
+					price: 103.2,
 					};
 	lob.modifyOrder(firstIdNum + 5, improveOrder5);
 	lob.print(instrument);
@@ -353,11 +314,11 @@ function test_lob(lob, instrument, currency) {
 	
 	//############# best rated Market Orders ##############
 	warn("A market bid should be the best one.");
-	let marketOrder2 = {'order_type' : 'market', 
-					 'side' : 'bid', 
-					 'instrument': instrument,
-					 'qty' : 10, 
-					 'tid' : 103};
+	let marketOrder2 = {order_type: 'market', 
+					 side: 'bid', 
+					 instrument,
+					 qty: 10, 
+					 tid: 103};
 	//let [trades, idNum] = 
 	lob.processOrder(marketOrder2, false, false);
 	lob.print(instrument);
@@ -384,11 +345,11 @@ function test_lob(lob, instrument, currency) {
 	
 	//############# Outstanding Market Orders ##############
 	warn("A market ask for 40 should fulfill all the bids and keep the remainder in the book");
-	let marketOrder3 = {'order_type' : 'market', 
-					 'side' : 'ask', 
-					 'instrument': instrument,
-					 'qty' : 40, 
-					 'tid' : 111};
+	let marketOrder3 = {order_type: 'market', 
+					 side: 'ask', 
+					 instrument,
+					 qty: 40, 
+					 tid: 111};
 	//let [trades, idNum] = 
 	//lob.setDebug();
 	lob.processOrder(marketOrder3, false, false);
