@@ -233,18 +233,19 @@ class OrderBook {
 	debug = false;
 
 	//@isAuthonomous will set last price by the executed orders
-	constructor(oo, tick_size=0.0001, verbose=false, thisLocation, isAuthonomous=true) {
+	constructor(oo, tick_size=0.0001, verbose=false, thisLocation, isAuthonomous=true, listener) {
 		this.tickSize = tick_size;
 		this.decimalDigits = Math.log10(1 / this.tickSize);
 		this.rounder = Math.pow(10, (Math.floor(this.decimalDigits)));
 		this.time = 0;
 		this.nextQuoteID = 0;
+		this.listener = listener;
 		
 		this.oo = oo;
 		// isolation_level: null
 		this.db = new oo.DB('file:orderbook?mode=memory', 'c');
 
-		this.location = new URL('./PyLOB', thisLocation);
+		this.location = thisLocation;
 		this.file_loader = fetchText;
 		this.verbose = verbose;
 		this.isAuthonomous = isAuthonomous;
@@ -253,7 +254,7 @@ class OrderBook {
 	
 	async init() {
 		let result = new Promise((resolve, reject) => {
-			this.init_queries(this.query_names, this.queries).then(() => {
+			this.init_queries(this.query_names, this.queries, this.location).then(() => {
 				this.db.exec(this.queries.orderbook);
 				this.queries.best_quotes_order_asc =
 					this.queries.best_quotes_order.replaceAll(':direction', 'asc');
@@ -271,12 +272,12 @@ class OrderBook {
 		return result;
 	}
 	
-	async init_queries(query_names, queries, subdir) {
+	async init_queries(query_names, queries, thisLocation) {
 		let result = new Promise((resolve, reject) => {
 		let query_promises = [];
 		for (let query of query_names) {
 			let promise = this.file_loader(
-				query, `${this.location}${subdir || ''}/sql/${query}.sql`);
+				query, `${thisLocation}/sql/${query}.sql`);
 			query_promises.push(promise);
 		}
 		let allDone = Promise.allSettled(query_promises);
@@ -428,10 +429,10 @@ class OrderBook {
 	}
 	
 	traderFundWithdraw(trader, instrument, amount) {
-		return this.traderFundDeposit(trader, instrument, -amount);
+		return this.traderFundsDeposit(trader, instrument, -amount);
 	}
 	
-	traderFundDeposit(trader, instrument, amount) {
+	traderFundsDeposit(trader, instrument, amount) {
 		// transfer amount from cash to fund or viceversa
 		this.db.transaction(
 			D => {
@@ -455,8 +456,8 @@ class OrderBook {
 		);
 	}
 	
-	traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra}) {
-		//to be overriden
+	traderBalance(...args) {
+		return this.listener.traderBalance(...args);
 		/*if (this.verbose) {
 			this.logobj({instrument, amount, lastprice, value, liquidation});
 		}*/
@@ -483,7 +484,7 @@ class OrderBook {
 	}
 	
 	traderNLV({trader, nlv, extra}) {
-		//to be overriden
+		return this.listener.traderNLV({trader, nlv, extra});
 		/*if (this.verbose) {
 			this.logobj({trader, nlv});
 		}*/
@@ -828,7 +829,7 @@ class OrderBook {
 	//openOrder on IB
 	//todo should provide order_id
 	orderSent(idNum, quote) {
-		// to be overriden
+		return this.listener.orderSent(idNum, quote);
 	}
 	
 	/*
@@ -836,16 +837,16 @@ class OrderBook {
 		print(f"orderId: {orderId}, status: {status}, filled: {filled}, remaining: {remaining}, avgFillPrice: {avgFillPrice}, permId: {permId}, parentId: {parentId}, lastFillPrice: {lastFillPrice}, clientId: {clientId}, whyHeld: {whyHeld}, mktCapPrice: {mktCapPrice}")
 	*/
 	orderRejected(idNum, why) {
-		// to be overriden
+		return this.listener.orderRejected(idNum, why);
 	}
 	
 	//the following two may be orderStatus/completedOrder on IB
 	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {
-		// to be overriden
+		this.listener.orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice);
 	}
 	
 	orderExecuted(idNum, trader, time, qty, price) {
-		// to be overriden
+		this.listener.orderExecuted(idNum, trader, time, qty, price);
 	}
 	
 	cancelOrder(idNum, time, {comment=null}={}) {
@@ -880,7 +881,7 @@ class OrderBook {
 	}
 
 	orderCancelled(idNum, trader, time) {
-		// to be overriden
+		return this.listener.orderCancelled(idNum, trader, this.time);
 	}
 	
 	betterPrice(side, price, comparedPrice) {
@@ -1003,6 +1004,7 @@ class OrderBook {
 		);
 	}
 	
+	//@todo: trigger instrument price event
 	setInstrument(instrument, db, field, value) {
 		let sql = this.queries.instrument_set
 			.replaceAll(':field', field);
@@ -1040,25 +1042,35 @@ class OrderBook {
 		}
 	}
 	
+	tickMidPoint(instrument, midPoint, time) {
+		return this.listener.tickMidPoint(instrument, midPoint, time);
+	}
+	
 	setLastPrice(instrument, lastprice, time, db) {
-		//this.logobj({instrument, lastprice, db})
-		this.setInstrument(
-			instrument, db, 'lastprice', lastprice);
-		//this.logobj(this.getLastPrice(instrument, db));
+		this.setInstrument(instrument, db, 'lastprice', lastprice);
+		return this.tickLastPrice(instrument, lastprice, time);
+	}
+	
+	tickLastPrice(instrument, lastprice, time) {
+		return this.listener.tickLastPrice(instrument, lastprice, time);
 	}
 	
 	setLastBid(instrument, lastbid, db) {
-		this.setInstrument(
-			instrument, db, 'lastbid', lastbid);
+		this.setInstrument(instrument, db, 'lastbid', lastbid);
+		return this.tickLastBid(instrument, lastbid, this.time);
+	}
+	
+	tickLastBid(instrument, lastbid, time) {
+		return this.listener.tickLastBid(instrument, lastbid, time);
 	}
 	
 	setLastAsk(instrument, lastask, db) {
-		this.setInstrument(
-			instrument, db, 'lastask', lastask);
+		this.setInstrument(instrument, db, 'lastask', lastask);
+		return this.tickLastAsk(instrument, lastask, this.time);
 	}
 	
-	tickMidPoint(instrument, midPoint, time) {
-		// to be overloaded
+	tickLastAsk(instrument, lastask, time) {
+		return this.listener.tickLastAsk(instrument, lastask, time);
 	}
 	
 	getInstrument(instrument, db, force) {

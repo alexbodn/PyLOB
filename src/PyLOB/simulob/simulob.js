@@ -125,7 +125,7 @@ const bgPlugin = {
 	}
 };
 
-class SimuLOB extends OrderBook {
+class SimuLOB {
 	
 	simu_initialized = false;
 	derailedLabels = {};
@@ -470,11 +470,13 @@ class SimuLOB extends OrderBook {
 		'quote_update',
 	];
 	
-	constructor(oo) {
+	constructor(oo, thisLocation) {
 		let verbose = true;
 		const isAuthonomous = false;
-		const thisLocation = window.location.href;
-		super(oo, undefined, verbose, thisLocation, isAuthonomous);
+		this.location = thisLocation;
+		this.lobLocation = new URL('../PyLOB', thisLocation);
+		this.lob = new OrderBook(oo, undefined, verbose, this.lobLocation, isAuthonomous, this);
+		this.valid_sides = this.lob.valid_sides;
 		if (this.isAuthonomous) {
 			this.price_branch.push('midpoint');
 		}
@@ -504,8 +506,8 @@ class SimuLOB extends OrderBook {
 	
 	async init(strategyClass, strategyDefaults) {
 		let result = new Promise((resolve, reject) => {
-			super.init()
-			.then(() => this.init_queries(this.simu_query_names, this.simu_queries, '/simulob'))
+			this.lob.init()
+			.then(() => this.lob.init_queries(this.simu_query_names, this.simu_queries, this.location))
 			.then(() => this.simu_db.exec(this.simu_queries.simulob))
 			.then(
 				value => {
@@ -520,7 +522,7 @@ class SimuLOB extends OrderBook {
 				}
 			)
 			.then(value => {
-				return fetchPricesZIP(this);
+				return fetchPricesZIP(this, this.lobLocation);
 			})
 			.then(value => {
 				this.simu_initialized = true;
@@ -533,6 +535,78 @@ class SimuLOB extends OrderBook {
 	
 	isInitialized() {
 		return this.simu_initialized;
+	}
+	
+	getTime(...args) {
+		return this.lob.getTime(...args);
+	}
+	
+	createInstrument(...args) {
+		return this.lob.createInstrument(...args);
+	}
+	
+	createQuote(...args) {
+		return this.lob.createQuote(...args);
+	}
+	
+	createTrader(...args) {
+		return this.lob.createTrader(...args);
+	}
+	
+	traderCashReset(...args) {
+		return this.lob.traderCashReset(...args);
+	}
+	
+	traderCashDeposit(...args) {
+		return this.lob.traderCashDeposit(...args);
+	}
+	
+	traderFundsReset(...args) {
+		return this.lob.traderFundsReset(...args);
+	}
+	
+	traderFundsDeposit(...args) {
+		return this.lob.traderFundsDeposit(...args);
+	}
+	
+	traderGetNLV(...args) {
+		return this.lob.traderGetNLV(...args);
+	}
+	
+	traderGetBalance(...args) {
+		return this.lob.traderGetBalance(...args);
+	}
+	
+	processOrder(...args) {
+		return this.lob.processOrder(...args);
+	}
+	
+	modifyOrder(...args) {
+		return this.lob.modifyOrder(...args);
+	}
+	
+	modificationsCharge(...args) {
+		return this.lob.modificationsCharge(...args);
+	}
+	
+	orderGetSide(...args) {
+		return this.lob.orderGetSide(...args);
+	}
+	
+	order_log_show(...args) {
+		return this.lob.order_log_show(...args);
+	}
+	
+	logobj(...args) {
+		return this.lob.logobj(...args);
+	}
+	
+	getRounder(...args) {
+		return this.lob.getRounder(...args);
+	}
+	
+	setRounder(...args) {
+		return this.lob.setRounder(...args);
 	}
 	
 	pause(value=true) {
@@ -548,7 +622,7 @@ class SimuLOB extends OrderBook {
 	close() {
 		this.pause();
 		setTimeout(() => {
-			super.close();
+			this.lob.close();
 			for (let label of Object.keys(this.charts)) {
 				this.chartDestroy(label);
 			}
@@ -1275,7 +1349,7 @@ class SimuLOB extends OrderBook {
 			this.processOrder(quote, true, false, isPrivate);
 		}
 		else if (cancelQuote) {
-			super.cancelOrder(quote.idNum);
+			this.lob.cancelOrder(quote.idNum);
 			return quote.idNum;
 		}
 		else {
@@ -1294,7 +1368,7 @@ class SimuLOB extends OrderBook {
 	cancelQuote(trader, instrument, label) {
 		let idNum = this.quoteGetNum(trader, instrument, label);
 		if (idNum !== null) {
-			super.cancelOrder(idNum);
+			this.lob.cancelOrder(idNum);
 		}
 	}
 	
@@ -1354,25 +1428,24 @@ class SimuLOB extends OrderBook {
 		});
 	}
 	
-	setLastPrice(instrument, price, time, db) {
-		let ret = super.setLastPrice(instrument, price, time, db);
-		this.strategy.hook_setLastPrice(instrument, price, time);
-		return ret;
+	setLastPrice(instrument, price, time) {
+		this.lob.setLastPrice(instrument, price, time);
+	}
+	
+	tickLastPrice(instrument, price, time) {
+		this.strategy.hook_tickLastPrice(instrument, price, time);
 	}
 	
 	tickMidPoint(instrument, midPoint, time) {
-		let ret = super.tickMidPoint(instrument, midPoint, time);
 		this.strategy.hook_tickMidPoint(instrument, midPoint, time);
 		let tick = {
 			x: time,
 			y: midPoint,
 		};
 		this.chartPushTicks('midpoint', tick);
-		return ret;
 	}
 	
 	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {
-		let ret = super.orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice);
 		if (trader != this.trader_tid) {
 			return;
 		}
@@ -1389,11 +1462,9 @@ class SimuLOB extends OrderBook {
 		}
 		this.strategy.hook_orderFulfill(
 			instrument, label, trader, qty, fulfilled, commission, avgPrice);
-		return ret;
 	}
 	
 	orderExecuted(idNum, trader, time, qty, price) {
-		let ret = super.orderExecuted(idNum, trader, time, qty, price);
 		if (trader != this.trader_tid) {
 			return;
 		}
@@ -1415,11 +1486,9 @@ class SimuLOB extends OrderBook {
 			branch: label,
 		};
 		this.chartPushTicks(side == 'ask' ? 'sold' : 'bought', tick);
-		return ret;
 	}
 	
 	orderCancelled(idNum, trader, time) {
-		let ret = super.orderCancelled(idNum, trader, time);
 		if (trader != this.trader_tid) {
 			return;
 		}
@@ -1434,28 +1503,20 @@ class SimuLOB extends OrderBook {
 		//this.derailedLabels[instrument][label] = true;
 		//this?
 		this.strategy.hook_orderCancelled(instrument, label, trader, time);
-		return ret;
 	}
 	
 	orderRejected(idNum, why) {
-		let ret = super.orderRejected(idNum, why);
 		console.log('rejected order', idNum, why);
 		this.quoteDismiss(idNum);
-		return ret;
 	}
 	
 	traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra}) {
-		let ret = super.traderBalance(
-			{trader, instrument, amount, lastprice, value, liquidation, time, extra});
 		this.strategy.hook_traderBalance(
 			trader, instrument, amount, lastprice, value, liquidation, time, extra);
-		return ret;
 	}
 	
 	traderNLV({trader, nlv, extra}) {
-		let ret = super.traderNLV({trader, nlv, extra});
 		this.strategy.hook_traderNLV(trader, nlv, extra);
-		return ret;
 	}
 	
 	dtFormat(millis, fmt='HH:mm:ss.SSS') {
@@ -1463,7 +1524,7 @@ class SimuLOB extends OrderBook {
 	}
 	
 	order_log_filter(order_id, label, db) {
-		let [dolog, data] = super.order_log_filter(order_id, label, db);
+		let [dolog, data] = this.lob.order_log_filter(order_id, label, db);
 		dolog = (data.trader == this.trader_tid);
 		if (['balance_update', 'modify_detail'].includes(label)) {
 			dolog = false;
@@ -1481,7 +1542,7 @@ class SimuLOB extends OrderBook {
 		if (timestamp <= this.time) {
 			timestamp = this.time + 1;
 		}
-		return super.updateTime(timestamp);
+		return this.lob.updateTime(timestamp);
 	}
 	
 	studySide(side, chartLabel) {

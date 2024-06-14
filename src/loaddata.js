@@ -82,10 +82,10 @@ function csvLoad(simu, label) {
 	return resp.then(() => `loaded ${label}`);
 }
 
-async function fetchPricesZIP(simu) {
+async function fetchPricesZIP(simu, location) {
 	const cleanLabel = /^lobdata\/(.*?)\.csv$/;
 	let result = new Promise((resolve, reject) => {
-		fetch(simu.location + '/data/lobdata-2009.zip')
+		fetch(`${location}/data/lobdata-2009.zip`)
 		.then(function (response) {					   // 2) filter on 200 OK
 			if (response.status === 200 || response.status === 0) {
 				return Promise.resolve(response.blob());

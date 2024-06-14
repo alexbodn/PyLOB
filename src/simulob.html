@@ -247,7 +247,9 @@
 			alert('please activate one of the strategies');
 			return;
 		}
-		window.sob = new SimuLOB(oo);
+		const simuLocation = new URL('PyLOB/simulob', window.location.href);
+console.log(simuLocation, window.location.href);
+		window.sob = new SimuLOB(oo, simuLocation);
 		window.sob.init(window.strategyClass).then(
 			obj => {
 				window.sqlConsole.setDb(sob.db);

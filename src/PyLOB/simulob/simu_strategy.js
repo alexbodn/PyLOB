@@ -53,8 +53,9 @@ class SimuStrategy {
 		strategy.dialog.querySelector('button.run').addEventListener(
 			'click',
 			e => {
+		const simuLocation = new URL('PyLOB/simulob', window.location.href);
 				const
-				sob = new SimuLOB(oo);
+				sob = new SimuLOB(oo, simuLocation);
 				sob.init(strategy).then(
 					obj => {
 						sqlConsole.setDb(sob.db);
@@ -153,7 +154,10 @@ class SimuStrategy {
 	constructor(simu, defaults) {
 		this.simu = simu;
 		this.defaults = defaults;
-		this.logobj = simu.logobj;
+	}
+	
+	logobj(...args) {
+		return this.simu.logobj(...args);
 	}
 	
 	async hook_afterInit() {return Promise.resolve();}
@@ -162,7 +166,7 @@ class SimuStrategy {
 	hook_afterTicks(chartLabel) {}
 	hook_newChartStart() {}
 	hook_orderSent(tid, instrument, label, price) {}
-	hook_setLastPrice(instrument, price, time) {}
+	hook_tickLastPrice(instrument, price, time) {}
 	hook_tickMidPoint(instrument, midPoint, time) {}
 	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
 	hook_orderExecuted(instrument, label, trader, time, qty, price) {}
