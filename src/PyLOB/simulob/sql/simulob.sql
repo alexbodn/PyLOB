@@ -5,8 +5,10 @@ PRAGMA recursive_triggers=1;
 begin transaction;
 
 create table if not exists requests (
-    reqid integer not null primary key,
-    extra text
+    subject text not null,
+    reqId integer not null,
+    extra text,
+    primary key (subject, reqId)
 );
 
 create table if not exists trading_template (

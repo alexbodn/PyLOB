@@ -84,18 +84,15 @@
 		<script type="text/javascript">
 			// your custom "queryable" worker
 			const sqlite3Dir = 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
-			const thisLocation = window.location.href;
 			const myTask = new QueryableWorker(
-				`./worker2.js?sqlite3.dir=${sqlite3Dir}&thisLocation=${thisLocation}`
+				`./worker2.js?sqlite3.dir=${sqlite3Dir}`
 			);
-
 			let logHtml;
 			if(self.window === self /* UI thread */){
 				console.log("Running demo from main UI thread.");
 				logHtml = function(cssClass,...args){
 					const ln = document.createElement('div');
 					if(cssClass) ln.classList.add(cssClass);
-					//ln.append(document.createTextNode(args.join(' ')));
 					ln.insertAdjacentHTML('beforeend', args.join(' '));
 					let logDiv = document.querySelector("div#log");
 					logDiv.insertAdjacentElement('beforeend', ln);

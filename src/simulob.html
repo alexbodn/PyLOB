@@ -248,7 +248,6 @@
 			return;
 		}
 		const simuLocation = new URL('PyLOB/simulob', window.location.href);
-console.log(simuLocation, window.location.href);
 		window.sob = new SimuLOB(oo, simuLocation);
 		window.sob.init(window.strategyClass).then(
 			obj => {

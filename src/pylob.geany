@@ -27,19 +27,24 @@ long_line_behaviour=1
 long_line_column=80
 
 [files]
-current_page=0
-FILE_NAME_0=35411;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
-FILE_NAME_1=7517;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
+current_page=17
+FILE_NAME_0=9661;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
+FILE_NAME_1=7400;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
 FILE_NAME_2=4250;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
-FILE_NAME_3=12659;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fexample.js;0;4
+FILE_NAME_3=14337;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fexample.js;0;4
 FILE_NAME_4=1974;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Floaddata.js;0;4
-FILE_NAME_5=16125;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Forderbook.sql;0;4
+FILE_NAME_5=1247;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Forderbook.sql;0;4
 FILE_NAME_6=35469;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fpeakswinger.js;0;4
 FILE_NAME_7=3160;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fjslob.html;0;4
-FILE_NAME_8=1206;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fjslob2.html;0;4
+FILE_NAME_8=2213;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fjslob2.html;0;4
 FILE_NAME_9=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fgood-swinger.js;0;4
-FILE_NAME_10=3015;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fworker2.js;0;4
-FILE_NAME_11=27371;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
+FILE_NAME_10=2968;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fworker2.js;0;4
+FILE_NAME_11=36156;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
+FILE_NAME_12=220;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Fsimulob.sql;0;4
+FILE_NAME_13=1;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Flastrequest.sql;0;4
+FILE_NAME_14=0;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Frequest_insert.sql;0;4
+FILE_NAME_15=70;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Frequest_fetch.sql;0;4
+FILE_NAME_16=1211;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fob_worker.js;0;4
 
 [VTE]
-last_dir=/home/alex/python3/PyLOB/src/PyLOB/simulob
+last_dir=/home/alex/python3/PyLOB/src/PyLOB

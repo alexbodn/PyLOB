@@ -369,7 +369,7 @@ function test_lob(lob, instrument, currency) {
 	if (lob.dumpCmp(expected)) {
 		++nerrors;
 	}
-	console.log(`${nerrors} errors for ${instrument}`);
+	lob.logobj(`${nerrors} errors for ${instrument}`);
 	//lob.order_log_show();
 	console.timeEnd(test_label);
 }

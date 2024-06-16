@@ -5,7 +5,7 @@ select
 	round(amount, rounder) as amount,
 	rounder,
 	lastprice,
-	amount * lastprice as value,
+	amount * lastprice as [value],
 	-- should rather be: best bid
 	amount * lastbid as liquidation,
 	trader_balance.modification_debit,

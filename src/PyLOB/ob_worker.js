@@ -28,7 +28,6 @@
 		importScripts(
 			sqlite3Js,
 			new URL('./PyLOB/orderbook.js', self.location.href),
-			'example.js',
 		);
 		
 		self.sqlite3InitModule({
@@ -50,7 +49,6 @@
 					obj => {
 						warn('initialization done.');
 						console.timeEnd('sob_init');
-						test_perform(self.sob);
 					}
 				); 
 			}
@@ -60,18 +58,6 @@
 		});
 			
 		const queryableFunctions = {
-			// example #1: get the difference between two numbers:
-			getDifference(minuend, subtrahend) {
-				reply("printStuff", minuend - subtrahend);
-			},
-			
-			// example #2: wait three seconds
-			waitSomeTime() {
-				setTimeout(() => {
-					reply("doAlert", 3, "seconds");
-				}, 3000);
-			},
-			
 			print(instrument) {
 				self.sob.print(instrument);
 			},

@@ -1,5 +1,6 @@
 'use strict';
 
+// stringify with methods
 function objectStringify(obj, sep) {
 	var placeholder = '____PLACEHOLDER____';
 	var fns = [];
@@ -125,7 +126,7 @@ const bgPlugin = {
 	}
 };
 
-class SimuLOB {
+class SimuLOB extends LOBListener {
 	
 	simu_initialized = false;
 	derailedLabels = {};
@@ -468,15 +469,25 @@ class SimuLOB {
 		'quote_getnum',
 		'quote_insert',
 		'quote_update',
+		'request_insert',
+		'request_fetch',
+		'lastrequest',
 	];
 	
+	request_promises = {};
+	
 	constructor(oo, thisLocation) {
+		const sqlite3Dir = 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
+		const lobLocation = new URL('../PyLOB', thisLocation);
+		const worker_url = `${lobLocation}/ob_worker.js?sqlite3.dir=${sqlite3Dir}`;
+		super(worker_url);
 		let verbose = true;
 		const isAuthonomous = false;
 		this.location = thisLocation;
-		this.lobLocation = new URL('../PyLOB', thisLocation);
-		this.lob = new OrderBook(oo, undefined, verbose, this.lobLocation, isAuthonomous, this);
-		this.valid_sides = this.lob.valid_sides;
+		this.lobLocation = lobLocation;
+		this.lob = new LOBClient(this.sendQuery, this.getReqId);
+		//this.lob = new OrderBook(oo, undefined, verbose, this.lobLocation, isAuthonomous, this);
+		this.valid_sides = OrderBook.valid_sides;
 		if (this.isAuthonomous) {
 			this.price_branch.push('midpoint');
 		}
@@ -504,10 +515,25 @@ class SimuLOB {
 		this.order_names = {};
 	}
 	
+	// This functions takes at least one argument, the method name we want to query.
+	// Then we can pass in the arguments that the method needs.
+	sendQuery = (queryMethod, ...queryMethodArguments) => {
+		if (!queryMethod) {
+			throw new TypeError(
+				"QueryableWorker.sendQuery takes at least one argument",
+			);
+		}
+		this.worker?.postMessage({
+			queryMethod,
+			queryMethodArguments,
+		});
+	};
+	
 	async init(strategyClass, strategyDefaults) {
 		let result = new Promise((resolve, reject) => {
-			this.lob.init()
-			.then(() => this.lob.init_queries(this.simu_query_names, this.simu_queries, this.location))
+			//this.lob.init()
+			this.init_worker()
+			.then(() => init_queries(this.simu_query_names, this.simu_queries, `${this.location}/sql/`))
 			.then(() => this.simu_db.exec(this.simu_queries.simulob))
 			.then(
 				value => {
@@ -1535,6 +1561,54 @@ class SimuLOB {
 			data.event_dt = this.dtFormat(data.event_dt);
 		}
 		return [dolog, data];
+	}
+	
+	getReqExtra(subject, reqId, db) {
+		let extra = null;
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.request_fetch,
+			rowMode: 'object',
+			bind: prepKeys(
+				{subject, reqId},
+				this.simu_queries.request_fetch),
+			callback: res => {
+				extra = res.extra;
+			}
+		});
+		return [this.request_promises[reqId], extra];
+	}
+	
+	getReqId(subject, reqId=null, {extra=null, withPromise=False}={}) {
+		this.db.transaction(
+			D => {
+				D.exec({
+					sql: this.simu_queries.request_insert,
+					bind: prepKeys(
+						{
+							subject,
+							reqId,
+							extra,
+						}
+						, this.simu_queries.request_insert),
+				});
+				D.exec({
+					sql: this.simu_queries.lastrequest,
+					rowMode: 'object',
+					bind: prepKeys(
+						{subject},
+						this.simu_queries.lastrequest),
+					callback: res => {
+						reqId = res.reqId;
+					}
+				});
+			}
+		);
+		if (withPromise) {
+			let promise = new Promise();
+			request_promises[reqId] = promise;
+			return [reqId, promise];
+		}
+		return reqId;
 	}
 	
 	updateTime(timestamp) {

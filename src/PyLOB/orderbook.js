@@ -75,6 +75,33 @@ async function fetchText(name, url) {
 	return ret;
 }
 
+const init_queries = async (query_names, queries, thisLocation) => {
+	let result = new Promise((resolve, reject) => {
+	let query_promises = query_names.map(query => fetchText(
+		query,
+		new URL(`${query}.sql`, thisLocation)
+	));
+	let allDone = Promise.allSettled(query_promises);
+	allDone.then(
+		values => {
+			for (let one of values) {
+				if (one.status !== 'fulfilled') {
+					reject(`could not open ${one.value[0]}`);
+				}
+				let [name, text] = one.value;
+				queries[name] =
+					`--<${name}>--
+					${text}
+					--</${name}>--
+					`;
+			}
+			resolve('init_queries done');
+		}
+	);
+	});
+	return result;
+}
+	
 const format = function () {
 	let args = arguments;
 	return args[0].replace(/{(\d+)}/g, function (match, number) {
@@ -89,6 +116,9 @@ const formats = function (fmt, args) {
 };
 
 function syntaxHighlight(json, withCss=true, tag='pre', jsonClass='json') {
+	if (typeof document === 'undefined') {
+		return json;
+	}
 	let styleId = 'json-syntaxHighlight';
 	if (withCss && !document.getElementById(styleId)) {
 		const style = `
@@ -183,8 +213,8 @@ function prepKeys(obj, query, label) {
 }
 
 class OrderBook {
-	valid_types = ['market', 'limit'];
-	valid_sides = ['ask', 'bid'];
+	static valid_types = ['market', 'limit'];
+	static valid_sides = ['ask', 'bid'];
 	query_names = [
 		'active_orders',
 		'best_quotes',
@@ -224,7 +254,7 @@ class OrderBook {
 		'modifications_charge',
 		'insert_order_log',
 		'select_order_log',
-		'orderbook'
+		'orderbook',
 	];
 	queries = {};
 	initialized = false;
@@ -236,17 +266,16 @@ class OrderBook {
 	constructor(oo, tick_size=0.0001, verbose=false, thisLocation, isAuthonomous=true, listener) {
 		this.tickSize = tick_size;
 		this.decimalDigits = Math.log10(1 / this.tickSize);
-		this.rounder = Math.pow(10, (Math.floor(this.decimalDigits)));
+		this.rounder = 1 / this.tickSize;
 		this.time = 0;
 		this.nextQuoteID = 0;
-		this.listener = listener;
+		this.listener = listener || new LOBListener();
 		
 		this.oo = oo;
 		// isolation_level: null
 		this.db = new oo.DB('file:orderbook?mode=memory', 'c');
 
 		this.location = thisLocation;
-		this.file_loader = fetchText;
 		this.verbose = verbose;
 		this.isAuthonomous = isAuthonomous;
 		this.instrument_cache = {};
@@ -254,7 +283,7 @@ class OrderBook {
 	
 	async init() {
 		let result = new Promise((resolve, reject) => {
-			this.init_queries(this.query_names, this.queries, this.location).then(() => {
+			init_queries(this.query_names, this.queries, `${this.location}/sql/`).then(() => {
 				this.db.exec(this.queries.orderbook);
 				this.queries.best_quotes_order_asc =
 					this.queries.best_quotes_order.replaceAll(':direction', 'asc');
@@ -268,35 +297,6 @@ class OrderBook {
 				this.initialized = true;
 				resolve('init done');
 			});
-		});
-		return result;
-	}
-	
-	async init_queries(query_names, queries, thisLocation) {
-		let result = new Promise((resolve, reject) => {
-		let query_promises = [];
-		for (let query of query_names) {
-			let promise = this.file_loader(
-				query, `${thisLocation}/sql/${query}.sql`);
-			query_promises.push(promise);
-		}
-		let allDone = Promise.allSettled(query_promises);
-		allDone.then(
-			values => {
-				for (let one of values) {
-					if (one.status !== 'fulfilled') {
-						reject(`could not open ${one.value[0]}`);
-					}
-					let [name, text] = one.value;
-					queries[name] =
-						`--<${name}>--
-						${text}
-						--</${name}>--
-						`;
-				}
-				resolve('init_queries done');
-			}
-		);
 		});
 		return result;
 	}
@@ -365,8 +365,7 @@ class OrderBook {
 		return this.time;
 	}
 	
-	createInstrument(
-		symbol, currency, {modification_fee=0, execution_credit=0}={})
+	createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={})
 	{
 		this.db.exec({
 			sql: this.queries.instrument_insert,
@@ -457,13 +456,13 @@ class OrderBook {
 	}
 	
 	traderBalance(...args) {
-		return this.listener.traderBalance(...args);
+		return this.listener.traderBalanceResp(...args);
 		/*if (this.verbose) {
 			this.logobj({instrument, amount, lastprice, value, liquidation});
 		}*/
 	}
 	
-	traderGetBalance(trader, instrument, extra) {
+	traderGetBalance(reqId, trader, instrument) {
 		// if !instrument, then all
 		const traderBalance =
 			(ob, info) => {
@@ -477,20 +476,20 @@ class OrderBook {
 			}, this.queries.trader_balance),
 			rowMode: 'object',
 			callback: row => {
-				let info = {...row, time: this.getTime(), extra};
+				let info = {reqId, ...row, time: this.getTime()};
 				this.traderBalance(info);
 			}
 		});
 	}
 	
-	traderNLV({trader, nlv, extra}) {
-		return this.listener.traderNLV({trader, nlv, extra});
+	traderNLV({reqId, trader, nlv}) {
+		return this.listener.traderNLVResp({reqId, trader, nlv});
 		/*if (this.verbose) {
 			this.logobj({trader, nlv});
 		}*/
 	}
 	
-	traderGetNLV(trader, extra) {
+	traderGetNLV(reqId, trader) {
 		const traderNLV =
 			(ob, info) => {
 				ob.traderNLV(info);
@@ -502,7 +501,7 @@ class OrderBook {
 			}, this.queries.trader_nlv),
 			rowMode: 'object',
 			callback: row => {
-				let info = {...row, time: this.getTime(), extra};
+				let info = {reqId, ...row, time: this.getTime()};
 				setTimeout(
 					traderNLV,
 					0*this.tickGap,
@@ -577,11 +576,11 @@ class OrderBook {
 		if (quote.qty <= 0) {
 			throw new Error(`processOrder(${quote.idNum}) given order of qty <= 0`);
 		}
-		if (!this.valid_types.includes(quote.order_type)) {
-			throw new Error(`processOrder(${quote.idNum}) given ${quote.order_type}, not in ${this.valid_types}`);
+		if (!this.constructor.valid_types.includes(quote.order_type)) {
+			throw new Error(`processOrder(${quote.idNum}) given ${quote.order_type}, not in ${this.constructor.valid_types}`);
 		}
-		if (!this.valid_sides.includes(quote.side)) {
-			throw new Error(`processOrder(${quote.idNum}) given ${quote.side}, not in ${this.valid_sides}`);
+		if (!this.constructor.valid_sides.includes(quote.side)) {
+			throw new Error(`processOrder(${quote.idNum}) given ${quote.side}, not in ${this.constructor.valid_sides}`);
 		}
 		
 		let ret = null;
@@ -1449,3 +1448,137 @@ export {
   OrderBook
 };
 */
+
+class LOBListener {
+	constructor(worker_url) {
+		this.worker_url = worker_url;
+	}
+	
+	async init_worker() {
+	console.log(123, this.worker_url);
+		this.worker = new Worker(this.worker_url);
+	}
+	
+	traderBalanceResp({
+		reqId, trader, instrument, amount, rounder, lastprice, value,
+		liquidation, modification_debit, execution_credit, time,
+	}) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		const info = {
+			trader, instrument, amount, rounder, lastprice, value,
+			liquidation, modification_debit, execution_credit, time, extra
+		};
+		if (promise) {
+			promise.resolve(info);
+		}
+		this.traderBalance(info);
+	}
+	traderNLVResp({reqId, trader, nlv}) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		const info = {trader, nlv, extra};
+		if (promise) {
+			promise.resolve(info);
+		}
+		this.traderNLV(info);
+	}
+	orderSent(idNum, quote) {}
+	orderRejected(idNum, why) {}
+	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {}
+	orderExecuted(idNum, trader, time, qty, price) {}
+	orderCancelled(idNum, trader, time) {}
+	tickMidPoint(instrument, midPoint, time) {}
+	tickLastPrice(instrument, lastprice, time) {}
+	tickLastBid(instrument, lastbid, time) {}
+	tickLastAsk(instrument, lastask, time) {}
+};
+
+class LOBClient {
+	constructor(sender, getReqId) {
+		this.sender = sender;
+		this.getReqId = getReqId;
+	}
+	quoteNum(idNum) {
+		return this.getReqId('quote', idNum);
+	}
+	createQuote(tid, instrument, side, qty, price=null) {
+		let quote = {
+			tid: tid,
+			instrument: instrument,
+			side: side,
+			qty: qty,
+			price: price,
+			order_type: price ? 'limit' : 'market',
+			idNum: this.quoteNum(),
+			timestamp: this.updateTime(),
+		};
+		return quote;
+	}
+	send(method, ...args) {
+		this.sender(method, args);
+	}
+	async sendRegistered(method, extra, ...args) {
+		let [reqId, promise] = this.getReqId('any', undefined, {extra, withPromise: true});
+		this.send(method, reqId, ...args);
+		return promise;
+	}
+	setRounder(rounder) {return this.send('setRounder', rounder);}
+	close() {return this.send('close');}
+	updateTime(timestamp) {return this.send('updateTime', timestamp);}
+	getTime() {return this.send('getTime');}
+	createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={}) {
+		return this.send(
+			'createInstrument', symbol, currency, {modification_fee, execution_credit});
+	}
+	createTrader(name, tid, currency, commission_data, allow_self_matching=0) {
+		return this.send(
+			'createTrader', name, tid, currency, commission_data, allow_self_matching);
+	}
+	traderCashDeposit(trader, currency, amount) {
+		return this.send('traderCashDeposit', trader, currency, amount);
+	}
+	traderFundsDeposit(trader, instrument, amount) {
+		return this.send('traderFundsDeposit', trader, instrument, amount);
+	}
+	traderFundsReset(trader, instrument) {
+		return this.send('traderFundsReset', trader, instrument);
+	}
+	traderCashReset(trader, currency) {
+		return this.send('traderCashReset', trader, currency);
+	}
+	async traderGetBalance(trader, instrument, extra) {
+		return this.sendRegistered('traderGetBalance', extra, trader, instrument);
+	}
+	async traderGetNLV(trader, extra) {
+		return this.sendRegistered('traderGetNLV', extra, trader);
+	}
+	createQuote(tid, instrument, side, qty, price=null) {
+		return this.send('createQuote', tid, instrument, side, qty, price);
+	}
+	processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
+		return this.send('processOrder', quote, fromData, verbose, isPrivate, {comment});
+	}
+	cancelOrder(idNum, time, {comment=null}={}) {
+		return this.send('cancelOrder', idNum, time, {comment});
+	}
+	async orderGetSide(idNum) {
+		return this.sendRegistered('orderGetSide', undefined, idNum);
+	}
+	modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null}={}) {
+		return this.send('modifyOrder', idNum, orderUpdate, time, verbose, isPrivate, {comment});
+	}
+	modificationsCharge() {
+		return this.send('modificationsCharge', );
+	}
+	setLastPrice(instrument, lastprice, time) {
+		return this.send('setLastPrice', instrument, lastprice, time);
+	}
+	async getRounder(instrument) {
+		return this.sendRegistered('getRounder', undefined, instrument);
+	}
+	order_log_filter(order_id, label) {
+		return this.send('order_log_filter', order_id, label);
+	}
+	order_log_show(callback) {
+		return this.send('order_log_show', );
+	}
+};
