@@ -83,7 +83,7 @@
 		</script>
 		<script type="text/javascript">
 			// your custom "queryable" worker
-			const sqlite3Dir = 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
+			const sqlite3Dir = '/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
 			const myTask = new QueryableWorker(
 				`./worker2.js?sqlite3.dir=${sqlite3Dir}`
 			);

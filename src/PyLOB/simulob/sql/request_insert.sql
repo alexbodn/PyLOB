@@ -1,11 +1,11 @@
 
-insert into requests (subject, extra, reqId) 
+insert into requests (subject, reqId, extra)
 select
 	:subject as subject,
-	:extra as extra, 
-	coalesce(reqId, (
+	coalesce(:reqId, (
 		select coalesce(max(reqId), 0) + 1
 		from requests
 		where subject=:subject
-	)) as reqId
+	)) as reqId,
+	:extra as extra
 ;

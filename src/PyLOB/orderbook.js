@@ -77,27 +77,27 @@ async function fetchText(name, url) {
 
 const init_queries = async (query_names, queries, thisLocation) => {
 	let result = new Promise((resolve, reject) => {
-	let query_promises = query_names.map(query => fetchText(
-		query,
-		new URL(`${query}.sql`, thisLocation)
-	));
-	let allDone = Promise.allSettled(query_promises);
-	allDone.then(
-		values => {
-			for (let one of values) {
-				if (one.status !== 'fulfilled') {
-					reject(`could not open ${one.value[0]}`);
+		let query_promises = query_names.map(query => fetchText(
+			query,
+			new URL(`${query}.sql`, thisLocation)
+		));
+		let allDone = Promise.allSettled(query_promises);
+		allDone.then(
+			values => {
+				for (let one of values) {
+					if (one.status !== 'fulfilled') {
+						reject(`could not open ${one.value[0]}`);
+					}
+					let [name, text] = one.value;
+					queries[name] =
+						`--<${name}>--
+						${text}
+						--</${name}>--
+						`;
 				}
-				let [name, text] = one.value;
-				queries[name] =
-					`--<${name}>--
-					${text}
-					--</${name}>--
-					`;
+				resolve('init_queries done');
 			}
-			resolve('init_queries done');
-		}
-	);
+		);
 	});
 	return result;
 }
@@ -283,7 +283,7 @@ class OrderBook {
 	
 	async init() {
 		let result = new Promise((resolve, reject) => {
-			init_queries(this.query_names, this.queries, `${this.location}/sql/`).then(() => {
+			init_queries(this.query_names, this.queries, `${this.location}sql/`).then(() => {
 				this.db.exec(this.queries.orderbook);
 				this.queries.best_quotes_order_asc =
 					this.queries.best_quotes_order.replaceAll(':direction', 'asc');
@@ -378,8 +378,12 @@ class OrderBook {
 		});
 	}
 	
-	createTrader(name, tid, currency, commission_data, allow_self_matching=0)
-	{
+	createTraderReq(reqId, ...args) {
+		let tid = this.createTrader(...args);
+		return this.listener.createTraderResp(reqId, tid);
+	}
+	
+	createTrader(name, tid, currency, commission_data, allow_self_matching=0) {
 		let ret = null;
 		let {commission_per_unit, commission_min, commission_max_percnt} = commission_data;
 		this.db.transaction(
@@ -462,7 +466,11 @@ class OrderBook {
 		}*/
 	}
 	
-	traderGetBalance(reqId, trader, instrument) {
+	traderGetBalance(trader, instrument) {
+		return this.traderGetBalanceReq(null, trader, instrument);
+	}
+	
+	traderGetBalanceReq(reqId, trader, instrument) {
 		// if !instrument, then all
 		const traderBalance =
 			(ob, info) => {
@@ -489,7 +497,11 @@ class OrderBook {
 		}*/
 	}
 	
-	traderGetNLV(reqId, trader) {
+	traderGetNLV(trader) {
+		return this.traderGetNLVReq(null, trader);
+	}
+	
+	traderGetNLVReq(reqId, trader) {
 		const traderNLV =
 			(ob, info) => {
 				ob.traderNLV(info);
@@ -1089,6 +1101,11 @@ class OrderBook {
 		return this.instrument_cache[instrument];
 	}
 	
+	getRounderReq(reqId, instrument) {
+		let rounder = this.getRounder(instrument);
+		return this.listener.getRounderResp(reqId, rounder);
+	}
+	
 	getRounder(instrument, db) {
 		let cache = this.getInstrument(instrument, db);
 		return (cache ? cache.rounder : null) || this.rounder;
@@ -1449,14 +1466,9 @@ export {
 };
 */
 
-class LOBListener {
-	constructor(worker_url) {
-		this.worker_url = worker_url;
-	}
-	
-	async init_worker() {
-	console.log(123, this.worker_url);
-		this.worker = new Worker(this.worker_url);
+// this is an interface
+class LOBReceiver {
+	constructor(poster) {
 	}
 	
 	traderBalanceResp({
@@ -1481,6 +1493,21 @@ class LOBListener {
 		}
 		this.traderNLV(info);
 	}
+	createTraderResp(reqId, tid) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(tid);
+		}
+		this.traderNLV(info);
+	}
+	getRounderResp(reqId, rounder) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(rounder);
+		}
+	}
+	traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra}) {}
+	traderNLV({trader, nlv, extra}) {}
 	orderSent(idNum, quote) {}
 	orderRejected(idNum, why) {}
 	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {}
@@ -1492,6 +1519,50 @@ class LOBListener {
 	tickLastAsk(instrument, lastask, time) {}
 };
 
+class LOBForwarder extends LOBReceiver {
+	constructor(sender) {
+		super();
+		this.sender = sender;
+	}
+	forward(method, args) {
+		this.sender(method, args);
+	}
+	traderBalance(...args) {
+		this.forward('traderBalance', ...args);
+	}
+	traderNLV(...args) {
+		this.forward('traderNLV', ...args);
+	}
+	orderSent(...args) {
+		this.forward('orderSent', ...args);
+	}
+	orderRejected(...args) {
+		this.forward('orderRejected', ...args);
+	}
+	orderFulfill(...args) {
+		this.forward('orderFulfill', ...args);
+	}
+	orderExecuted(...args) {
+		this.forward('orderExecuted', ...args);
+	}
+	orderCancelled(...args) {
+		this.forward('orderCancelled', ...args);
+	}
+	tickMidPoint(...args) {
+		this.forward('tickMidPoint', ...args);
+	}
+	tickLastPrice(...args) {
+		this.forward('tickLastPrice', ...args);
+	}
+	tickLastBid(...args) {
+		this.forward('tickLastBid', ...args);
+	}
+	tickLastAsk(...args) {
+		this.forward('tickLastAsk', ...args);
+	}
+};
+
+// this is an interface
 class LOBClient {
 	constructor(sender, getReqId) {
 		this.sender = sender;
@@ -1517,12 +1588,12 @@ class LOBClient {
 		this.sender(method, args);
 	}
 	async sendRegistered(method, extra, ...args) {
-		let [reqId, promise] = this.getReqId('any', undefined, {extra, withPromise: true});
+		let [reqId, promise] = this.getReqId('any', null, {extra, withPromise: true});
 		this.send(method, reqId, ...args);
 		return promise;
 	}
 	setRounder(rounder) {return this.send('setRounder', rounder);}
-	close() {return this.send('close');}
+	close() {return this.send('close');} //should terminate
 	updateTime(timestamp) {return this.send('updateTime', timestamp);}
 	getTime() {return this.send('getTime');}
 	createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={}) {
@@ -1530,8 +1601,8 @@ class LOBClient {
 			'createInstrument', symbol, currency, {modification_fee, execution_credit});
 	}
 	createTrader(name, tid, currency, commission_data, allow_self_matching=0) {
-		return this.send(
-			'createTrader', name, tid, currency, commission_data, allow_self_matching);
+		return this.sendRegistered(
+			'createTraderReq', null, name, tid, currency, commission_data, allow_self_matching);
 	}
 	traderCashDeposit(trader, currency, amount) {
 		return this.send('traderCashDeposit', trader, currency, amount);
@@ -1546,10 +1617,10 @@ class LOBClient {
 		return this.send('traderCashReset', trader, currency);
 	}
 	async traderGetBalance(trader, instrument, extra) {
-		return this.sendRegistered('traderGetBalance', extra, trader, instrument);
+		return this.sendRegistered('traderGetBalanceReq', extra, trader, instrument);
 	}
 	async traderGetNLV(trader, extra) {
-		return this.sendRegistered('traderGetNLV', extra, trader);
+		return this.sendRegistered('traderGetNLVReq', extra, trader);
 	}
 	createQuote(tid, instrument, side, qty, price=null) {
 		return this.send('createQuote', tid, instrument, side, qty, price);
@@ -1573,12 +1644,15 @@ class LOBClient {
 		return this.send('setLastPrice', instrument, lastprice, time);
 	}
 	async getRounder(instrument) {
-		return this.sendRegistered('getRounder', undefined, instrument);
+		return this.sendRegistered('getRounderReq', undefined, instrument);
 	}
 	order_log_filter(order_id, label) {
 		return this.send('order_log_filter', order_id, label);
 	}
 	order_log_show(callback) {
 		return this.send('order_log_show', );
+	}
+	logobj(...args) {
+		return this.send('logobj', ...args);
 	}
 };

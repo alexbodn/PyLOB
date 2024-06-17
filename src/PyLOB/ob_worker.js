@@ -27,7 +27,7 @@
 		}
 		importScripts(
 			sqlite3Js,
-			new URL('./PyLOB/orderbook.js', self.location.href),
+			new URL('./orderbook.js', self.location.href),
 		);
 		
 		self.sqlite3InitModule({
@@ -41,8 +41,8 @@
 				const oo = sqlite3.oo1/*high-level OO API*/;
 				self.sob = new OrderBook(
 					oo, 0.0001, true,
-					new URL('./PyLOB/', self.location.href),
-					true, new LOBListener()
+					new URL('./', self.location.href),
+					true, new LOBForwarder(workerReply)
 				);
 				console.time('sob_init');
 				self.sob.init().then(
@@ -56,21 +56,8 @@
 				warn("Exception:",e.message);
 			}
 		});
-			
-		const queryableFunctions = {
-			print(instrument) {
-				self.sob.print(instrument);
-			},
-		};
 		
-		// system functions
-		
-		function defaultReply(message) {
-			// your default PUBLIC function executed only when main page calls the queryableWorker.postMessage() method directly
-			// do something
-		}
-		
-		function reply(queryMethodListener, ...queryMethodArguments) {
+		function workerReply(queryMethodListener, ...queryMethodArguments) {
 			if (!queryMethodListener) {
 				throw new TypeError("reply - not enough arguments");
 			}

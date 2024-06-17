@@ -126,7 +126,7 @@ const bgPlugin = {
 	}
 };
 
-class SimuLOB extends LOBListener {
+class SimuLOB extends LOBReceiver {
 	
 	simu_initialized = false;
 	derailedLabels = {};
@@ -471,15 +471,16 @@ class SimuLOB extends LOBListener {
 		'quote_update',
 		'request_insert',
 		'request_fetch',
+		'request_delete',
 		'lastrequest',
 	];
 	
 	request_promises = {};
 	
 	constructor(oo, thisLocation) {
-		const sqlite3Dir = 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
-		const lobLocation = new URL('../PyLOB', thisLocation);
-		const worker_url = `${lobLocation}/ob_worker.js?sqlite3.dir=${sqlite3Dir}`;
+		const sqlite3Dir = '/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
+		const lobLocation = new URL('../PyLOB/', thisLocation);
+		const worker_url = `${lobLocation}ob_worker.js?sqlite3.dir=${sqlite3Dir}`;
 		super(worker_url);
 		let verbose = true;
 		const isAuthonomous = false;
@@ -508,8 +509,6 @@ class SimuLOB extends LOBListener {
 		this.charts = {};
 
 		this.simu_queries = {};
-		// isolation_level: null
-		this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
 		// move these to local db
 		this.trader_quotes = {};
 		this.order_names = {};
@@ -523,6 +522,7 @@ class SimuLOB extends LOBListener {
 				"QueryableWorker.sendQuery takes at least one argument",
 			);
 		}
+//console.log(queryMethod, queryMethodArguments);
 		this.worker?.postMessage({
 			queryMethod,
 			queryMethodArguments,
@@ -531,9 +531,11 @@ class SimuLOB extends LOBListener {
 	
 	async init(strategyClass, strategyDefaults) {
 		let result = new Promise((resolve, reject) => {
+			// isolation_level: null
+			this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
 			//this.lob.init()
-			this.init_worker()
-			.then(() => init_queries(this.simu_query_names, this.simu_queries, `${this.location}/sql/`))
+			init_queries(this.simu_query_names, this.simu_queries, `${this.location}/sql/`)
+			.then(() => {this.init_worker()})
 			.then(() => this.simu_db.exec(this.simu_queries.simulob))
 			.then(
 				value => {
@@ -557,6 +559,31 @@ class SimuLOB extends LOBListener {
 		;
 		});
 		return result;
+	}
+	
+	async init_worker() {
+		this.worker = new Worker(this.worker_url);
+		this.worker.onmessage = (event) => {
+			if (
+				event.data instanceof Object &&
+				Object.hasOwn(event.data, "queryMethodListener") &&
+				Object.hasOwn(event.data, "queryMethodArguments")
+			) {
+				this[event.data.queryMethodListener].apply(
+					this,
+					event.data.queryMethodArguments,
+				);
+			} else {
+				this.defaultListener.call(this, event.data);
+			}
+		};
+		this.worker.onerror = (event) => {
+			this.defaultListener(event);
+		};
+	}
+	
+	defaultListener(data) {
+		error(data);
 	}
 	
 	isInitialized() {
@@ -1565,7 +1592,10 @@ class SimuLOB extends LOBListener {
 	
 	getReqExtra(subject, reqId, db) {
 		let extra = null;
-		(db || this.simu_db).exec({
+		if (!db) {
+			db = this.simu_db;
+		}
+		db.exec({
 			sql: this.simu_queries.request_fetch,
 			rowMode: 'object',
 			bind: prepKeys(
@@ -1575,11 +1605,20 @@ class SimuLOB extends LOBListener {
 				extra = res.extra;
 			}
 		});
-		return [this.request_promises[reqId], extra];
+		db.exec({
+			sql: this.simu_queries.request_delete,
+			rowMode: 'object',
+			bind: prepKeys(
+				{subject, reqId},
+				this.simu_queries.request_delete),
+		});
+		let promise = this.request_promises[reqId];
+		delete this.request_promises[reqId];
+		return [promise, extra];
 	}
 	
-	getReqId(subject, reqId=null, {extra=null, withPromise=False}={}) {
-		this.db.transaction(
+	getReqId = (subject, reqId=null, {extra=null, withPromise=False}={}) => {
+		this.simu_db.transaction(
 			D => {
 				D.exec({
 					sql: this.simu_queries.request_insert,
@@ -1604,8 +1643,8 @@ class SimuLOB extends LOBListener {
 			}
 		);
 		if (withPromise) {
-			let promise = new Promise();
-			request_promises[reqId] = promise;
+			let promise = new Promise((resolve, reject) => { });
+			this.request_promises[reqId] = promise;
 			return [reqId, promise];
 		}
 		return reqId;
