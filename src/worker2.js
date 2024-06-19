@@ -43,7 +43,7 @@
 				self.sob = new OrderBook(
 					oo, 0.0001, true,
 					new URL('./PyLOB/', self.location.href),
-					true, new LOBListener()
+					true, new LOBReceiver()
 				);
 				console.time('sob_init');
 				self.sob.init().then(

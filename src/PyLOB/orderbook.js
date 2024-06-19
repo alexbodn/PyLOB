@@ -261,7 +261,8 @@ class OrderBook {
 	tickGap = 10;
 	
 	debug = false;
-
+	order_log_filters = {};
+	
 	//@isAuthonomous will set last price by the executed orders
 	constructor(oo, tick_size=0.0001, verbose=false, thisLocation, isAuthonomous=true, listener) {
 		this.tickSize = tick_size;
@@ -332,6 +333,11 @@ class OrderBook {
 		return ret;
 	}
 	
+	findOrderReq(reqId, idNum) {
+		let ret = this.findOrder(idNum);
+		this.listener.findOrderResp({...ret, reqId});
+	}
+	
 	findOrder(idNum, db) {
 		let ret;
 		(db || this.db).exec({
@@ -365,8 +371,13 @@ class OrderBook {
 		return this.time;
 	}
 	
-	createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={})
-	{
+	createInstrumentReq(...args) {
+		let [reqId, ...others] = args;
+		this.createInstrument(...others);
+		return this.listener.createInstrumentResp(reqId);
+	}
+	
+	createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={}) {
 		this.db.exec({
 			sql: this.queries.instrument_insert,
 			bind: prepKeys({
@@ -378,8 +389,9 @@ class OrderBook {
 		});
 	}
 	
-	createTraderReq(reqId, ...args) {
-		let tid = this.createTrader(...args);
+	createTraderReq(...args) {
+		let [reqId, ...others] = args;
+		let tid = this.createTrader(...others);
 		return this.listener.createTraderResp(reqId, tid);
 	}
 	
@@ -557,20 +569,6 @@ class OrderBook {
 			idNum = this.nextQuoteID;
 		}
 		return idNum;
-	}
-	
-	createQuote(tid, instrument, side, qty, price=null) {
-		let quote = {
-			tid: tid,
-			instrument: instrument,
-			side: side,
-			qty: qty,
-			price: price,
-			order_type: price ? 'limit' : 'market',
-			idNum: this.quoteNum(),
-			timestamp: this.updateTime(),
-		};
-		return quote;
 	}
 	
 	processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
@@ -914,6 +912,11 @@ class OrderBook {
 		}
 	}
 
+	orderGetSideReq(reqId, idNum) {
+		let side = this.orderGetSide(idNum);
+		this.listener.orderGetSideResp(reqId, side);
+	}
+	
 	orderGetSide(idNum, db) {
 		let ret = null;
 		(db || this.db).exec({
@@ -1036,8 +1039,10 @@ class OrderBook {
 		else {
 			db.exec(query);
 		}
+//console.log(instrument, this.instrument_cache[instrument]);
 		if (!(instrument in this.instrument_cache)) {
 			this.instrument_cache[instrument] = {};
+			this.getInstrument(instrument, db, true);
 		}
 		this.instrument_cache[instrument][field] = value;
 		if (this.isAuthonomous && value && ['lastask', 'lastbid'].includes(field)) {
@@ -1217,8 +1222,17 @@ class OrderBook {
 		return value.toString();
 	}
 	
+	order_log_addFilter(field, value) {
+		this.order_log_filters[field] = value;
+	}
+	
 	order_log(event_dt, order_id, label, info, db) {
 		let [dolog, data] = this.order_log_filter(order_id, label, db);
+		for (let [field, value] of Object.entries(this.order_log_filters)) {
+			if (field in data && data[field] != this.order_log_filters[field]) {
+				return;
+			}
+		}
 		if (!dolog) {
 			return;
 		}
@@ -1265,22 +1279,12 @@ class OrderBook {
 		return ret;
 	}
 	
-	logReplacer = (key, value) => {
-		if (key === 'event_dt') {
-			return this.dtFormat(value);
-		}
-		else if (key === 'info') {
-			value = value.replace(/<.*?>/g, '');
-		}
-		else if (typeof value === "number") {
-			value = formatRounder(value);
-		}
-		return value;
-	}
-	
 	logobj(...args) {
+		return this.listener.logobj(...args);
+		/*
 		log.apply(this, args.map(
 			arg => arg == undefined ? 'undefined' : stringify(arg, this.logReplacer)));
+		*/
 	}
 	
 	printQuote(quote, db) {
@@ -1468,9 +1472,15 @@ export {
 
 // this is an interface
 class LOBReceiver {
-	constructor(poster) {
-	}
+	constructor() {}
 	
+	done(reqId) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve();
+		}
+		return extra;
+	}
 	traderBalanceResp({
 		reqId, trader, instrument, amount, rounder, lastprice, value,
 		liquidation, modification_debit, execution_credit, time,
@@ -1493,12 +1503,32 @@ class LOBReceiver {
 		}
 		this.traderNLV(info);
 	}
+	findOrderResp(info) {
+		let {reqId, ...others} = info;
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(others);
+		}
+		
+	}
+	orderGetSideResp(reqId, side) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(side);
+		}
+		
+	}
+	createInstrumentResp(reqId) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve();
+		}
+	}
 	createTraderResp(reqId, tid) {
 		let [promise, extra] = this.getReqExtra('any', reqId);
 		if (promise) {
 			promise.resolve(tid);
 		}
-		this.traderNLV(info);
 	}
 	getRounderResp(reqId, rounder) {
 		let [promise, extra] = this.getReqExtra('any', reqId);
@@ -1523,9 +1553,34 @@ class LOBForwarder extends LOBReceiver {
 	constructor(sender) {
 		super();
 		this.sender = sender;
+		this.filters = {};
 	}
-	forward(method, args) {
-		this.sender(method, args);
+	addFilter(field, value) {
+		this.filters[field] = value;
+	}
+	forward(method, ...args) {
+		this.sender(method, ...args);
+	}
+	findOrderResp(...args) {
+		this.forward('findOrderResp', ...args);
+	}
+	orderGetSideResp(...args) {
+		this.forward('orderGetSideResp', ...args);
+	}
+	traderBalanceResp(...args) {
+		this.forward('traderBalanceResp', ...args);
+	}
+	traderNLVResp(...args) {
+		this.forward('traderNLVResp', ...args);
+	}
+	createInstrumentResp(...args) {
+		this.forward('createInstrumentResp', ...args);
+	}
+	createTraderResp(...args) {
+		this.forward('createTraderResp', ...args);
+	}
+	getRounderResp(...args) {
+		this.forward('getRounderResp', ...args);
 	}
 	traderBalance(...args) {
 		this.forward('traderBalance', ...args);
@@ -1533,8 +1588,13 @@ class LOBForwarder extends LOBReceiver {
 	traderNLV(...args) {
 		this.forward('traderNLV', ...args);
 	}
-	orderSent(...args) {
-		this.forward('orderSent', ...args);
+	orderSent(idNum, quote) {
+		for (let [field, value] of Object.entries(this.filters)) {
+			if (field in quote && quote[field] != this.filters[field]) {
+				return;
+			}
+		}
+		this.forward('orderSent', idNum, quote);
 	}
 	orderRejected(...args) {
 		this.forward('orderRejected', ...args);
@@ -1560,32 +1620,20 @@ class LOBForwarder extends LOBReceiver {
 	tickLastAsk(...args) {
 		this.forward('tickLastAsk', ...args);
 	}
+	logobj(...args) {
+		this.forward('logobj', ...args);
+	}
 };
 
 // this is an interface
 class LOBClient {
-	constructor(sender, getReqId) {
+	constructor(sender, getReqId, dtFormat) {
 		this.sender = sender;
 		this.getReqId = getReqId;
-	}
-	quoteNum(idNum) {
-		return this.getReqId('quote', idNum);
-	}
-	createQuote(tid, instrument, side, qty, price=null) {
-		let quote = {
-			tid: tid,
-			instrument: instrument,
-			side: side,
-			qty: qty,
-			price: price,
-			order_type: price ? 'limit' : 'market',
-			idNum: this.quoteNum(),
-			timestamp: this.updateTime(),
-		};
-		return quote;
+		this.dtFormat = dtFormat;
 	}
 	send(method, ...args) {
-		this.sender(method, args);
+		this.sender(method, ...args);
 	}
 	async sendRegistered(method, extra, ...args) {
 		let [reqId, promise] = this.getReqId('any', null, {extra, withPromise: true});
@@ -1596,11 +1644,11 @@ class LOBClient {
 	close() {return this.send('close');} //should terminate
 	updateTime(timestamp) {return this.send('updateTime', timestamp);}
 	getTime() {return this.send('getTime');}
-	createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={}) {
-		return this.send(
-			'createInstrument', symbol, currency, {modification_fee, execution_credit});
+	async createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={}) {
+		return this.sendRegistered(
+			'createInstrumentReq', null, symbol, currency, {modification_fee, execution_credit});
 	}
-	createTrader(name, tid, currency, commission_data, allow_self_matching=0) {
+	async createTrader(name, tid, currency, commission_data, allow_self_matching=0) {
 		return this.sendRegistered(
 			'createTraderReq', null, name, tid, currency, commission_data, allow_self_matching);
 	}
@@ -1622,6 +1670,12 @@ class LOBClient {
 	async traderGetNLV(trader, extra) {
 		return this.sendRegistered('traderGetNLVReq', extra, trader);
 	}
+	async findOrder(idNum) {
+		return this.sendRegistered('findOrderReq', null, idNum);
+	}
+	async orderGetSide(idNum) {
+		return this.sendRegistered('orderGetSideReq', null, idNum);
+	}
 	createQuote(tid, instrument, side, qty, price=null) {
 		return this.send('createQuote', tid, instrument, side, qty, price);
 	}
@@ -1630,9 +1684,6 @@ class LOBClient {
 	}
 	cancelOrder(idNum, time, {comment=null}={}) {
 		return this.send('cancelOrder', idNum, time, {comment});
-	}
-	async orderGetSide(idNum) {
-		return this.sendRegistered('orderGetSide', undefined, idNum);
 	}
 	modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null}={}) {
 		return this.send('modifyOrder', idNum, orderUpdate, time, verbose, isPrivate, {comment});
@@ -1652,7 +1703,23 @@ class LOBClient {
 	order_log_show(callback) {
 		return this.send('order_log_show', );
 	}
+	
+	logReplacer = (key, value) => {
+		if (key === 'event_dt') {
+			return this.dtFormat(value);
+		}
+		else if (key === 'info') {
+			value = value.replace(/<.*?>/g, '');
+		}
+		else if (typeof value === "number") {
+			value = formatRounder(value);
+		}
+		return value;
+	}
+	
 	logobj(...args) {
-		return this.send('logobj', ...args);
+		log.apply(this, args.map(
+			arg => arg == undefined ? 'undefined' : stringify(arg, this.logReplacer)));
+	//	return this.send('logobj', ...args);
 	}
 };

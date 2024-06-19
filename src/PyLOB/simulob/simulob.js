@@ -476,17 +476,15 @@ class SimuLOB extends LOBReceiver {
 	];
 	
 	request_promises = {};
+	time = 0;
 	
 	constructor(oo, thisLocation) {
-		const sqlite3Dir = '/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
-		const lobLocation = new URL('../PyLOB/', thisLocation);
-		const worker_url = `${lobLocation}ob_worker.js?sqlite3.dir=${sqlite3Dir}`;
-		super(worker_url);
+		super();
+		this.lobLocation = new URL('../PyLOB/', thisLocation);
 		let verbose = true;
 		const isAuthonomous = false;
 		this.location = thisLocation;
-		this.lobLocation = lobLocation;
-		this.lob = new LOBClient(this.sendQuery, this.getReqId);
+		this.lob = new LOBClient(this.sendQuery, this.getReqId, this.dtFormat);
 		//this.lob = new OrderBook(oo, undefined, verbose, this.lobLocation, isAuthonomous, this);
 		this.valid_sides = OrderBook.valid_sides;
 		if (this.isAuthonomous) {
@@ -514,29 +512,29 @@ class SimuLOB extends LOBReceiver {
 		this.order_names = {};
 	}
 	
-	// This functions takes at least one argument, the method name we want to query.
+	// This function takes at least one argument, the method name we want to query.
 	// Then we can pass in the arguments that the method needs.
 	sendQuery = (queryMethod, ...queryMethodArguments) => {
+//console.log('sending', queryMethod, ...queryMethodArguments);
 		if (!queryMethod) {
 			throw new TypeError(
-				"QueryableWorker.sendQuery takes at least one argument",
+				"sendQuery takes at least one argument",
 			);
 		}
-//console.log(queryMethod, queryMethodArguments);
-		this.worker?.postMessage({
+		const message = {
 			queryMethod,
 			queryMethodArguments,
-		});
+		};
+		this.worker.postMessage(message);
 	};
 	
 	async init(strategyClass, strategyDefaults) {
 		let result = new Promise((resolve, reject) => {
 			// isolation_level: null
 			this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
-			//this.lob.init()
 			init_queries(this.simu_query_names, this.simu_queries, `${this.location}/sql/`)
-			.then(() => {this.init_worker()})
 			.then(() => this.simu_db.exec(this.simu_queries.simulob))
+			.then(() => this.init_worker())
 			.then(
 				value => {
 					this.strategy = new strategyClass(this, strategyDefaults);
@@ -544,8 +542,9 @@ class SimuLOB extends LOBReceiver {
 					this.loading = document.querySelector('#loading');
 					this.paused = document.querySelector('#paused');
 					let chain = Promise.resolve();
-					chain = chain.then(
-						value => {return this.strategy.hook_afterInit();});
+					chain = chain.then(value => {
+						return this.strategy.hook_afterInit();
+					});
 					return chain;
 				}
 			)
@@ -561,36 +560,47 @@ class SimuLOB extends LOBReceiver {
 		return result;
 	}
 	
-	async init_worker() {
+	init_worker = async () => {
+		const sqlite3Dir = '/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
+		this.worker_url = `${this.lobLocation}ob_worker.js?sqlite3.dir=${sqlite3Dir}`;
+		let [initReqId, promise] = this.getReqId('any', null, {withPromise: true});
+		this.worker_url += `&initReqId=${initReqId}`;
 		this.worker = new Worker(this.worker_url);
 		this.worker.onmessage = (event) => {
+//console.log('workerReplied', event.data);
 			if (
 				event.data instanceof Object &&
 				Object.hasOwn(event.data, "queryMethodListener") &&
-				Object.hasOwn(event.data, "queryMethodArguments")
+				Object.hasOwn(event.data, "queryMethodArguments") &&
+				typeof this[event.data.queryMethodListener] === 'function'
 			) {
 				this[event.data.queryMethodListener].apply(
 					this,
 					event.data.queryMethodArguments,
 				);
-			} else {
-				this.defaultListener.call(this, event.data);
+			}
+			else {
+				this.defaultListener(event.data);
 			}
 		};
-		this.worker.onerror = (event) => {
-			this.defaultListener(event);
-		};
+		this.worker.onerror = this.defaultListener;
+		return promise;
 	}
 	
 	defaultListener(data) {
-		error(data);
+		error(`simulob received ${JSON.stringify(data)}`);
 	}
 	
 	isInitialized() {
 		return this.simu_initialized;
 	}
 	
+	addFilter(field, value) {
+		this.sendQuery('addFilter', field, value);
+	}
+	
 	getTime(...args) {
+		return this.time;
 		return this.lob.getTime(...args);
 	}
 	
@@ -598,9 +608,26 @@ class SimuLOB extends LOBReceiver {
 		return this.lob.createInstrument(...args);
 	}
 	
-	createQuote(...args) {
-		return this.lob.createQuote(...args);
+	quoteNum(idNum=null) {
+		return this.getReqId('quote', idNum);
 	}
+	
+	createQuote(tid, instrument, side, qty, price=null) {
+		let quote = {
+			tid: tid,
+			instrument: instrument,
+			side: side,
+			qty: qty,
+			price: price,
+			order_type: price ? 'limit' : 'market',
+			idNum: this.quoteNum(),
+			timestamp: this.updateTime(),
+		};
+		return quote;
+	}
+	/*createQuote(...args) {
+		return this.lob.createQuote(...args);
+	}*/
 	
 	createTrader(...args) {
 		return this.lob.createTrader(...args);
@@ -648,6 +675,10 @@ class SimuLOB extends LOBReceiver {
 	
 	order_log_show(...args) {
 		return this.lob.order_log_show(...args);
+	}
+	
+	logHtml({cssClass, args}) {
+		return logHtml(cssClass, args);
 	}
 	
 	logobj(...args) {
@@ -1440,12 +1471,22 @@ class SimuLOB extends LOBReceiver {
 	
 	//todo take and subsequently use order_id
 	orderSent(idNum, quote) {
+		let instrument, label;
 		let order = this.quoteGetByNum(idNum);
 		if (!order) {
-			console.error('sent order not found', idNum, quote, this.findOrder(idNum));
-			return;
+			if (quote?.tid == this.trader_tid) {
+				this.findOrder(idNum).then((info) => {
+					console.error('sent order not found', idNum, quote, info);
+				});
+				return;
+			}
+			instrument = quote.instrument;
+			label = quote.label;
 		}
-		let {instrument, label} = order;
+		else {
+			instrument = order.instrument;
+			label = order.label || order.side;
+		}
 		quote.status = 'sent';
 		this.quoteUpdate(quote);
 		this.chartPushTicks(
@@ -1462,7 +1503,9 @@ class SimuLOB extends LOBReceiver {
 		//let D;
 			let order = this.quoteGetByNum(idNum, D);
 			if (!order) {
-				console.error('dismissed order not found', idNum, this.findOrder(idNum));
+				this.findOrder(idNum).then((info) => {
+					console.error('dismissed order not found', idNum, info);
+				});
 				return;
 			}
 			let {label, quote} = order;
@@ -1504,7 +1547,9 @@ class SimuLOB extends LOBReceiver {
 		}
 		let order = this.quoteGetByNum(idNum);
 		if (!order) {
-			console.error('fulfilled order not found', idNum, this.findOrder(idNum));
+			this.findOrder(idNum).then((info) => {
+				console.error('fulfilled order not found', idNum, info);
+			});
 			return;
 		}
 		let {instrument, label, quote} = order;
@@ -1523,7 +1568,9 @@ class SimuLOB extends LOBReceiver {
 		}
 		let order = this.quoteGetByNum(idNum);
 		if (!order) {
-			console.error('executed order not found', idNum, this.findOrder(idNum));
+			this.findOrder(idNum).then((info) => {
+				console.error('executed order not found', idNum, info);
+			});
 			return;
 		}
 		let {instrument, label} = order;
@@ -1547,7 +1594,9 @@ class SimuLOB extends LOBReceiver {
 		}
 		let order = this.quoteGetByNum(idNum);
 		if (!order) {
-			console.error('cancelled order not found', idNum, this.findOrder(idNum));
+			this.findOrder(idNum).then((info) => {
+				console.error('canceled order not found', idNum, info);
+			});
 			return;
 		}
 		let {instrument, label} = order;
@@ -1564,12 +1613,22 @@ class SimuLOB extends LOBReceiver {
 	}
 	
 	traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra}) {
+		if (trader != this.trader_tid) {
+			return;
+		}
 		this.strategy.hook_traderBalance(
 			trader, instrument, amount, lastprice, value, liquidation, time, extra);
 	}
 	
 	traderNLV({trader, nlv, extra}) {
+		if (trader != this.trader_tid) {
+			return;
+		}
 		this.strategy.hook_traderNLV(trader, nlv, extra);
+	}
+	
+	async findOrder(idNum) {
+		return this.lob.findOrder(idNum);
 	}
 	
 	dtFormat(millis, fmt='HH:mm:ss.SSS') {
@@ -1591,33 +1650,40 @@ class SimuLOB extends LOBReceiver {
 	}
 	
 	getReqExtra(subject, reqId, db) {
-		let extra = null;
+		let promise = null, extra = null;
 		if (!db) {
 			db = this.simu_db;
 		}
-		db.exec({
-			sql: this.simu_queries.request_fetch,
-			rowMode: 'object',
-			bind: prepKeys(
-				{subject, reqId},
-				this.simu_queries.request_fetch),
-			callback: res => {
-				extra = res.extra;
+		try {
+			db.exec({
+				sql: this.simu_queries.request_fetch,
+				rowMode: 'object',
+				bind: prepKeys(
+					{subject, reqId},
+					this.simu_queries.request_fetch),
+				callback: res => {
+					extra = JSON.parse(res.extra);
+				}
+			});
+			db.exec({
+				sql: this.simu_queries.request_delete,
+				rowMode: 'object',
+				bind: prepKeys(
+					{subject, reqId},
+					this.simu_queries.request_delete),
+			});
+			if (reqId in this.request_promises) {
+				promise = this.request_promises[reqId];
+				delete this.request_promises[reqId];
 			}
-		});
-		db.exec({
-			sql: this.simu_queries.request_delete,
-			rowMode: 'object',
-			bind: prepKeys(
-				{subject, reqId},
-				this.simu_queries.request_delete),
-		});
-		let promise = this.request_promises[reqId];
-		delete this.request_promises[reqId];
+		}
+		catch(error) {
+			console.log('getReqExtra', error);
+		}
 		return [promise, extra];
 	}
 	
-	getReqId = (subject, reqId=null, {extra=null, withPromise=False}={}) => {
+	getReqId = (subject, reqId=null, {extra=null, withPromise=false}={}) => {
 		this.simu_db.transaction(
 			D => {
 				D.exec({
@@ -1626,7 +1692,7 @@ class SimuLOB extends LOBReceiver {
 						{
 							subject,
 							reqId,
-							extra,
+							extra: JSON.stringify(extra),
 						}
 						, this.simu_queries.request_insert),
 				});
@@ -1643,19 +1709,21 @@ class SimuLOB extends LOBReceiver {
 			}
 		);
 		if (withPromise) {
-			let promise = new Promise((resolve, reject) => { });
+			const promise = Promise.withResolvers();
 			this.request_promises[reqId] = promise;
-			return [reqId, promise];
+			return [reqId, promise.promise];
 		}
 		return reqId;
 	}
 	
 	updateTime(timestamp) {
 		// ensure unique timestamps
-		if (timestamp <= this.time) {
+		if (!timestamp || timestamp <= this.time) {
 			timestamp = this.time + 1;
 		}
-		return this.lob.updateTime(timestamp);
+		this.time = timestamp;
+		this.lob.updateTime(timestamp);
+		return this.time;
 	}
 	
 	studySide(side, chartLabel) {

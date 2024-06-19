@@ -143,13 +143,13 @@
 	if(self.window === self /* UI thread */){
 		console.log("Running demo from main UI thread.");
 		logHtml = function(cssClass,...args){
-			//const ln = document.createElement('div');
-			//if(cssClass) ln.classList.add(cssClass);
-			//ln.append(document.createTextNode(args.join(' ')));
+			const ln = document.createElement('div');
+			if(cssClass) ln.classList.add(cssClass);
+			ln.insertAdjacentHTML('beforeend', args.join(' '));
 			let logDiv = document.querySelector("div#simu_log");
-			logDiv.insertAdjacentHTML(
-				'beforeend', `<div class="${cssClass}">${args.join(' ')}</div>`
-			);
+			if (logDiv) {
+				logDiv.insertAdjacentElement('beforeend', ln);
+			}
 		};
 	}
 	else{ /* Worker thread */

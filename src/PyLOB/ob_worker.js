@@ -1,6 +1,10 @@
+		
+		self.sob = null;
+		self.inputQueue = [];
+		
 		console.log("Running demo from Worker thread.");
 		let logHtml = function(cssClass,...args){
-			reply('logHtml', {cssClass, args});
+			workerSend('logHtml', {cssClass, args});
 		};
 		const log = (...args)=>logHtml('',...args);
 		const warn = (...args)=>logHtml('warning',...args);
@@ -25,6 +29,7 @@
 		if(urlParams.has('sqlite3.dir')){
 			sqlite3Js = `${urlParams.get('sqlite3.dir')}/${sqlite3Js}`;
 		}
+		self.initReqId = urlParams.get('initReqId');
 		importScripts(
 			sqlite3Js,
 			new URL('./orderbook.js', self.location.href),
@@ -38,48 +43,71 @@
 		}).then(function(sqlite3){
 			console.log("Done initializing. Running demo...");
 			try {
-				const oo = sqlite3.oo1/*high-level OO API*/;
+				self.oo = sqlite3.oo1/*high-level OO API*/;
+				self.forwarder = new LOBForwarder(workerSend);
 				self.sob = new OrderBook(
-					oo, 0.0001, true,
+					self.oo, 0.0001, true,
 					new URL('./', self.location.href),
-					true, new LOBForwarder(workerReply)
+					true, self.forwarder
 				);
 				console.time('sob_init');
-				self.sob.init().then(
-					obj => {
-						warn('initialization done.');
-						console.timeEnd('sob_init');
+				self.sob.init().then(obj => {
+					warn('initialization done.');
+					console.timeEnd('sob_init');
+					workerSend('done', self.initReqId);
+					while (self.inputQueue.length) {
+						const event = self.inputQueue.shift();
+						onmessage(event);
 					}
-				); 
+				});
 			}
 			catch(e){
 				warn("Exception:",e.message);
 			}
 		});
 		
-		function workerReply(queryMethodListener, ...queryMethodArguments) {
+		onmessage = (event) => {
+//console.log('workerReceived', event.data);
+			if (!self.sob) {
+				self.inputQueue.push(event);
+			}
+			else if (
+				event.data instanceof Object &&
+				Object.hasOwn(event.data, "queryMethod") &&
+				Object.hasOwn(event.data, "queryMethodArguments")
+			) {
+				if (typeof self.sob[event.data.queryMethod] === 'function') {
+					self.sob[event.data.queryMethod].apply(
+						self.sob,
+						event.data.queryMethodArguments,
+					);
+				}
+				else if (typeof self.forwarder[event.data.queryMethod] === 'function') {
+					self.forwarder[event.data.queryMethod].apply(
+						self.forwarder,
+						event.data.queryMethodArguments,
+					);
+				}
+				else {
+					defaultReply(event.data);
+				}
+			}
+			else {
+				defaultReply(event.data);
+			}
+		};
+		
+		function defaultReply(data) {
+			console.log('misrouted', data);
+		}
+		
+		function workerSend(queryMethodListener, ...queryMethodArguments) {
+//console.log('workerSend', queryMethodListener, ...queryMethodArguments);
 			if (!queryMethodListener) {
-				throw new TypeError("reply - not enough arguments");
+				throw new TypeError("workerSend - not enough arguments");
 			}
 			postMessage({
 				queryMethodListener,
 				queryMethodArguments,
 			});
 		}
-		
-		onmessage = (event) => {
-			if (
-				event.data instanceof Object &&
-				Object.hasOwn(event.data, "queryMethod") &&
-				Object.hasOwn(event.data, "queryMethodArguments") &&
-				self.sob.hasOwn(event.data.queryMethod)
-			) {
-				self.sob[event.data.queryMethod].apply(
-					self.sob,
-					event.data.queryMethodArguments,
-				);
-			} else {
-				defaultReply(event.data);
-			}
-		};
-
