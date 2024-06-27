@@ -17,6 +17,15 @@ function objectStringify(obj, sep) {
 	return json;
 };
 
+function showNLV(snlv, nlvColor) {
+	let element = document.querySelector('#nlv');
+	element.textContent = '';
+	element.insertAdjacentHTML(
+		'beforeend',
+		`<div style="color: ${nlvColor}">${snlv}</div>`
+	);
+}
+
 function clearTableField(tableId, field) {
 	let selector = `#${tableId} tr`;
 	if (field) {
@@ -126,15 +135,918 @@ const bgPlugin = {
 	}
 };
 
-class SimuLOB extends LOBReceiver {
+class SimuLOB extends OrderBook {
 	
 	simu_initialized = false;
 	derailedLabels = {};
 	quotesQueue = [];
 	quotesQueueLocked = false;
 	
-	market_tid = undefined;
-	trader_tid = undefined;
+	config = {
+		market_tid: undefined,
+		trader_tid: undefined,
+		instrument: undefined,
+		currency: undefined,
+		trader_orders: [],
+	};
+	
+	simu_query_names = [
+		'simulob',
+		'quote_dismiss',
+		'quote_get',
+		'quote_getall',
+		'quote_getbynum',
+		'quote_getkeys',
+		'quote_getnum',
+		'quote_insert',
+		'quote_update',
+		'request_insert',
+		'request_fetch',
+		'request_delete',
+		'lastrequest',
+	];
+	
+	defaultSubject = 'any';
+	request_promises = {};
+	
+	constructor(oo, thisLocation, receiver) {
+		let lobLocation = new URL('../', thisLocation);
+		let verbose = true;
+		const isAuthonomous = false;
+		super(oo, undefined, verbose, lobLocation, isAuthonomous, receiver);
+		this.location = thisLocation;
+		this.lobLocation = lobLocation;
+		this.valid_sides = OrderBook.valid_sides;
+
+		this.simu_queries = {};
+		// move these to local db
+		this.trader_quotes = {};
+		this.order_names = {};
+	}
+	
+	strategyLoadReq(reqId, ...args) {
+		this.strategyLoad(...args)
+		.then(() => {
+			this.receiver.strategyLoadResp(reqId, this.config);
+		})
+	}
+	
+	strategy_hook_chartBuildDatasetReq(reqId) {
+		let ds = this.strategy.hook_chartBuildDataset();
+		this.receiver.strategy_hook_chartBuildDatasetResp(reqId, ds);
+	}
+	
+	strategy_hook_beforeUpdateChartReq(reqId, chartLabel) {
+		let data = this.strategy.hook_beforeUpdateChart(chartLabel) || {};
+		data.now = this.getTime();
+		this.receiver.strategy_hook_beforeUpdateChartResp(reqId, data);
+	}
+	
+	strategy_getButtonsReq(reqId) {
+		let buttons = this.strategy.getButtons();
+		this.receiver.strategyGetButtonsResp(reqId, buttons);
+	}
+	
+	clearTableField(tableId, field) {
+		this.receiver.clearTableField(tableId, field);
+	}
+	
+	setTableField(tableId, field, ...value) {
+		this.receiver.setTableField(tableId, field, ...value);
+	}
+	
+	showNLV(snlv, nlvColor) {
+		this.receiver.showNLV(snlv, nlvColor);
+	}
+	
+	setUpdateFrequency(frequencies) {
+		this.receiver.setUpdateFrequency(frequencies);
+	}
+	
+	async strategyLoad(name, defaults) {
+		const strategyClass = SimuStrategy.getStrategy(name);
+		this.strategy = new strategyClass(this, JSON.parse(defaults));
+		this.ticks = [];
+		this.config = {};
+		let chain = Promise.resolve();
+		chain = chain.then(value => this.strategy.hook_afterInit());
+		return chain;
+	}
+	
+	async init() {
+		let result = new Promise((resolve, reject) => {
+			super.init()
+			.then(() => {
+				// isolation_level: null
+				this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
+				return init_queries(this.simu_query_names, this.simu_queries, `${this.location}/sql/`);
+			})
+			.then(() => this.simu_db.exec(this.simu_queries.simulob))
+			.then(value => fetchPricesZIP(this, this.lobLocation))
+			.then(value => {
+				this.simu_initialized = true;
+				resolve();
+			})
+		;
+		});
+		return result;
+	}
+	
+	isInitialized() {
+		return this.simu_initialized;
+	}
+	
+	addFilter(field, value) {
+		//this.sendQuery('addFilter', field, value);
+		this.order_log_addFilter(field, value);
+	}
+	
+	quoteNum(idNum=null) {
+		return this.getReqId('quote', idNum);
+	}
+	
+	chartPushTicks(label, ...ticks) {
+		this.receiver.chartPushTicks(label, ...ticks);
+	}
+	
+	_chartPushTicks(label, chartLabel, ...ticks) {
+		this.receiver._chartPushTicks(label, chartLabel, ...ticks);
+	}
+	
+	chartSetTicks(label, ticks, chartLabel) {
+		this.receiver.chartSetTicks(label, ticks, chartLabel);
+	}
+	
+	getReqExtra(subject, reqId, db) {
+		let promise = null, extra = null;
+		if (!db) {
+			db = this.simu_db;
+		}
+		try {
+			db.exec({
+				sql: this.simu_queries.request_fetch,
+				rowMode: 'object',
+				bind: prepKeys(
+					{subject, reqId},
+					this.simu_queries.request_fetch),
+				callback: res => {
+					extra = JSON.parse(res.extra);
+				}
+			});
+			db.exec({
+				sql: this.simu_queries.request_delete,
+				rowMode: 'object',
+				bind: prepKeys(
+					{subject, reqId},
+					this.simu_queries.request_delete),
+			});
+			if (reqId in this.request_promises) {
+				promise = this.request_promises[reqId];
+				delete this.request_promises[reqId];
+			}
+		}
+		catch(error) {
+			console.log('getReqExtra', error);
+		}
+		return [promise, extra];
+	}
+	
+	getReqId = (subject, reqId=null, {extra=null, withPromise=false}={}) => {
+		if (!subject) {
+			subject = this.defaultSubject;
+		}
+		this.simu_db.transaction(
+			D => {
+				D.exec({
+					sql: this.simu_queries.request_insert,
+					bind: prepKeys(
+						{
+							subject,
+							reqId,
+							extra: JSON.stringify(extra),
+						}
+						, this.simu_queries.request_insert),
+				});
+				D.exec({
+					sql: this.simu_queries.lastrequest,
+					rowMode: 'object',
+					bind: prepKeys(
+						{subject},
+						this.simu_queries.lastrequest),
+					callback: res => {
+						reqId = res.reqId;
+					}
+				});
+			}
+		);
+		if (withPromise) {
+			const promise = Promise.withResolvers();
+			this.request_promises[reqId] = promise;
+			return [reqId, promise.promise];
+		}
+		return reqId;
+	}
+	
+	traderGetBalance(trader, instrument, extra) {
+		let reqId = this.getReqId(null, null, {extra});
+		return this.traderGetBalanceReq(reqId, trader, instrument);
+	}
+	
+	traderGetNLV(trader, extra) {
+		let reqId = this.getReqId(null, null, {extra});
+		return this.traderGetNLVReq(reqId, trader);
+	}
+	
+	createQuote(tid, instrument, side, qty, price=null) {
+		let quote = {
+			tid: tid,
+			instrument: instrument,
+			side: side,
+			qty: qty,
+			price: price,
+			order_type: price ? 'limit' : 'market',
+			idNum: this.quoteNum(),
+			timestamp: this.updateTime(),
+		};
+		return quote;
+	}
+	
+	pause(value=true) {
+		this.receiver.pause(value);
+		this.dopause = value;
+	}
+	
+	close() {
+		this.pause();
+		setTimeout(() => {
+			super.close();
+			//this.receiver.close();
+		}, 10 * this.tickGap);
+	}
+	
+	afterTicks(chartLabel) {
+		let lastTime = this.getTime();
+		this.receiver.afterTicks(chartLabel, lastTime);
+		this.strategy.hook_afterTicks(chartLabel, lastTime);
+	}
+	
+	async endOfDay(chartLabel) {
+		this.modificationsCharge();
+		this.afterTicks(chartLabel); //should move to newchartstart
+	}
+	
+	run(dates) {
+		this.dataComing = true;
+		this.loadTicks();
+		let chain = Promise.resolve();
+		for (let day of dates) {
+			chain = chain.then(
+				msg => {
+					if (msg) {
+						console.error(msg);
+					}
+					return csvExtract(this, day);
+					//return csvLoad(this, day);
+				}
+			);
+		}
+		chain = chain.then(
+			msg => {
+				if (msg) {
+					console.error(msg);
+				}
+			}
+		);
+	}
+	
+	loadTicks() {
+		console.time('data process');
+		let sent = 0;
+		let simu = this;
+		simu.dopause = false;
+		simu.newChartStart = false;
+		simu.firstTickFollows = false;
+		let tickInterval = setInterval (async (simu) => {
+			if (simu.dopause) {
+				return;
+			}
+			let label, price, quote;
+			if (this.quotesQueue.length) {
+				this.quotesQueueLock();
+				quote = this.quotesQueue.shift();
+				this.quotesQueueLock(false);
+				label = quote.label;
+				let instrument = quote.instrument;
+				if (label in this.derailedLabels[instrument]) {
+					return;
+				}
+				simu.processQuote(quote);
+			}
+			else if (this.ticks.length) {
+				let tick = this.ticks.shift();
+				if (tick.label == 'chartReset') { //todo should trigger explicitly
+					//if (!simu.chartLabel) {
+					simu.newChartStart = true;
+					simu.prevLabel = simu.chartLabel;
+					simu.chartLabel = tick.title;
+					//}
+					simu.firstTickFollows = true;
+					return;
+				}
+				if (tick.label == 'endOfDay') {
+					await this.endOfDay(tick.title);
+					return;
+				}
+				tick.timestamp = simu.updateTime(tick.timestamp);
+				if (simu.newChartStart) {
+					simu.newChartStart = false;
+					this.receiver.chartInit(simu.chartLabel, simu.prevLabel, tick.timestamp);
+					///this.chart.options.scales.x.min = tick.timestamp;
+					this.strategy.hook_newChartStart();
+				}
+				if (simu.firstTickFollows) {
+					simu.firstTickFollows = false;
+					simu.firstTime = tick.timestamp;
+				}
+				if (tick.label == 'price') {
+					simu.setLastPrice(tick.instrument, tick.price, tick.timestamp);
+				}
+				else if (simu.valid_sides.includes(tick.label)) {
+					quote = {
+						...tick,
+						trader: simu.config.market_tid,
+						qty: 1000000,
+					};
+					simu.processQuote(quote);
+				}
+			}
+			else if (this.dataComing) {
+				//console.log('dataComing');
+			}
+			else {
+				clearInterval(tickInterval);
+				tickInterval = 0;
+				error('sent:', sent);
+				console.timeEnd('data process');
+				return;
+			}
+			
+			++sent;
+		}
+		, 5/*simu.tickGap*/, simu);
+	}
+	
+	pushTick(tick) {
+		this.ticks.push(tick);
+	}
+	
+	quoteSave(label, quote, status='created', db) {
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_insert,
+			bind: prepKeys(
+				{
+					trader: quote.tid,
+					instrument: quote.instrument,
+					side: quote.side,
+					label,
+					quote: JSON.stringify(quote),
+					price: quote.price,
+					qty: quote.qty,
+					fulfilled: quote.fulfilled || 0,
+					idNum: quote.idNum,
+					order_id: quote.order_id || null,
+					status,
+				},
+				this.simu_queries.quote_insert)
+		});
+	}
+
+	quoteGet(trader, instrument, label, status=null, db) {
+		let ret = null;
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_get,
+			bind: prepKeys(
+				{
+					trader,
+					instrument,
+					label,
+					status,
+				},
+				this.simu_queries.quote_get),
+			rowMode: 'object',
+			callback: row => {
+				ret = JSON.parse(row.quote);
+			}
+		});
+		return ret;
+	}
+
+	quoteGetNum(trader, instrument, label, db) {
+		let ret = null;
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_getnum,
+			bind: prepKeys(
+				{
+					trader,
+					instrument,
+					label,
+				},
+				this.simu_queries.quote_getnum),
+			rowMode: 'object',
+			callback: row => {
+				ret = row.idNum;
+			}
+		});
+		return ret;
+	}
+
+	quoteGetAllReq(reqId, trader, instrument, side=null, status=null) {
+		let quotes = this.quoteGetAll(trader, instrument, side=null, status=null);
+		this.receiver.quoteGetAllResp(reqId, quotes);
+	}
+	
+	quoteGetAll(trader, instrument, side=null, status=null, db) {
+		let ret = {};
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_getall,
+			bind: prepKeys(
+				{
+					trader,
+					instrument,
+					side,
+					status,
+				},
+				this.simu_queries.quote_getall),
+			rowMode: 'object',
+			callback: row => {
+				//console.log(row);
+				ret[row.label] = JSON.parse(row.quote);
+			}
+		});
+		return ret;
+	}
+
+	quoteGetKeys(trader, instrument, side=null, db) {
+		let ret = [];
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_getkeys,
+			bind: prepKeys(
+				{
+					trader,
+					instrument,
+					side,
+				},
+				this.simu_queries.quote_getkeys),
+			rowMode: 'object',
+			callback: row => {
+				ret.push(row);
+			}
+		});
+		return ret;
+	}
+
+	quoteGetByNum(idNum, db) {
+		let ret = null;
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_getbynum,
+			bind: prepKeys(
+				{
+					idNum,
+				},
+				this.simu_queries.quote_getbynum),
+			rowMode: 'object',
+			callback: row => {
+				row.quote = JSON.parse(row.quote);
+				ret = row;
+			}
+		});
+		return ret;
+	}
+
+	quoteUpdate(quote, db) {
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_update,
+			bind: prepKeys(
+				{
+					idNum: quote.idNum,
+					quote: JSON.stringify(quote),
+					price: quote.price,
+					qty: quote.qty,
+					fulfilled: quote.fulfilled || 0,
+					order_id: quote.order_id || null,
+					status: quote.status || null,
+				},
+				this.simu_queries.quote_update
+			),
+		});
+	}
+
+	quoteDismiss(idNum, db) {
+		(db || this.simu_db).exec({
+			sql: this.simu_queries.quote_dismiss,
+			bind: prepKeys(
+				{idNum},
+				this.simu_queries.quote_dismiss
+			),
+		});
+	}
+	
+	static quoteRe = /^\s*(?<side>ask|bid|sell|buy)\s+(?<qty>\d+)(\s+(?<instrument>([A-Za-z]{1,5})(-[A-Za-z]{1,2})?))?(\s+(limit|lmt)\s*(?<price>(\d+\.?\d*))|mkt|market)?\s*$/;
+	
+	//'buy 10 AAPL lmt 123',
+	parseQuote(str) {
+		const quote = this.constructor.quoteRe.exec(str).groups;
+		quote.trader = this.config.trader_tid;
+		quote.instrument = quote.instrument || this.config.instrument;
+		quote.side = (quote.side || '').toLowerCase();
+		quote.side = ['bid', 'buy'].includes(quote.side) ? 'bid' : 'ask';
+		quote.label = 'manual';
+		quote.qty = parseInt(quote.qty);
+		quote.price = quote.price ? parseFloat(quote.price) : null;
+		return quote;
+	}
+	
+	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
+		let quote = this.quoteGet(trader, instrument, label, 'sent');
+		if (!quote) {
+			if (!side) {
+				side = label.slice(0, 3);
+			}
+			quote = this.createQuote(
+				trader, instrument, side, qty, price);
+			this.quoteSave(label, quote, 'saved'); //todo is this needed?
+			///quote.fulfilled = 0;
+			this.processOrder(quote, true, false, isPrivate);
+		}
+		else if (cancelQuote) {
+			super.cancelOrder(quote.idNum);
+			return quote.idNum;
+		}
+		else {
+			let update = {
+				price,
+				qty,
+			};
+			let verbose = false;
+			this.quoteSave(label, quote, 'quoted');
+			this.modifyOrder(quote.idNum, update, quote.timestamp, verbose, isPrivate);
+			quote = Object.assign(quote, update);
+		}
+		return quote.idNum;
+	}
+	
+	cancelQuote(trader, instrument, label) {
+		let idNum = this.quoteGetNum(trader, instrument, label);
+		if (idNum !== null) {
+			super.cancelOrder(idNum);
+		}
+	}
+	
+	cancelAllQuotes(trader, instrument, side=null) {
+		let quotes = this.quoteGetKeys(trader, instrument, side);
+		for (let quote of quotes) {
+			this.cancelQuote(quote.trader, quote.instrument, quote.label);
+		}
+	}
+	
+	manualQuote(str) {
+		const quote = this.parseQuote(str);
+		this.processQuote(quote);
+	}
+	
+	//todo take and subsequently use order_id
+	orderSent(idNum, quote) {
+		let instrument, label;
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			if (quote?.tid == this.config.trader_tid) {
+				this.findOrder(idNum).then((info) => {
+					console.error('sent order not found', idNum, quote, info);
+				});
+				return;
+			}
+			instrument = quote.instrument;
+			label = quote.label;
+		}
+		else {
+			instrument = order.instrument;
+			label = order.label || order.side;
+		}
+		quote.status = 'sent';
+		this.quoteUpdate(quote);
+		this.chartPushTicks(
+			label,
+			{x: quote.timestamp, y: quote.price},
+			{x: quote.timestamp + 1, y: quote.price, sentinel: true},
+		);
+		if (quote.tid != this.config.trader_tid) {
+			return;
+		}
+	console.log(order);
+		this.strategy.hook_orderSent(quote.tid, instrument, label, quote.price);
+	}
+	
+	//todo use order_id
+	dismissQuote(idNum) {
+		this.simu_db.transaction(D => {
+		//let D;
+			let order = this.quoteGetByNum(idNum, D);
+			if (!order) {
+				this.findOrder(idNum).then((info) => {
+					console.error('dismissed order not found', idNum, info);
+				});
+				return;
+			}
+			let {label, quote} = order;
+				this.quoteDismiss(idNum, D);
+			this.chartPushTicks(
+				label,
+				{
+					x: this.updateTime(),
+					y: quote.price,
+				},
+				{
+					x: this.updateTime(),
+					y: null,
+				}
+			);
+		});
+	}
+	
+	setLastPrice(instrument, price, time) {
+		super.setLastPrice(instrument, price, time);
+	}
+	
+	tickLastPrice(instrument, price, time) {
+		let thinTick = {x: time, y: price};
+		this.chartPushTicks('price', thinTick);
+		this.strategy.hook_tickLastPrice(instrument, price, time);
+	}
+	
+	tickMidPoint(instrument, midPoint, time) {
+		this.strategy.hook_tickMidPoint(instrument, midPoint, time);
+		let tick = {
+			x: time,
+			y: midPoint,
+		};
+		this.chartPushTicks('midpoint', tick);
+	}
+	
+	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {
+		if (trader != this.config.trader_tid) {
+			return;
+		}
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			this.findOrder(idNum).then((info) => {
+				console.error('fulfilled order not found', idNum, info);
+			});
+			return;
+		}
+		let {instrument, label, quote} = order;
+		quote.fulfilled = fulfilled;
+		this.quoteUpdate(quote);
+		if (fulfilled == qty) {
+			this.dismissQuote(idNum);
+		}
+		this.strategy.hook_orderFulfill(
+			instrument, label, trader, qty, fulfilled, commission, avgPrice);
+	}
+	
+	orderExecuted(idNum, trader, time, qty, price) {
+		if (trader != this.config.trader_tid) {
+			return;
+		}
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			this.findOrder(idNum).then((info) => {
+				console.error('executed order not found', idNum, info);
+			});
+			return;
+		}
+		let {instrument, label} = order;
+		this.strategy.hook_orderExecuted(instrument, label, trader, time, qty, price);
+		let side = this.orderGetSide(idNum);
+		let tick = {
+			x: time,
+			y: price,
+			label: {
+				text: `${qty}`,
+//				color: 'white',
+			},
+			branch: label,
+		};
+		this.chartPushTicks(side == 'ask' ? 'sold' : 'bought', tick);
+	}
+	
+	orderCancelled(idNum, trader, time) {
+		if (trader != this.config.trader_tid) {
+			return;
+		}
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			this.findOrder(idNum).then((info) => {
+				console.error('canceled order not found', idNum, info);
+			});
+			return;
+		}
+		let {instrument, label} = order;
+		this.dismissQuote(idNum);
+		//why
+		//this.derailedLabels[instrument][label] = true;
+		//this?
+		this.strategy.hook_orderCancelled(instrument, label, trader, time);
+	}
+	
+	orderRejected(idNum, why) {
+		console.log('rejected order', idNum, why);
+		this.quoteDismiss(idNum);
+	}
+	
+	traderBalance({
+		trader, instrument, amount, rounder, lastprice, value, 
+		liquidation, modification_debit, execution_credit, time, reqId
+	}) {
+		if (trader != this.config.trader_tid) {
+			return;
+		}
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		const info = {
+			trader, instrument, amount, rounder, lastprice, value,
+			liquidation, modification_debit, execution_credit, time, extra
+		};
+		if (promise) {
+			promise.resolve(info);
+		}
+		this.strategy.hook_traderBalance(
+			trader, instrument, amount, lastprice, value, liquidation, time, extra);
+	}
+	
+	traderNLV({trader, nlv, reqId}) {
+		if (trader != this.config.trader_tid) {
+			return;
+		}
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		const info = {trader, nlv, extra};
+		if (promise) {
+			promise.resolve(info);
+		}
+		this.strategy.hook_traderNLV(trader, nlv, extra);
+	}
+	
+	dtFormat(millis, fmt='HH:mm:ss.SSS') {
+		return formatDate(millis, fmt);
+	}
+	
+	order_log_filter(order_id, label, db) {
+		let [dolog, data] = super.order_log_filter(order_id, label, db);
+		dolog = (data.trader == this.config.trader_tid);
+		if (['balance_update', 'modify_detail'].includes(label)) {
+			dolog = false;
+		}
+		if (data.idNum in this.order_names) {
+			let [instrument, order_label] = this.order_names[data.idNum];
+			data.order_label = order_label;
+			data.event_dt = this.dtFormat(data.event_dt);
+		}
+		return [dolog, data];
+	}
+	
+	quotesQueueLock(lock=true) {
+		if (lock) {
+			let checkInterval = setInterval(
+				() => {
+				if (!this.quotesQueueLocked) {
+					this.quotesQueueLocked = true;
+					clearInterval(checkInterval);
+				}
+			}, 1);
+		}
+		else {
+			this.quotesQueueLocked = false;
+		}
+	}
+};
+
+// this is an interface
+class SimuReceiver extends LOBReceiver {
+	constructor() {
+		super();
+	}
+	strategyLoadResp(reqId, config) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(config);
+		}
+	}
+	
+	strategy_hook_chartBuildDatasetResp(reqId, ds) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(ds);
+		}
+	}
+	strategy_hook_beforeUpdateChartResp(reqId, data) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(data);
+		}
+	}
+	quoteGetAllResp(reqId, quotes) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(quotes);
+		}
+	}
+	strategyGetButtonsResp(reqId, buttons) {
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (promise) {
+			promise.resolve(buttons);
+		}
+	}
+};
+
+class SimuForwarder extends SimuReceiver {
+	constructor(sender) {
+		super();
+		this.sender = sender;
+	}
+	forward(method, ...args) {
+		this.sender(method, ...args);
+	}
+	strategyLoadResp(...args) {
+		this.forward('strategyLoadResp', ...args);
+	}
+	strategyGetButtonsResp(...args) {
+		this.forward('strategyGetButtonsResp', ...args);
+	}
+	strategy_hook_chartBuildDatasetResp(...args) {
+		this.forward('strategy_hook_chartBuildDatasetResp', ...args);
+	}
+	strategy_hook_beforeUpdateChartResp(...args) {
+		this.forward('strategy_hook_beforeUpdateChartResp', ...args);
+	}
+	setUpdateFrequency(frequencies) {
+		this.forward('setUpdateFrequency', frequencies);
+	}
+	chartPushTicks(...args) {
+		this.forward('chartPushTicks', ...args);
+	}
+	_chartPushTicks(...args) {
+		this.forward('_chartPushTicks', ...args);
+	}
+	chartSetTicks(...args) {
+		this.forward('chartSetTicks', ...args);
+	}
+	afterTicks(...args) {
+		this.forward('afterTicks', ...args);
+	}
+	pause(...args) {
+		this.forward('pause', ...args);
+	}
+	clearTableField(...args) {
+		this.forward('clearTableField', ...args);
+	}
+	setTableField(...args) {
+		this.forward("setTableField", ...args);
+	}
+	showNLV(...args) {
+		this.forward("showNLV", ...args);
+	}
+	chartInit(chartLabel, prevLabel, firstTime) {
+		this.forward('chartInit', chartLabel, prevLabel, firstTime);
+	}
+	quoteGetAllResp(reqId, quotes) {
+		this.forward('quoteGetAllResp', quotes);
+	}
+};
+
+class SimuClient extends LOBClient {
+	constructor(worker_url, receiver, dtFormat) {
+		super(worker_url, receiver, dtFormat);
+	}
+	async init() {return super.init();}
+	async strategyLoad(name, defaults) {
+		return this.sendRegistered('strategyLoadReq', null, name, defaults);
+	}
+	async strategy_getButtons() {
+		return this.sendRegistered('strategy_getButtonsReq');
+	}
+	strategy_hook_chartBuildDataset() {
+		return this.sendRegistered('strategy_hook_chartBuildDatasetReq');
+	}
+	strategy_hook_beforeUpdateChart(chartLabel) {
+		return this.sendRegistered('strategy_hook_beforeUpdateChartReq', null, chartLabel);
+	}
+	run(dates) {
+		this.sendQuery('run', dates);
+	}
+	quoteGetAll(...args) {
+		return this.sendRegistered('quoteGetAllReq', null, ...args);
+	}
+};
+
+class SimuConsole extends SimuReceiver {
 	
 	titleLabel = 'title';
 	
@@ -143,7 +1055,11 @@ class SimuLOB extends LOBReceiver {
 	balance_branch = ['nlv'];
 	executions_branch = ['bought', 'sold'];
 	market_orders = ['ask', 'bid'];
-	trader_orders = [];
+	
+	// an index to the datasets
+	chartIndex = {};
+	chartBuffer = {};
+	charts = {};
 	
 	updateGroups = {
 		sum: 'sum',
@@ -234,6 +1150,49 @@ class SimuLOB extends LOBReceiver {
 			borderColor: 'blue',
 		},
 	};
+	
+	request_promises = {};
+	reqIds = {};
+	reqIdsLocked = false;
+	
+	constructor(oo, thisLocation) {
+		super();
+		this.loading = document.querySelector('#loading');
+		this.paused = document.querySelector('#paused');
+		this.location = thisLocation;
+		const sqlite3Dir = '/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
+		this.worker_url = `${this.location}/simu_worker.js?sqlite3.dir=${sqlite3Dir}`;
+		this.lobClient = new SimuClient(this.worker_url, this, null/*dtFormat*/);
+		
+		if (this.isAuthonomous) {
+			this.price_branch.push('midpoint');
+		}
+		this.data_branches = [
+			...this.title_branch,
+			...this.price_branch,
+			...this.market_orders,
+		];
+		this.core_branches = [
+			...this.data_branches,
+			...this.executions_branch,
+			...this.balance_branch,
+		];
+		this.order_branches = this.market_orders;
+	}
+	
+	async init(strategy, config) {
+		this.strategy = strategy;
+		return this.lobClient.init()
+		.then(() => this.lobClient.strategyLoad(strategy, config))
+		.then(config => {
+			this.config = config;
+			return Promise.resolve();
+		});
+	}
+	
+	run(dates) {
+		this.lobClient.run(dates);
+	}
 	
 	chartConfig(maximumFractionDigits) {
 		return {
@@ -458,239 +1417,73 @@ class SimuLOB extends LOBReceiver {
 			},*/
 		};
 	}
-
-	simu_query_names = [
-		'simulob',
-		'quote_dismiss',
-		'quote_get',
-		'quote_getall',
-		'quote_getbynum',
-		'quote_getkeys',
-		'quote_getnum',
-		'quote_insert',
-		'quote_update',
-		'request_insert',
-		'request_fetch',
-		'request_delete',
-		'lastrequest',
-	];
 	
-	request_promises = {};
-	time = 0;
-	
-	constructor(oo, thisLocation) {
-		super();
-		this.lobLocation = new URL('../PyLOB/', thisLocation);
-		let verbose = true;
-		const isAuthonomous = false;
-		this.location = thisLocation;
-		this.lob = new LOBClient(this.sendQuery, this.getReqId, this.dtFormat);
-		//this.lob = new OrderBook(oo, undefined, verbose, this.lobLocation, isAuthonomous, this);
-		this.valid_sides = OrderBook.valid_sides;
-		if (this.isAuthonomous) {
-			this.price_branch.push('midpoint');
+	getReqExtra(subject, reqId) {
+		let promise = null, extra = null;
+		try {
+			if (reqId in this.request_promises) {
+				promise = this.request_promises[reqId];
+				delete this.request_promises[reqId];
+			}
 		}
-		this.data_branches = [
-			...this.title_branch,
-			...this.price_branch,
-			...this.market_orders,
-		];
-		this.core_branches = [
-			...this.data_branches,
-			...this.executions_branch,
-			...this.balance_branch,
-		];
-		this.order_branches = this.market_orders;
-		// an index to the datasets
-		this.chartIndex = {};
-		this.chartBuffer = {};
-		this.charts = {};
-
-		this.simu_queries = {};
-		// move these to local db
-		this.trader_quotes = {};
-		this.order_names = {};
+		catch(error) {
+			console.log('getReqExtra', error);
+		}
+		return [promise, extra];
 	}
 	
-	// This function takes at least one argument, the method name we want to query.
-	// Then we can pass in the arguments that the method needs.
-	sendQuery = (queryMethod, ...queryMethodArguments) => {
-//console.log('sending', queryMethod, ...queryMethodArguments);
-		if (!queryMethod) {
-			throw new TypeError(
-				"sendQuery takes at least one argument",
-			);
+	getReqId = (subject, reqId=null, {extra=null, withPromise=false}={}) => {
+		this.reqIdsLock();
+		if (!(subject in this.reqIds)) {
+			this.reqIds[subject] = 0;
 		}
-		const message = {
-			queryMethod,
-			queryMethodArguments,
-		};
-		this.worker.postMessage(message);
-	};
+		if (!reqId) {
+			reqId = ++this.reqIds[subject];
+		}
+		this.reqIdsLock(false);
+		if (withPromise) {
+			const promise = Promise.withResolvers();
+			this.request_promises[reqId] = promise;
+			return [reqId, promise.promise];
+		}
+		return reqId;
+	}
 	
-	async init(strategyClass, strategyDefaults) {
-		let result = new Promise((resolve, reject) => {
-			// isolation_level: null
-			this.simu_db = new oo.DB('file:simulob?mode=memory', 'c');
-			init_queries(this.simu_query_names, this.simu_queries, `${this.location}/sql/`)
-			.then(() => this.simu_db.exec(this.simu_queries.simulob))
-			.then(() => this.init_worker())
-			.then(
-				value => {
-					this.strategy = new strategyClass(this, strategyDefaults);
-					this.ticks = [];
-					this.loading = document.querySelector('#loading');
-					this.paused = document.querySelector('#paused');
-					let chain = Promise.resolve();
-					chain = chain.then(value => {
-						return this.strategy.hook_afterInit();
-					});
-					return chain;
+	reqIdsLock(lock=true) {
+		if (lock) {
+			let checkInterval = setInterval(
+				() => {
+				if (!this.reqIdsLocked) {
+					this.reqIdsLocked = true;
+					clearInterval(checkInterval);
 				}
-			)
-			.then(value => {
-				return fetchPricesZIP(this, this.lobLocation);
-			})
-			.then(value => {
-				this.simu_initialized = true;
-				resolve();
-			})
-		;
-		});
-		return result;
+			}, 1);
+		}
+		else {
+			this.reqIdsLocked = false;
+		}
 	}
 	
-	init_worker = async () => {
-		const sqlite3Dir = '/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
-		this.worker_url = `${this.lobLocation}ob_worker.js?sqlite3.dir=${sqlite3Dir}`;
-		let [initReqId, promise] = this.getReqId('any', null, {withPromise: true});
-		this.worker_url += `&initReqId=${initReqId}`;
-		this.worker = new Worker(this.worker_url);
-		this.worker.onmessage = (event) => {
-//console.log('workerReplied', event.data);
-			if (
-				event.data instanceof Object &&
-				Object.hasOwn(event.data, "queryMethodListener") &&
-				Object.hasOwn(event.data, "queryMethodArguments") &&
-				typeof this[event.data.queryMethodListener] === 'function'
-			) {
-				this[event.data.queryMethodListener].apply(
-					this,
-					event.data.queryMethodArguments,
-				);
+	studySide(side, chartLabel) {
+		let labels =
+			this.market_orders
+				.filter(label => label != side)
+			.concat(
+				this.config.trader_orders
+					.filter(label => label.slice(0, 3) == side)
+			);
+		labels.push('title', (side == 'bid' ? 'bought' : 'sold'));
+		let info = this.getChartInfo(chartLabel);
+		for (let label of this.branches) {
+			let ix = this.chartIndex[label].dataset;
+			if (labels.includes(label)) {
+				info.chart.show(ix);
 			}
 			else {
-				this.defaultListener(event.data);
+				info.chart.hide(ix);
 			}
-		};
-		this.worker.onerror = this.defaultListener;
-		return promise;
-	}
-	
-	defaultListener(data) {
-		error(`simulob received ${JSON.stringify(data)}`);
-	}
-	
-	isInitialized() {
-		return this.simu_initialized;
-	}
-	
-	addFilter(field, value) {
-		this.sendQuery('addFilter', field, value);
-	}
-	
-	getTime(...args) {
-		return this.time;
-		return this.lob.getTime(...args);
-	}
-	
-	createInstrument(...args) {
-		return this.lob.createInstrument(...args);
-	}
-	
-	quoteNum(idNum=null) {
-		return this.getReqId('quote', idNum);
-	}
-	
-	createQuote(tid, instrument, side, qty, price=null) {
-		let quote = {
-			tid: tid,
-			instrument: instrument,
-			side: side,
-			qty: qty,
-			price: price,
-			order_type: price ? 'limit' : 'market',
-			idNum: this.quoteNum(),
-			timestamp: this.updateTime(),
-		};
-		return quote;
-	}
-	/*createQuote(...args) {
-		return this.lob.createQuote(...args);
-	}*/
-	
-	createTrader(...args) {
-		return this.lob.createTrader(...args);
-	}
-	
-	traderCashReset(...args) {
-		return this.lob.traderCashReset(...args);
-	}
-	
-	traderCashDeposit(...args) {
-		return this.lob.traderCashDeposit(...args);
-	}
-	
-	traderFundsReset(...args) {
-		return this.lob.traderFundsReset(...args);
-	}
-	
-	traderFundsDeposit(...args) {
-		return this.lob.traderFundsDeposit(...args);
-	}
-	
-	traderGetNLV(...args) {
-		return this.lob.traderGetNLV(...args);
-	}
-	
-	traderGetBalance(...args) {
-		return this.lob.traderGetBalance(...args);
-	}
-	
-	processOrder(...args) {
-		return this.lob.processOrder(...args);
-	}
-	
-	modifyOrder(...args) {
-		return this.lob.modifyOrder(...args);
-	}
-	
-	modificationsCharge(...args) {
-		return this.lob.modificationsCharge(...args);
-	}
-	
-	orderGetSide(...args) {
-		return this.lob.orderGetSide(...args);
-	}
-	
-	order_log_show(...args) {
-		return this.lob.order_log_show(...args);
-	}
-	
-	logHtml({cssClass, args}) {
-		return logHtml(cssClass, args);
-	}
-	
-	logobj(...args) {
-		return this.lob.logobj(...args);
-	}
-	
-	getRounder(...args) {
-		return this.lob.getRounder(...args);
-	}
-	
-	setRounder(...args) {
-		return this.lob.setRounder(...args);
+		}
+		info.chart.update();
 	}
 	
 	pause(value=true) {
@@ -700,17 +1493,68 @@ class SimuLOB extends LOBReceiver {
 		if (this.paused) {
 			this.paused.style.display = value ? 'block' : 'none';
 		}
-		this.dopause = value;
 	}
 	
 	close() {
-		this.pause();
-		setTimeout(() => {
-			this.lob.close();
-			for (let label of Object.keys(this.charts)) {
-				this.chartDestroy(label);
+		for (let label of Object.keys(this.charts)) {
+			this.chartDestroy(label);
+		}
+		this.lobClient.close();
+	}
+	
+	setUpdateFrequency(frequencies) {
+		objectUpdate(this.updateFrequency, frequencies);
+	}
+	
+	chartCopy(chartLabel) {
+		let info = this.getChartInfo(chartLabel);
+		let config = this.chartConfig(this.decimalDigits);
+		let data = info.chart.config.data;
+		data.datasets = data.datasets.filter(
+			(ds, i) => info.chart.isDatasetVisible(i))
+			;
+		data.datasets.forEach(ds => {
+			ds.data = ds.data.slice(0, 100);
+		});
+		config.plugins = config.plugins.filter(plugin => plugin.id != "datalabels");
+		let snippet = `
+			<script src="https://cdn.jsdelivr.net/npm/chart.js@^4"></script>
+			<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@^2"></script>
+			<script src="https://cdn.jsdelivr.net/npm/luxon@^2"></script>
+			<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@^1"></script>
+			
+			<div class="chart" style="height:100vh; width:100vw">
+				<canvas id="myChart"></canvas>
+			</div>
+			<script>
+			const data = ${JSON.stringify(data)};
+			
+			function labelattr(context, attr)
+			{
+				let label = context.dataset.data[context.dataIndex].label;
+				if (label) {
+					return label[attr];
+				}
+				return null;
 			}
-		}, 10 * this.tickGap);
+			const config = ${objectStringify(config, '\t')};
+			config.plugins.push(ChartDataLabels);
+			config.data = data;
+			
+			const ctx = document.getElementById('myChart');
+			chart = new Chart(
+				ctx,
+				config,
+			);
+			</script>
+		`;
+		navigator.clipboard.writeText(snippet)
+			.then(() => {
+				//alert('clipboard successfully set');
+			})
+			.catch(error => {
+				alert('clipboard write failed', error);
+			});
 	}
 	
 	chartDestroy(chartLabel) {
@@ -742,6 +1586,11 @@ class SimuLOB extends LOBReceiver {
 		}
 	}
 	
+	manualQuote() {
+		const str = prompt('please enter a quote string', `bid 10 ${this.instrument} lmt 50`);
+		this.lobClient.manualQuote(str);
+	}
+	
 	chartBuildDataset() {
 		let datasets = [];
 		for (let branch of this.core_branches) {
@@ -760,7 +1609,15 @@ class SimuLOB extends LOBReceiver {
 			objectUpdate(dataset, this.chartStyle[branch] || {});
 			datasets.push(dataset);
 		}
-		this.strategy.hook_chartBuildDataset(datasets);
+		this.lobClient.strategy_hook_chartBuildDataset()
+		.then((ds_strategy) => {
+		const strategy = SimuStrategy.getStrategy(this.strategy);
+		for (let ds of ds_strategy) {
+			if (ds.tooltip) {
+				ds.tooltip = strategy[ds.tooltip];
+			}
+		}
+		datasets = datasets.concat(ds_strategy);
 		let branches = [];
 		let order_branches = [];
 		let chartIndex = {};
@@ -787,6 +1644,7 @@ class SimuLOB extends LOBReceiver {
 		this.branches = branches;
 		this.order_branches = order_branches;
 		this.chartIndex = chartIndex;
+		});
 		return datasets;
 	}
 	
@@ -968,14 +1826,30 @@ class SimuLOB extends LOBReceiver {
 			}
 			this.chartUpdate(chartLabel);
 			for (const [field, value] of Object.entries(status)) {
-				setTableField('status', field, value);
+				this.setTableField('status', field, value);
 			}
 		}
 	}
 	
-	chartInit(chartLabel, prevLabel, firstTime) {
+	clearTableField(tableId, field) {
+		clearTableField(tableId, field);
+	}
+	
+	setTableField(tableId, field, ...value) {
+		setTableField(tableId, field, ...value);
+	}
+	
+	showNLV(snlv, nlvColor) {
+		showNLV(snlv, nlvColor);
+	}
+	
+	chartInit = (chartLabel, prevLabel, firstTime) => {
 		let timeLabel = `chartInit ${chartLabel}`;
 		console.time(timeLabel);
+		this.chartLabel = chartLabel;
+	this.chartLabel = chartLabel;
+	this.prevLabel = prevLabel;
+	this.firstTime = firstTime;
 		this.charts[chartLabel] = {
 			label: chartLabel,
 			prevLabel,
@@ -1010,18 +1884,20 @@ class SimuLOB extends LOBReceiver {
 						},
 					);
 					console.timeEnd(timeLabel);
-					let quotes = this.quoteGetAll(this.trader_tid, this.instrument, null, 'sent');
-					for (let [label, quote] of Object.entries(quotes)) {
-						if (!quote) {
-							continue;
+					this.lobClient.quoteGetAll(this.config.trader_tid, this.config.instrument, null, 'sent')
+					.then(quotes => {
+						for (let [label, quote] of Object.entries(quotes)) {
+							if (!quote) {
+								continue;
+							}
+							this._chartPushTicks(
+								label,
+								chartLabel,
+								{x: firstTime, y: quote.price},
+								{x: firstTime + 1, y: quote.price, sentinel: true},
+							);
 						}
-						this._chartPushTicks(
-							label,
-							chartLabel,
-							{x: firstTime, y: quote.price},
-							{x: firstTime + 1, y: quote.price, sentinel: true},
-						);
-					}
+					});
 				}
 				// todo: do this independently
 				this._chartPushTicks(
@@ -1038,22 +1914,24 @@ class SimuLOB extends LOBReceiver {
 				this.chartLoadBuffer(chartLabel);
 			},
 			beforeUpdate: (chart, args, options) => {
-				this.strategy.hook_beforeUpdateChart(chartLabel);
-				let chartInfo = this.getChartInfo(chartLabel);
-				let sentinelTime = chartInfo.lastTime || this.getTime();
-				chart.data.datasets.forEach(
-					ds => {
-						if (ds.data && ds.data.length && ds.data.at(-1).y) {
-							let last = ds.data.at(-1);
-							if (last.sentinel) {
-								last.x = sentinelTime;
+				this.lobClient.strategy_hook_beforeUpdateChart(chartLabel)
+				.then(data => {
+					let chartInfo = this.getChartInfo(chartLabel);
+					let sentinelTime = chartInfo.lastTime || data.now;
+					chart.data.datasets.forEach(
+						ds => {
+							if (ds.data && ds.data.length && ds.data.at(-1).y) {
+								let last = ds.data.at(-1);
+								if (last.sentinel) {
+									last.x = sentinelTime;
+								}
 							}
 						}
-					}
-				);
-				let counters = chartInfo.updateCounters;
-				Object.keys(counters)
-					.map(key => {counters[key] = 0;});
+					);
+					let counters = chartInfo.updateCounters;
+					Object.keys(counters)
+						.map(key => {counters[key] = 0;});
+				});
 				return true;
 			},
 			afterUpdate: (chart, args, options) => {
@@ -1062,7 +1940,7 @@ class SimuLOB extends LOBReceiver {
 			}
 		};
 		
-		const tabLabel = `${this.strategy.getName()}/${chartLabel}`;
+		const tabLabel = `${this.strategy}/${chartLabel}`;
 		let tab = sqlConsole.tabSearch(tabLabel);
 		let tabInfo = sqlConsole.tabInfo(tab);
 		if (!tabInfo) {
@@ -1085,16 +1963,23 @@ class SimuLOB extends LOBReceiver {
 				}
 			);
 			const buttonsDiv = tabInfo.querySelector('div.buttons');
-			for (const [key, info] of Object.entries(this.strategy.getButtons())) {
-				buttonsDiv.insertAdjacentHTML(
-					'beforeend',
-					`<button class="${key}">${info.label}</button>`
-				);
-				tabInfo.querySelector('button.' + key).addEventListener(
-					'click',
-					e => {info.listener(e, chartLabel);}
-				);
-			}
+			this.lobClient.strategy_getButtons()
+			.then(buttons => {
+				for (const [key, info] of Object.entries(buttons)) {
+					buttonsDiv.insertAdjacentHTML(
+						'beforeend',
+						`<button class="${key}">${info.label}</button>`
+					);
+					tabInfo.querySelector('button.' + key).addEventListener(
+						'click',
+						e => {
+							const strategy = SimuStrategy.getStrategy(this.strategy);
+							const listener = strategy[info.listener];
+							listener(e, this, chartLabel);
+						}
+					);
+				}
+			});
 			tabInfo.querySelector('button.study-bid').addEventListener(
 				'click',
 				e => {this.studySide('bid', chartLabel);}
@@ -1131,9 +2016,10 @@ class SimuLOB extends LOBReceiver {
 		new Chart(canvas.getContext("2d"), chartConfig);
 	}
 	
-	afterTicks(chartLabel) {
+	afterTicks(chartLabel, lastTime) {
+console.log('afterTicks', chartLabel, lastTime);
 		let chartInfo = this.getChartInfo(chartLabel);
-		chartInfo.lastTime = this.getTime();
+		chartInfo.lastTime = lastTime;
 		for (let label of Object.keys(this.chartIndex)) {
 			let data = this.chartData(label, chartLabel);
 			if (data && data.length) {
@@ -1146,672 +2032,9 @@ class SimuLOB extends LOBReceiver {
 		if (this.paused) {
 			this.paused.style.display = 'none';
 		}
-		this.strategy.hook_afterTicks(chartLabel);
 	}
 	
-	async endOfDay(chartLabel) {
-		await this.modificationsCharge();
-		this.afterTicks(chartLabel); //should move to newchartstart
-	}
-	
-	run(dates) {
-		this.dataComing = true;
-		this.loadTicks();
-		let chain = Promise.resolve();
-		for (let day of dates) {
-			chain = chain.then(
-				msg => {
-					if (msg) {
-						console.error(msg);
-					}
-					return csvExtract(this, day);
-					//return csvLoad(this, day);
-				}
-			);
-		}
-		chain = chain.then(
-			msg => {
-				if (msg) {
-					console.error(msg);
-				}
-			}
-		);
-	}
-	
-	loadTicks() {
-		console.time('data process');
-		let sent = 0;
-		let simu = this;
-		simu.dopause = false;
-		simu.newChartStart = false;
-		simu.firstTickFollows = false;
-		let tickInterval = setInterval (async (simu) => {
-			if (simu.dopause) {
-				return;
-			}
-			let label, price, quote;
-			if (this.quotesQueue.length) {
-				this.quotesQueueLock();
-				quote = this.quotesQueue.shift();
-				label = quote.label;
-				let instrument = quote.instrument;
-				this.quotesQueueLock(false);
-				if (label in this.derailedLabels[instrument]) {
-					return;
-				}
-				simu.processQuote(quote);
-			}
-			else if (this.ticks.length) {
-				let tick = this.ticks.shift();
-				if (tick.label == 'chartReset') { //todo should trigger explicitly
-					//if (!simu.chartLabel) {
-					simu.newChartStart = true;
-					simu.prevLabel = simu.chartLabel;
-					simu.chartLabel = tick.title;
-					//}
-					simu.firstTickFollows = true;
-					return;
-				}
-				if (tick.label == 'endOfDay') {
-					await this.endOfDay(tick.title);
-					return;
-				}
-				tick.timestamp = simu.updateTime(tick.timestamp);
-				if (simu.newChartStart) {
-					simu.newChartStart = false;
-					this.chartInit(simu.chartLabel, simu.prevLabel, tick.timestamp);
-					///this.chart.options.scales.x.min = tick.timestamp;
-					this.strategy.hook_newChartStart();
-				}
-				if (simu.firstTickFollows) {
-					simu.firstTickFollows = false;
-					simu.firstTime = tick.timestamp;
-				}
-				if (tick.label == 'price') {
-					simu.setLastPrice(tick.instrument, tick.price, tick.timestamp);
-				}
-				else if (simu.order_branches.includes(tick.label)) {
-					quote = {
-						...tick,
-						trader: simu.market_tid,
-						qty: 1000000,
-					};
-					simu.processQuote(quote);
-				}
-			}
-			else if (this.dataComing) {
-				//console.log('dataComing');
-			}
-			else {
-				clearInterval(tickInterval);
-				tickInterval = 0;
-				error('sent:', sent);
-				console.timeEnd('data process');
-				return;
-			}
-			
-			++sent;
-		}
-		, 5/*simu.tickGap*/, simu);
-	}
-	
-	pushTick(tick) {
-		this.ticks.push(tick);
-	}
-	
-	quoteSave(label, quote, status='created', db) {
-		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_insert,
-			bind: prepKeys(
-				{
-					trader: quote.tid,
-					instrument: quote.instrument,
-					side: quote.side,
-					label,
-					quote: JSON.stringify(quote),
-					price: quote.price,
-					qty: quote.qty,
-					fulfilled: quote.fulfilled || 0,
-					idNum: quote.idNum,
-					order_id: quote.order_id || null,
-					status,
-				},
-				this.simu_queries.quote_insert)
-		});
-	}
-
-	quoteGet(trader, instrument, label, status=null, db) {
-		let ret = null;
-		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_get,
-			bind: prepKeys(
-				{
-					trader,
-					instrument,
-					label,
-					status,
-				},
-				this.simu_queries.quote_get),
-			rowMode: 'object',
-			callback: row => {
-				ret = JSON.parse(row.quote);
-			}
-		});
-		return ret;
-	}
-
-	quoteGetNum(trader, instrument, label, db) {
-		let ret = null;
-		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_getnum,
-			bind: prepKeys(
-				{
-					trader,
-					instrument,
-					label,
-				},
-				this.simu_queries.quote_getnum),
-			rowMode: 'object',
-			callback: row => {
-				ret = row.idNum;
-			}
-		});
-		return ret;
-	}
-
-	quoteGetAll(trader, instrument, side=null, status=null, db) {
-		let ret = {};
-		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_getall,
-			bind: prepKeys(
-				{
-					trader,
-					instrument,
-					side,
-					status,
-				},
-				this.simu_queries.quote_getall),
-			rowMode: 'object',
-			callback: row => {
-				//console.log(row);
-				ret[row.label] = JSON.parse(row.quote);
-			}
-		});
-		return ret;
-	}
-
-	quoteGetKeys(trader, instrument, side=null, db) {
-		let ret = [];
-		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_getkeys,
-			bind: prepKeys(
-				{
-					trader,
-					instrument,
-					side,
-				},
-				this.simu_queries.quote_getkeys),
-			rowMode: 'object',
-			callback: row => {
-				ret.push(row);
-			}
-		});
-		return ret;
-	}
-
-	quoteGetByNum(idNum, db) {
-		let ret = null;
-		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_getbynum,
-			bind: prepKeys(
-				{
-					idNum,
-				},
-				this.simu_queries.quote_getbynum),
-			rowMode: 'object',
-			callback: row => {
-				row.quote = JSON.parse(row.quote);
-				ret = row;
-			}
-		});
-		return ret;
-	}
-
-	quoteUpdate(quote, db) {
-		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_update,
-			bind: prepKeys(
-				{
-					idNum: quote.idNum,
-					quote: JSON.stringify(quote),
-					price: quote.price,
-					qty: quote.qty,
-					fulfilled: quote.fulfilled || 0,
-					order_id: quote.order_id || null,
-					status: quote.status || null,
-				},
-				this.simu_queries.quote_update
-			),
-		});
-	}
-
-	quoteDismiss(idNum, db) {
-		(db || this.simu_db).exec({
-			sql: this.simu_queries.quote_dismiss,
-			bind: prepKeys(
-				{idNum},
-				this.simu_queries.quote_dismiss
-			),
-		});
-	}
-	
-	static quoteRe = /^\s*(?<side>ask|bid|sell|buy)\s+(?<qty>\d+)(\s+(?<instrument>([A-Za-z]{1,5})(-[A-Za-z]{1,2})?))?(\s+(limit|lmt)\s*(?<price>(\d+\.?\d*))|mkt|market)?\s*$/;
-	
-	//'buy 10 AAPL lmt 123',
-	parseQuote(str) {
-		const quote = this.constructor.quoteRe.exec(str).groups;
-		quote.trader = this.trader_tid;
-		quote.instrument = quote.instrument || this.instrument;
-		quote.side = (quote.side || '').toLowerCase();
-		quote.side = ['bid', 'buy'].includes(quote.side) ? 'bid' : 'ask';
-		quote.label = 'manual';
-		quote.qty = parseInt(quote.qty);
-		quote.price = quote.price ? parseFloat(quote.price) : null;
-		return quote;
-	}
-	
-	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
-		let quote = this.quoteGet(trader, instrument, label, 'sent');
-		if (!quote) {
-			if (!side) {
-				side = label.slice(0, 3);
-			}
-			quote = this.createQuote(
-				trader, instrument, side, qty, price);
-			this.quoteSave(label, quote, 'saved'); //todo is this needed?
-			///quote.fulfilled = 0;
-			this.processOrder(quote, true, false, isPrivate);
-		}
-		else if (cancelQuote) {
-			this.lob.cancelOrder(quote.idNum);
-			return quote.idNum;
-		}
-		else {
-			let update = {
-				price,
-				qty,
-			};
-			let verbose = false;
-			this.quoteSave(label, quote, 'quoted');
-			this.modifyOrder(quote.idNum, update, quote.timestamp, verbose, isPrivate);
-			quote = Object.assign(quote, update);
-		}
-		return quote.idNum;
-	}
-	
-	cancelQuote(trader, instrument, label) {
-		let idNum = this.quoteGetNum(trader, instrument, label);
-		if (idNum !== null) {
-			this.lob.cancelOrder(idNum);
-		}
-	}
-	
-	cancelAllQuotes(trader, instrument, side=null) {
-		let quotes = this.quoteGetKeys(trader, instrument, side);
-		for (let quote of quotes) {
-			this.cancelQuote(quote.trader, quote.instrument, quote.label);
-		}
-	}
-	
-	manualQuote() {
-		const str = prompt('please enter a quote string', `bid 10 ${this.instrument} lmt 50`);
-		const quote = this.parseQuote(str);
-		this.processQuote(quote);
-	}
-	
-	//todo take and subsequently use order_id
-	orderSent(idNum, quote) {
-		let instrument, label;
-		let order = this.quoteGetByNum(idNum);
-		if (!order) {
-			if (quote?.tid == this.trader_tid) {
-				this.findOrder(idNum).then((info) => {
-					console.error('sent order not found', idNum, quote, info);
-				});
-				return;
-			}
-			instrument = quote.instrument;
-			label = quote.label;
-		}
-		else {
-			instrument = order.instrument;
-			label = order.label || order.side;
-		}
-		quote.status = 'sent';
-		this.quoteUpdate(quote);
-		this.chartPushTicks(
-			label,
-			{x: quote.timestamp, y: quote.price},
-			{x: quote.timestamp + 1, y: quote.price, sentinel: true},
-		);
-		this.strategy.hook_orderSent(quote.tid, instrument, label, quote.price);
-	}
-	
-	//todo use order_id
-	dismissQuote(idNum) {
-		this.simu_db.transaction(D => {
-		//let D;
-			let order = this.quoteGetByNum(idNum, D);
-			if (!order) {
-				this.findOrder(idNum).then((info) => {
-					console.error('dismissed order not found', idNum, info);
-				});
-				return;
-			}
-			let {label, quote} = order;
-				this.quoteDismiss(idNum, D);
-			this.chartPushTicks(
-				label,
-				{
-					x: this.updateTime(),
-					y: quote.price,
-				},
-				{
-					x: this.updateTime(),
-					y: null,
-				}
-			);
-		});
-	}
-	
-	setLastPrice(instrument, price, time) {
-		this.lob.setLastPrice(instrument, price, time);
-	}
-	
-	tickLastPrice(instrument, price, time) {
-		this.strategy.hook_tickLastPrice(instrument, price, time);
-	}
-	
-	tickMidPoint(instrument, midPoint, time) {
-		this.strategy.hook_tickMidPoint(instrument, midPoint, time);
-		let tick = {
-			x: time,
-			y: midPoint,
-		};
-		this.chartPushTicks('midpoint', tick);
-	}
-	
-	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {
-		if (trader != this.trader_tid) {
-			return;
-		}
-		let order = this.quoteGetByNum(idNum);
-		if (!order) {
-			this.findOrder(idNum).then((info) => {
-				console.error('fulfilled order not found', idNum, info);
-			});
-			return;
-		}
-		let {instrument, label, quote} = order;
-		quote.fulfilled = fulfilled;
-		this.quoteUpdate(quote);
-		if (fulfilled == qty) {
-			this.dismissQuote(idNum);
-		}
-		this.strategy.hook_orderFulfill(
-			instrument, label, trader, qty, fulfilled, commission, avgPrice);
-	}
-	
-	orderExecuted(idNum, trader, time, qty, price) {
-		if (trader != this.trader_tid) {
-			return;
-		}
-		let order = this.quoteGetByNum(idNum);
-		if (!order) {
-			this.findOrder(idNum).then((info) => {
-				console.error('executed order not found', idNum, info);
-			});
-			return;
-		}
-		let {instrument, label} = order;
-		this.strategy.hook_orderExecuted(instrument, label, trader, time, qty, price);
-		let side = this.orderGetSide(idNum);
-		let tick = {
-			x: time,
-			y: price,
-			label: {
-				text: `${qty}`,
-//				color: 'white',
-			},
-			branch: label,
-		};
-		this.chartPushTicks(side == 'ask' ? 'sold' : 'bought', tick);
-	}
-	
-	orderCancelled(idNum, trader, time) {
-		if (trader != this.trader_tid) {
-			return;
-		}
-		let order = this.quoteGetByNum(idNum);
-		if (!order) {
-			this.findOrder(idNum).then((info) => {
-				console.error('canceled order not found', idNum, info);
-			});
-			return;
-		}
-		let {instrument, label} = order;
-		this.dismissQuote(idNum);
-		//why
-		//this.derailedLabels[instrument][label] = true;
-		//this?
-		this.strategy.hook_orderCancelled(instrument, label, trader, time);
-	}
-	
-	orderRejected(idNum, why) {
-		console.log('rejected order', idNum, why);
-		this.quoteDismiss(idNum);
-	}
-	
-	traderBalance({trader, instrument, amount, lastprice, value, liquidation, time, extra}) {
-		if (trader != this.trader_tid) {
-			return;
-		}
-		this.strategy.hook_traderBalance(
-			trader, instrument, amount, lastprice, value, liquidation, time, extra);
-	}
-	
-	traderNLV({trader, nlv, extra}) {
-		if (trader != this.trader_tid) {
-			return;
-		}
-		this.strategy.hook_traderNLV(trader, nlv, extra);
-	}
-	
-	async findOrder(idNum) {
-		return this.lob.findOrder(idNum);
-	}
-	
-	dtFormat(millis, fmt='HH:mm:ss.SSS') {
-		return formatDate(millis, fmt);
-	}
-	
-	order_log_filter(order_id, label, db) {
-		let [dolog, data] = this.lob.order_log_filter(order_id, label, db);
-		dolog = (data.trader == this.trader_tid);
-		if (['balance_update', 'modify_detail'].includes(label)) {
-			dolog = false;
-		}
-		if (data.idNum in this.order_names) {
-			let [instrument, order_label] = this.order_names[data.idNum];
-			data.order_label = order_label;
-			data.event_dt = this.dtFormat(data.event_dt);
-		}
-		return [dolog, data];
-	}
-	
-	getReqExtra(subject, reqId, db) {
-		let promise = null, extra = null;
-		if (!db) {
-			db = this.simu_db;
-		}
-		try {
-			db.exec({
-				sql: this.simu_queries.request_fetch,
-				rowMode: 'object',
-				bind: prepKeys(
-					{subject, reqId},
-					this.simu_queries.request_fetch),
-				callback: res => {
-					extra = JSON.parse(res.extra);
-				}
-			});
-			db.exec({
-				sql: this.simu_queries.request_delete,
-				rowMode: 'object',
-				bind: prepKeys(
-					{subject, reqId},
-					this.simu_queries.request_delete),
-			});
-			if (reqId in this.request_promises) {
-				promise = this.request_promises[reqId];
-				delete this.request_promises[reqId];
-			}
-		}
-		catch(error) {
-			console.log('getReqExtra', error);
-		}
-		return [promise, extra];
-	}
-	
-	getReqId = (subject, reqId=null, {extra=null, withPromise=false}={}) => {
-		this.simu_db.transaction(
-			D => {
-				D.exec({
-					sql: this.simu_queries.request_insert,
-					bind: prepKeys(
-						{
-							subject,
-							reqId,
-							extra: JSON.stringify(extra),
-						}
-						, this.simu_queries.request_insert),
-				});
-				D.exec({
-					sql: this.simu_queries.lastrequest,
-					rowMode: 'object',
-					bind: prepKeys(
-						{subject},
-						this.simu_queries.lastrequest),
-					callback: res => {
-						reqId = res.reqId;
-					}
-				});
-			}
-		);
-		if (withPromise) {
-			const promise = Promise.withResolvers();
-			this.request_promises[reqId] = promise;
-			return [reqId, promise.promise];
-		}
-		return reqId;
-	}
-	
-	updateTime(timestamp) {
-		// ensure unique timestamps
-		if (!timestamp || timestamp <= this.time) {
-			timestamp = this.time + 1;
-		}
-		this.time = timestamp;
-		this.lob.updateTime(timestamp);
-		return this.time;
-	}
-	
-	studySide(side, chartLabel) {
-		let labels =
-			this.market_orders
-				.filter(label => label != side)
-			.concat(
-				this.trader_orders
-					.filter(label => label.slice(0, 3) == side)
-			);
-		labels.push('title', (side == 'bid' ? 'bought' : 'sold'));
-		let info = this.getChartInfo(chartLabel);
-		for (let label of this.branches) {
-			let ix = this.chartIndex[label].dataset;
-			if (labels.includes(label)) {
-				info.chart.show(ix);
-			}
-			else {
-				info.chart.hide(ix);
-			}
-		}
-		info.chart.update();
-	}
-	
-	chartCopy(chartLabel) {
-		let info = this.getChartInfo(chartLabel);
-		let config = this.chartConfig(this.decimalDigits);
-		let data = info.chart.config.data;
-		data.datasets = data.datasets.filter(
-			(ds, i) => info.chart.isDatasetVisible(i))
-			;
-		data.datasets.forEach(ds => {
-			ds.data = ds.data.slice(0, 100);
-		});
-		config.plugins = config.plugins.filter(plugin => plugin.id != "datalabels");
-		let snippet = `
-			<script src="https://cdn.jsdelivr.net/npm/chart.js@^4"></script>
-			<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@^2"></script>
-			<script src="https://cdn.jsdelivr.net/npm/luxon@^2"></script>
-			<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@^1"></script>
-			
-			<div class="chart" style="height:100vh; width:100vw">
-				<canvas id="myChart"></canvas>
-			</div>
-			<script>
-			const data = ${JSON.stringify(data)};
-			
-			function labelattr(context, attr)
-			{
-				let label = context.dataset.data[context.dataIndex].label;
-				if (label) {
-					return label[attr];
-				}
-				return null;
-			}
-			const config = ${objectStringify(config, '\t')};
-			config.plugins.push(ChartDataLabels);
-			config.data = data;
-			
-			const ctx = document.getElementById('myChart');
-			chart = new Chart(
-				ctx,
-				config,
-			);
-			</script>
-		`;
-		navigator.clipboard.writeText(snippet)
-			.then(() => {
-				//alert('clipboard successfully set');
-			})
-			.catch(error => {
-				alert('clipboard write failed', error);
-			});
-	}
-	
-	quotesQueueLock(lock=true) {
-		if (lock) {
-			let checkInterval = setInterval(
-				() => {
-				if (!this.quotesQueueLocked) {
-					this.quotesQueueLocked = true;
-					clearInterval(checkInterval);
-				}
-			}, 1);
-		}
-		else {
-			this.quotesQueueLocked = false;
-		}
+	logHtml({cssClass, args}) {
+		return logHtml(cssClass, args);
 	}
 };
-

@@ -107,11 +107,12 @@
 		});
 	</script-->
 	<script src="./node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.js"></script>
+	<script src="./PyLOB/worker.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
 	<script src="./PyLOB/simulob/simu_strategy.js"></script>
-	<script src="./commission.js"></script>
-	<script src="./peakdet.js"></script>
+	<!--script src="./PyLOB/commission.js"></script-->
+	<!--script src="./PyLOB/simulob/peakdet.js"></script-->
 	<script src="./PyLOB/simulob/simulob.js"></script>
 	
 	<script src="./PyLOB/chart/chartjs-4.4.0/chart.umd.min.js"></script>
@@ -123,16 +124,18 @@
 	<script src="./PyLOB/luxon/luxon.min.js"></script>
 	<script src="./PyLOB/chart/chartjs-luxon/chartjs-adapter-luxon.js"></script>
 	
-	<script src="./PyLOB/jszip/jszip.min.js"></script>
+	<!--script src="./PyLOB/jszip/jszip.min.js"></script-->
 	<!--script src="./PyLOB/eruda/eruda.js"></script-->
 	<script src="./PyLOB/file-saver/FileSaver.js"></script>
 	<script src="./PyLOB/csv/papaparse.min.js"></script>
-	<script src="./loaddata.js"></script>
 	<!--script>
 		//var FileSaver = require('file-saver');
 		var file = new File(["Hello, world!"], "hello world.txt", {type: "text/plain;charset=utf-8"});
 		saveAs(file);
 	</script-->
+	<script src="./require.js"></script>
+	<!--script src="./node_modules/@tarp/require/require.min.js"></script>
+	<script>Tarp.require({expose: true})</script-->
 	<script>
 	/**
 	Set up our output channel differently depending
@@ -205,7 +208,8 @@
 			// loading strategies
 			Promise.all(
 				strategies.map(strategy => {
-					return jsLoad(`./PyLOB/simulob/strategies/${strategy}.js`, true);
+					//return jsLoad(`./PyLOB/simulob/strategies/${strategy}.js`, true);
+					return require(`./PyLOB/simulob/strategies/${strategy}`);
 				})
 			)
 			.then(() => {
@@ -248,7 +252,10 @@
 			return;
 		}
 		const simuLocation = new URL('PyLOB/simulob', window.location.href);
-		window.sob = new SimuLOB(oo, simuLocation);
+		window.sob = new SimuLOB(
+			oo, simuLocation,
+			new SimuForwarder()
+		);
 		window.sob.init(window.strategyClass).then(
 			obj => {
 				window.sqlConsole.setDb(sob.db);

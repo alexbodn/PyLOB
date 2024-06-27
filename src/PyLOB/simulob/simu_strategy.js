@@ -53,17 +53,21 @@ class SimuStrategy {
 		strategy.dialog.querySelector('button.run').addEventListener(
 			'click',
 			e => {
-		const simuLocation = new URL('PyLOB/simulob', window.location.href);
-				const
-				sob = new SimuLOB(oo, simuLocation);
-				sob.init(strategy).then(
+				const simuLocation = new URL('PyLOB/simulob', window.location.href);
+				const sob = new SimuConsole(oo, simuLocation);
+				const defaults = strategy.getDialogConfig();
+				sob.init(strategy.name, defaults).then(
 					obj => {
-						sqlConsole.setDb(sob.db);
+						//sqlConsole.setDb(sob.db);
 						sob.run(dates);
 						strategy.dialog.querySelector('button.stop').addEventListener(
 							'click', e => {sob.close();});
 						strategy.dialog.querySelector('button.close').addEventListener(
-							'click', e => {sqlConsole.tabClose(strategyTab);});
+							'click', e => {
+								sob.close();
+								sqlConsole.tabClose(strategyTab);
+							}
+						);
 					}
 				);
 			}
@@ -124,6 +128,7 @@ class SimuStrategy {
 		tab = sqlConsole.tabActivate(tab);
 	}
 	
+	// human readable version
 	static getDialogConfig() {return {};}
 	static setDialogConfig(text) {}
 	
@@ -161,9 +166,9 @@ class SimuStrategy {
 	}
 	
 	async hook_afterInit() {return Promise.resolve();}
-	hook_chartBuildDataset(datasets) {}
+	async hook_chartBuildDataset(datasets) {return Promise.resolve([]);}
 	hook_beforeUpdateChart(chartLabel) {}
-	hook_afterTicks(chartLabel) {}
+	hook_afterTicks(chartLabel, lastTime) {}
 	hook_newChartStart() {}
 	hook_orderSent(tid, instrument, label, price) {}
 	hook_tickLastPrice(instrument, price, time) {}
@@ -178,3 +183,35 @@ class SimuStrategy {
 	getButtons() {return {};}
 };
 
+
+class StrategyReceiver extends WorkerReceiver {
+	constructor() {
+		super();
+	}
+	
+};
+
+class StrategyForwarder extends StrategyReceiver {
+	constructor(sender) {
+		super();
+		this.sender = sender;
+		this.filters = {};
+	}
+	addFilter(field, value) {
+		this.filters[field] = value;
+	}
+	forward(method, ...args) {
+		this.sender(method, ...args);
+	}
+};
+
+class StrategyClient extends WorkerClient {
+	constructor(worker_url, receiver, dtFormat) {
+		super(worker_url, receiver);
+		this.dtFormat = dtFormat;
+	}
+};
+
+if (typeof module !== 'undefined') {
+	module.exports = {SimuStrategy};
+}
