@@ -1,19 +1,21 @@
 
+function doneFunc(reqId, ...args) {
+	let [promise, extra] = this.getReqExtra('any', reqId);
+	if (promise) {
+		promise.resolve(...args);
+	}
+	return extra;
+}
+
 // receives from worker
 class WorkerReceiver {
 	constructor() {}
 	
-	// the final receiver should implement getReqExtra
+	// a derived class should implement getReqExtra
 	getReqExtra(subject, reqId) {
 		return null;
 	}
-	done(reqId) {
-		let [promise, extra] = this.getReqExtra('any', reqId);
-		if (promise) {
-			promise.resolve();
-		}
-		return extra;
-	}
+	done = doneFunc;
 };
 
 // create and contact a worker
@@ -44,7 +46,6 @@ class WorkerClient {
 		};
 		this.worker.postMessage(message);
 	};
-	
 	async sendRegistered(method, extra, ...args) {
 		let [reqId, promise] = this.receiver.getReqId('any', null, {extra, withPromise: true});
 		this.sendQuery(method, reqId, ...args);

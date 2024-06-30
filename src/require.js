@@ -15,7 +15,7 @@ function require(url){
                 if (X.status && X.status !== 200)  throw new Error(X.statusText);
                 var source = X.responseText;
                 // fix (if saved form for Chrome Dev Tools)
-                if (source.substr(0,10)==="(function("){ 
+                if (source.substr(0,10)==="(function("){ //better use regexp
                     var moduleStart = source.indexOf('{');
                     var moduleEnd = source.lastIndexOf('})');
                     var CDTcomment = source.indexOf('//@ ');

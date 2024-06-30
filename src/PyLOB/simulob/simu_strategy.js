@@ -183,7 +183,6 @@ class SimuStrategy {
 	getButtons() {return {};}
 };
 
-
 class StrategyReceiver extends WorkerReceiver {
 	constructor() {
 		super();

@@ -1,4 +1,3 @@
-
 		
 		self.sob = null;
 		self.inputQueue = [];
