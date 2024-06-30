@@ -826,8 +826,15 @@ class SimuLOB {
 			if (this.titleLabel && label != this.titleLabel) {
 				let titleData = this.chartData(this.titleLabel, chartLabel);
 				if (titleData) {
-					let titleTicks = ticks.map(tick => Object.assign({}, tick, {y: null}));
+					let titleTicks = ticks
+						.map(tick => Object.assign({}, tick, {y: null}))
+						;
+					titleTicks.sort((a, b) => a.x - b.x);
+					let sorted = titleTicks.at(0).x >= titleData.at(-1).x;
 					titleData.push(...titleTicks);
+					if (!sorted) {
+						titleData.sort((a, b) => a.x - b.x);
+					}
 				}
 			}
 			this.chartDataUpdate(label, ticks, chartLabel);
@@ -965,6 +972,9 @@ class SimuLOB {
 								last.x = sentinelTime;
 							}
 						}
+//						if (ds.label == this.titleLabel) {
+//							ds.data.sort((a, b) => a.x - b.x);
+//						}
 					}
 				);
 				let counters = chartInfo.updateCounters;

@@ -478,7 +478,11 @@ class OrderBook {
 			rowMode: 'object',
 			callback: row => {
 				let info = {...row, time: this.getTime(), extra};
-				this.traderBalance(info);
+				setTimeout(
+					traderBalance,
+					this.tickGap,
+					this, info,
+				);
 			}
 		});
 	}
@@ -505,7 +509,7 @@ class OrderBook {
 				let info = {...row, time: this.getTime(), extra};
 				setTimeout(
 					traderNLV,
-					0*this.tickGap,
+					this.tickGap,
 					this, info,
 				);
 			}
