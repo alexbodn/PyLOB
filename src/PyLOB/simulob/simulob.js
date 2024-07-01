@@ -903,8 +903,8 @@ class SimuLOB extends OrderBook {
 
 // this is an interface
 class SimuReceiver extends LOBReceiver {
-	constructor() {
-		super();
+	constructor(forwarder) {
+		super(forwarder);
 	}
 	strategyLoadResp(reqId, config) {
 		let [promise, extra] = this.getReqExtra('any', reqId);
@@ -912,7 +912,6 @@ class SimuReceiver extends LOBReceiver {
 			promise.resolve(config);
 		}
 	}
-	
 	strategy_hook_chartBuildDatasetResp(reqId, ds) {
 		let [promise, extra] = this.getReqExtra('any', reqId);
 		if (promise) {
@@ -940,12 +939,8 @@ class SimuReceiver extends LOBReceiver {
 };
 
 class SimuForwarder extends SimuReceiver {
-	constructor(sender) {
-		super();
-		this.sender = sender;
-	}
-	forward(method, ...args) {
-		this.sender(method, ...args);
+	constructor(forwarder) {
+		super(forwarder);
 	}
 	strategyLoadResp(...args) {
 		this.forward('strategyLoadResp', ...args);

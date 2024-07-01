@@ -1,3 +1,67 @@
+'use strict';
+
+//perform work inside a worker
+class WorkerPerformer {
+	eventQueue = [];
+	performers = [];
+	
+	constructor(performers) {
+		this.performers = performers;
+	}
+	findPerformer(event) {
+		return this.performers.find(performer => {
+			return typeof performer[event.data.queryMethod] === 'function'
+		});
+	}
+	processQueue() {
+		while (this.eventQueue.length) {
+			this.onmessage(this.eventQueue.shift());
+		}
+	}
+	onmessage(event) {
+		if (!this.performers.some(x => x)) {
+			this.eventQueue.push(event);
+			return;
+		}
+		else if (this.eventQueue.length) {
+			this.eventQueue.push(event);
+			event = this.eventQueue.shift();
+		}
+		if (
+			event.data instanceof Object &&
+			Object.hasOwn(event.data, "queryMethod") &&
+			Object.hasOwn(event.data, "queryMethodArguments")
+		) {
+			let performer = this.findPerformer(event);
+			if (performer) {
+				performer[event.data.queryMethod].apply(
+					performer,
+					event.data.queryMethodArguments,
+				);
+			}
+			else {
+				this.defaultReply(event.data);
+			}
+		}
+		else {
+			this.defaultReply(event.data);
+		}
+		this.processQueue();
+	}
+	defaultReply(data) {
+		console.log('misrouted', data);
+	}
+	send(queryMethodListener, ...queryMethodArguments) {
+//console.log('workerSend', queryMethodListener, ...queryMethodArguments);
+		if (!queryMethodListener) {
+			throw new TypeError("workerSend - not enough arguments");
+		}
+		postMessage({
+			queryMethodListener,
+			queryMethodArguments,
+		});
+	}
+};
 
 function doneFunc(reqId, ...args) {
 	let [promise, extra] = this.getReqExtra('any', reqId);
@@ -9,13 +73,18 @@ function doneFunc(reqId, ...args) {
 
 // receives from worker
 class WorkerReceiver {
-	constructor() {}
+	constructor(forwarder=null) {
+		this.forwarder = forwarder;
+	}
 	
 	// a derived class should implement getReqExtra
 	getReqExtra(subject, reqId) {
 		return null;
 	}
 	done = doneFunc;
+	forward(method, ...args) {
+		this.forwarder(method, ...args);
+	}
 };
 
 // create and contact a worker

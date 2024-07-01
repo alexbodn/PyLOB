@@ -27,19 +27,18 @@ long_line_behaviour=1
 long_line_column=80
 
 [files]
-current_page=7
-FILE_NAME_0=16493;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
+current_page=6
+FILE_NAME_0=21322;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
 FILE_NAME_1=3326;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
-FILE_NAME_2=4942;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
-FILE_NAME_3=36184;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fpeakswinger.js;0;4
+FILE_NAME_2=6052;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
+FILE_NAME_3=16378;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fpeakswinger.js;0;4
 FILE_NAME_4=2609;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fjslob2.html;0;4
 FILE_NAME_5=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fgood-swinger.js;0;4
-FILE_NAME_6=40731;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
-FILE_NAME_7=21276;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_console.js;0;4
-FILE_NAME_8=2021;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Frequire.js;0;4
-FILE_NAME_9=231;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fworker.js;0;4
-FILE_NAME_10=2976;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_worker.js;0;4
-FILE_NAME_11=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategy_worker.js;0;4
+FILE_NAME_6=12535;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
+FILE_NAME_7=17323;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_console.js;0;4
+FILE_NAME_8=16;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategy_worker.js;0;4
+FILE_NAME_9=19;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_worker.js;0;4
+FILE_NAME_10=0;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fworker.js;0;4
 
 [VTE]
-last_dir=/home/alex/python3/PyLOB/src/PyLOB/simulob
+last_dir=/home/alex/python3/PyLOB/src/PyLOB

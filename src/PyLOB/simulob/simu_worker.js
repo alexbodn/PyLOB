@@ -1,3 +1,6 @@
+
+'use strict';
+
 		
 		self.sob = null;
 		self.inputQueue = [];

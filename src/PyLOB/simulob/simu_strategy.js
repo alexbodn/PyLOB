@@ -183,32 +183,38 @@ class SimuStrategy {
 	getButtons() {return {};}
 };
 
+//receives info from strategy
 class StrategyReceiver extends WorkerReceiver {
-	constructor() {
-		super();
+	constructor(forwarder) {
+		super(forwarder);
 	}
 	
 };
 
 class StrategyForwarder extends StrategyReceiver {
-	constructor(sender) {
-		super();
-		this.sender = sender;
-		this.filters = {};
-	}
-	addFilter(field, value) {
-		this.filters[field] = value;
-	}
-	forward(method, ...args) {
-		this.sender(method, ...args);
+	constructor(forwarder) {
+		super(forwarder);
 	}
 };
 
+//invokes the strategy in a worker
 class StrategyClient extends WorkerClient {
-	constructor(worker_url, receiver, dtFormat) {
+	constructor(worker_url, receiver) {
 		super(worker_url, receiver);
-		this.dtFormat = dtFormat;
 	}
+	async hook_afterInit() {return Promise.resolve();}
+	async hook_chartBuildDataset(datasets) {return Promise.resolve([]);}
+	hook_beforeUpdateChart(chartLabel) {}
+	hook_afterTicks(chartLabel, lastTime) {}
+	hook_newChartStart() {}
+	hook_orderSent(tid, instrument, label, price) {}
+	hook_tickLastPrice(instrument, price, time) {}
+	hook_tickMidPoint(instrument, midPoint, time) {}
+	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
+	hook_orderExecuted(instrument, label, trader, time, qty, price) {}
+	hook_orderCancelled(instrument, label, trader, time) {}
+	hook_traderBalance(trader, instrument, amount, lastprice, value, liquidation, time, extra) {}
+	hook_traderNLV(trader, nlv, extra) {}
 };
 
 if (typeof module !== 'undefined') {

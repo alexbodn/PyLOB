@@ -499,11 +499,12 @@ class OrderBook {
 			rowMode: 'object',
 			callback: row => {
 				let info = {reqId, ...row, time: this.getTime()};
-				setTimeout(
+				/*setTimeout(
 					traderBalance,
-					0*this.tickGap,
+					this.tickGap,
 					this, info,
-				);
+				);*/
+				queueMicrotask(() => {this.traderBalance(info)});
 			}
 		});
 	}
@@ -532,11 +533,12 @@ class OrderBook {
 			rowMode: 'object',
 			callback: row => {
 				let info = {reqId, ...row, time: this.getTime()};
-				setTimeout(
+				/*setTimeout(
 					traderNLV,
-					0*this.tickGap,
+					this.tickGap,
 					this, info,
-				);
+				);*/
+				queueMicrotask(() => {this.traderNLV(info)});
 			}
 		});
 	}
@@ -1478,8 +1480,8 @@ export {
 */
 
 class LOBReceiver extends WorkerReceiver {
-	constructor() {
-		super();
+	constructor(forwarder) {
+		super(forwarder);
 	}
 	
 	traderBalanceResp({
@@ -1552,16 +1554,12 @@ class LOBReceiver extends WorkerReceiver {
 };
 
 class LOBForwarder extends LOBReceiver {
-	constructor(sender) {
-		super();
-		this.sender = sender;
+	constructor(forwarder) {
+		super(forwarder);
 		this.filters = {};
 	}
 	addFilter(field, value) {
 		this.filters[field] = value;
-	}
-	forward(method, ...args) {
-		this.sender(method, ...args);
 	}
 	findOrderResp(...args) {
 		this.forward('findOrderResp', ...args);
