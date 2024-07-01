@@ -478,11 +478,12 @@ class OrderBook {
 			rowMode: 'object',
 			callback: row => {
 				let info = {...row, time: this.getTime(), extra};
-				setTimeout(
+				/*setTimeout(
 					traderBalance,
 					this.tickGap,
 					this, info,
-				);
+				);*/
+				queueMicrotask(() => {this.traderBalance(info)});
 			}
 		});
 	}
@@ -507,11 +508,12 @@ class OrderBook {
 			rowMode: 'object',
 			callback: row => {
 				let info = {...row, time: this.getTime(), extra};
-				setTimeout(
+				/*setTimeout(
 					traderNLV,
 					this.tickGap,
 					this, info,
-				);
+				);*/
+				queueMicrotask(() => {this.traderNLV(info)});
 			}
 		});
 	}
