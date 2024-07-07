@@ -834,9 +834,6 @@ class SimuConsole extends SimuReceiver {
 			prevLabel,
 			firstTime,
 			dataBuffer: {},
-			updateCounters:
-				Object.keys(this.updateFrequency)
-					.reduce((a, b) => {a[b] = 0; return a;}, {}),
 			initialized: false,
 		};
 		let chartInfo = this.charts[chartLabel];
@@ -903,14 +900,8 @@ class SimuConsole extends SimuReceiver {
 								last.x = sentinelTime;
 							}
 						}
-//						if (ds.label == 'title') {
-//							ds.data.sort((a, b) => a.x - b.x);
-//						}
 					}
 				);
-				let counters = chartInfo.updateCounters;
-				Object.keys(counters)
-					.map(key => {counters[key] = 0;});
 				return true;
 			},
 			afterUpdate: (chart, args, options) => {
