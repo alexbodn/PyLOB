@@ -1,74 +1,9 @@
 
 'use strict';
-
-class WorkerPerformer {
-	eventQueue = [];
-	performers = [];
-	
-	constructor(performers) {
-		this.performers = performers;
-	}
-	findPerformer(event) {
-		return this.performers.find(performer => {
-			return typeof performer[event.data.queryMethod] === 'function'
-		});
-	}
-	processQueue() {
-		while (this.eventQueue.length) {
-			this.onmessage(this.eventQueue.shift());
-		}
-	}
-	onmessage(event) {
-		if (!this.performers.some(x => x)) {
-			this.eventQueue.push(event);
-			return;
-		}
-		else if (this.eventQueue.length) {
-			this.eventQueue.push(event);
-			event = this.eventQueue.shift();
-		}
-		if (
-			event.data instanceof Object &&
-			Object.hasOwn(event.data, "queryMethod") &&
-			Object.hasOwn(event.data, "queryMethodArguments")
-		) {
-			let performer = this.findPerformer(event);
-			if (performer) {
-				performer[event.data.queryMethod].apply(
-					performer,
-					event.data.queryMethodArguments,
-				);
-			}
-			else {
-				this.defaultReply(event.data);
-			}
-		}
-		else {
-			this.defaultReply(event.data);
-		}
-		this.processQueue();
-	}
-	defaultReply(data) {
-		console.log('misrouted', data);
-	}
-	send(queryMethodListener, ...queryMethodArguments) {
-//console.log('workerSend', queryMethodListener, ...queryMethodArguments);
-		if (!queryMethodListener) {
-			throw new TypeError("workerSend - not enough arguments");
-		}
-		postMessage({
-			queryMethodListener,
-			queryMethodArguments,
-		});
-	}
-};
-
-		self.sob = null;
-		self.inputQueue = [];
 		
 		console.log("Running demo from Worker thread.");
 		let logHtml = function(cssClass,...args){
-			workerSend('logHtml', {cssClass, args});
+			console.log(args);
 		};
 		const log = (...args)=>logHtml('',...args);
 		const warn = (...args)=>logHtml('warning',...args);
@@ -98,8 +33,11 @@ class WorkerPerformer {
 			sqlite3Js,
 			new URL('../worker.js', self.location.href),
 			new URL('../orderbook.js', self.location.href),
+			'/node_modules/jszip/dist/jszip.min.js',
+			'/node_modules/papaparse/papaparse.min.js',
 			'/node_modules/luxon/build/global/luxon.js',
 			"../../require.js",
+			new URL('./loaddata.js', self.location.href),
 			new URL('./simu_strategy.js', self.location.href),
 			new URL('./simulob.js', self.location.href),
 			new URL('../commission.js', self.location.href),
@@ -116,7 +54,11 @@ class WorkerPerformer {
 			console.log("Done initializing. Running demo...");
 			try {
 				self.oo = sqlite3.oo1/*high-level OO API*/;
-				self.forwarder = new SimuForwarder(workerSend);
+				self.performer = new WorkerPerformer();
+				logHtml = function(cssClass,...args){
+					self.performer.send('logHtml', {cssClass, args});
+				};
+				self.forwarder = new StrategyForwarder(self.performer.send);
 				self.sob = new SimuLOB(
 					self.oo,
 					new URL('./', self.location.href),
@@ -126,11 +68,9 @@ class WorkerPerformer {
 				self.sob.init().then(obj => {
 					warn('initialization done.');
 					console.timeEnd('sob_init');
-					workerSend('done', self.initReqId);
-					while (self.inputQueue.length) {
-						const event = self.inputQueue.shift();
-						onmessage(event);
-					}
+					self.performer.addPerformer(self.sob, self.forwarder);
+					self.performer.send('done', self.initReqId);
+					self.performer.processQueue();
 				});
 			}
 			catch(e){
@@ -139,47 +79,5 @@ class WorkerPerformer {
 		});
 		
 		onmessage = (event) => {
-//console.log('workerReceived', event.data);
-			if (!self.sob) {
-				self.inputQueue.push(event);
-			}
-			else if (
-				event.data instanceof Object &&
-				Object.hasOwn(event.data, "queryMethod") &&
-				Object.hasOwn(event.data, "queryMethodArguments")
-			) {
-				if (typeof self.sob[event.data.queryMethod] === 'function') {
-					self.sob[event.data.queryMethod].apply(
-						self.sob,
-						event.data.queryMethodArguments,
-					);
-				}
-				else if (typeof self.forwarder[event.data.queryMethod] === 'function') {
-					self.forwarder[event.data.queryMethod].apply(
-						self.forwarder,
-						event.data.queryMethodArguments,
-					);
-				}
-				else {
-					defaultReply(event.data);
-				}
-			}
-			else {
-				defaultReply(event.data);
-			}
+			return self.performer.onmessage(event);
 		};
-		
-		function defaultReply(data) {
-			console.log('misrouted', data);
-		}
-		
-		function workerSend(queryMethodListener, ...queryMethodArguments) {
-//console.log('workerSend', queryMethodListener, ...queryMethodArguments);
-			if (!queryMethodListener) {
-				throw new TypeError("workerSend - not enough arguments");
-			}
-			postMessage({
-				queryMethodListener,
-				queryMethodArguments,
-			});
-		}

@@ -5,8 +5,11 @@ class WorkerPerformer {
 	eventQueue = [];
 	performers = [];
 	
-	constructor(performers) {
+	constructor(performers=[]) {
 		this.performers = performers;
+	}
+	addPerformer(...performers) {
+		this.performers.push(...performers);
 	}
 	findPerformer(event) {
 		return this.performers.find(performer => {
@@ -54,7 +57,7 @@ class WorkerPerformer {
 	send(queryMethodListener, ...queryMethodArguments) {
 //console.log('workerSend', queryMethodListener, ...queryMethodArguments);
 		if (!queryMethodListener) {
-			throw new TypeError("workerSend - not enough arguments");
+			throw new TypeError("performer.send - not enough arguments");
 		}
 		postMessage({
 			queryMethodListener,
@@ -77,9 +80,11 @@ class WorkerReceiver {
 		this.forwarder = forwarder;
 	}
 	
-	// a derived class should implement getReqExtra
+	// a derived class should implement getReqExtra and getReqId
 	getReqExtra(subject, reqId) {
 		return null;
+	}
+	getReqId = (subject, reqId=null, {extra=null, withPromise=false}={}) => {
 	}
 	done = doneFunc;
 	forward(method, ...args) {
@@ -121,7 +126,7 @@ class WorkerClient {
 		return promise;
 	}
 	clientError(data) {
-		error(`simulob received ${JSON.stringify(data)}`);
+		error(`worker sent ${JSON.stringify(data)}`);
 	}
 	init = async () => {
 		let [initReqId, promise] = this.receiver.getReqId('any', null, {withPromise: true});

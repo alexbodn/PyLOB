@@ -107,7 +107,6 @@ const bgPlugin = {
 class SimuLOB extends OrderBook {
 	
 	simu_initialized = false;
-	derailedLabels = {};
 	quotesQueue = [];
 	quotesQueueLocked = false;
 	
@@ -137,6 +136,7 @@ class SimuLOB extends OrderBook {
 	
 	defaultSubject = 'any';
 	request_promises = {};
+	chartBuffer = {};
 	
 	constructor(oo, thisLocation, receiver) {
 		let lobLocation = new URL('../', thisLocation);
@@ -149,7 +149,6 @@ class SimuLOB extends OrderBook {
 
 		this.simu_queries = {};
 		// move these to local db
-		this.trader_quotes = {};
 		this.order_names = {};
 	}
 	
@@ -231,14 +230,73 @@ class SimuLOB extends OrderBook {
 	}
 	
 	chartPushTicks(label, ...ticks) {
-		this.receiver.chartPushTicks(label, ...ticks);
+		this._chartPushTicks(label, this.chartLabel, ...ticks);
 	}
 	
-	_chartPushTicks(label, chartLabel, ...ticks) {
-		this.receiver._chartPushTicks(label, chartLabel, ...ticks);
+	async _chartPushTicks(label, chartLabel, ...ticks) {
+		let now = this.getTime();
+		if (!(chartLabel in this.chartBuffer)) {
+			this.chartBuffer[chartLabel] = {};
+		}
+		if (!(label in this.chartBuffer[chartLabel])) {
+			this.chartBuffer[chartLabel][label] = [];
+		}
+		ticks.forEach(tick => {
+			if (tick.x == null) {
+				tick.x = now;
+			}
+		});
+		this.chartBuffer[chartLabel][label].push(...ticks);
+		if (!this.updateGroups || !this.updateCounters) {
+			return;
+		}
+		let updateGroup = this.updateGroups[label];
+		let groups = [updateGroup, 'sum'];
+		for (let group of groups) {
+			this.updateCounters[group] += ticks.length;
+			if (this.updateCounters[group] >= this.updateFrequency[group]) {
+				await this._chartFlushTicks();
+				break;
+			}
+		}
+	}
+	
+	chartUpdateGroups(reqId, data) {
+		let [updateGroups, updateFrequency] = data;
+		this.updateGroups = updateGroups;
+		this.updateFrequency = updateFrequency;
+		this.updateCounters = {};
+		for (let group of Object.values(this.updateGroups)) {
+			this.updateCounters[group] = 0;
+		}
+		this.receiver.forward('done', reqId);
+	}
+	
+	async _chartFlushTicks() {
+		let chartBuffer = this.chartBuffer;
+		this.chartBuffer = {};
+		this.updateCounters = {};
+		for (let group of Object.values(this.updateGroups)) {
+			this.updateCounters[group] = 0;
+		}
+		let ticksBuffer = [];
+		for (let chartLabel in chartBuffer) {
+			for (let [label, ticks] of Object.entries(chartBuffer[chartLabel])) {
+				ticksBuffer.push([label, chartLabel, ticks]);
+			}
+		}
+		let [reqId, promise] = this.getReqId(null, null, {withPromise: true});
+		this.receiver._chartFlushTicks(reqId, ticksBuffer);
+		return promise;
 	}
 	
 	chartSetTicks(label, ticks, chartLabel) {
+		let now = this.getTime();
+		ticks.forEach(tick => {
+			if (tick.x == null) {
+				tick.x = now;
+			}
+		});
 		this.receiver.chartSetTicks(label, ticks, chartLabel);
 	}
 	
@@ -315,27 +373,19 @@ class SimuLOB extends OrderBook {
 	}
 	
 	traderGetBalance(trader, instrument, extra) {
+		if (extra && extra.time == null) {
+			extra.time = this.getTime();
+		}
 		let reqId = this.getReqId(null, null, {extra});
 		return this.traderGetBalanceReq(reqId, trader, instrument);
 	}
 	
 	traderGetNLV(trader, extra) {
+		if (extra && extra.time == null) {
+			extra.time = this.getTime();
+		}
 		let reqId = this.getReqId(null, null, {extra});
 		return this.traderGetNLVReq(reqId, trader);
-	}
-	
-	createQuote(tid, instrument, side, qty, price=null) {
-		let quote = {
-			tid: tid,
-			instrument: instrument,
-			side: side,
-			qty: qty,
-			price: price,
-			order_type: price ? 'limit' : 'market',
-			idNum: this.quoteNum(),
-			timestamp: this.updateTime(),
-		};
-		return quote;
 	}
 	
 	pause(value=true) {
@@ -352,6 +402,7 @@ class SimuLOB extends OrderBook {
 	}
 	
 	afterTicks(chartLabel) {
+		this._chartFlushTicks();
 		let lastTime = this.getTime();
 		this.receiver.afterTicks(chartLabel, lastTime);
 		this.strategy.hook_afterTicks(chartLabel, lastTime);
@@ -387,6 +438,7 @@ class SimuLOB extends OrderBook {
 	}
 	
 	async chartInit(chartLabel, prevLabel, firstTime) {
+		this.chartLabel = chartLabel;
 		let [reqId, promise] = this.getReqId(null, null, {withPromise: true});
 		this.receiver.chartInit(reqId, chartLabel, prevLabel, firstTime);
 		return promise;
@@ -410,9 +462,6 @@ class SimuLOB extends OrderBook {
 				this.quotesQueueLock(false);
 				label = quote.label;
 				let instrument = quote.instrument;
-				if (label in this.derailedLabels[instrument]) {
-					return;
-				}
 				simu.processQuote(quote);
 			}
 			else if (this.ticks.length) {
@@ -433,9 +482,10 @@ class SimuLOB extends OrderBook {
 				tick.timestamp = simu.updateTime(tick.timestamp);
 				if (simu.newChartStart) {
 					simu.newChartStart = false;
-					await this.chartInit(simu.chartLabel, simu.prevLabel, tick.timestamp);
+					this.chartInit(simu.chartLabel, simu.prevLabel, tick.timestamp);
 					///this.chart.options.scales.x.min = tick.timestamp;
-					this.strategy.hook_newChartStart();
+					this.strategy.hook_newChartStart(simu.chartLabel, tick.timestamp);
+					simu.pause(false);
 				}
 				if (simu.firstTickFollows) {
 					simu.firstTickFollows = false;
@@ -622,6 +672,9 @@ class SimuLOB extends OrderBook {
 				this.simu_queries.quote_dismiss
 			),
 		});
+		if (idNum in this.order_names) {
+			delete this.order_names[idNum];
+		}
 	}
 	
 	static quoteRe = /^\s*(?<side>ask|bid|sell|buy)\s+(?<qty>\d+)(\s+(?<instrument>([A-Za-z]{1,5})(-[A-Za-z]{1,2})?))?(\s+(limit|lmt)\s*(?<price>(\d+\.?\d*))|mkt|market)?\s*$/;
@@ -647,6 +700,9 @@ class SimuLOB extends OrderBook {
 			}
 			quote = this.createQuote(
 				trader, instrument, side, qty, price);
+			if (side != label) {
+				this.order_names[quote.idNum] = [instrument, label];
+			}
 			this.quoteSave(label, quote, 'saved'); //todo is this needed?
 			///quote.fulfilled = 0;
 			this.processOrder(quote, true, false, isPrivate);
@@ -707,43 +763,45 @@ class SimuLOB extends OrderBook {
 		}
 		quote.status = 'sent';
 		this.quoteUpdate(quote);
+		this.strategy.hook_orderSent(instrument, label, quote.tid, quote.price, quote.qty);
 		this.chartPushTicks(
 			label,
 			{x: quote.timestamp, y: quote.price},
 			{x: quote.timestamp + 1, y: quote.price, sentinel: true},
 		);
-		if (quote.tid != this.config.trader_tid) {
-			return;
-		}
-	//console.log(order);
-		this.strategy.hook_orderSent(quote.tid, instrument, label, quote.price);
 	}
 	
 	//todo use order_id
 	dismissQuote(idNum) {
+		let order, label, quote;
 		this.simu_db.transaction(D => {
-		//let D;
-			let order = this.quoteGetByNum(idNum, D);
+			order = this.quoteGetByNum(idNum, D);
 			if (!order) {
 				this.findOrder(idNum).then((info) => {
 					console.error('dismissed order not found', idNum, info);
 				});
-				return;
 			}
-			let {label, quote} = order;
+			else {
+				label = order.label
+				quote = order.quote;
 				this.quoteDismiss(idNum, D);
-			this.chartPushTicks(
-				label,
-				{
-					x: this.updateTime(),
-					y: quote.price,
-				},
-				{
-					x: this.updateTime(),
-					y: null,
-				}
-			);
+			}
 		});
+		if (!order) {
+			return;
+		}
+		this.strategy.hook_dismissQuote(quote.instrument, label, quote.tid);
+		this.chartPushTicks(
+			label,
+			{
+				x: this.updateTime(),
+				y: quote.price,
+			},
+			{
+				x: this.updateTime(),
+				y: null,
+			}
+		);
 	}
 	
 	setLastPrice(instrument, price, time) {
@@ -809,7 +867,8 @@ class SimuLOB extends OrderBook {
 			},
 			branch: label,
 		};
-		this.chartPushTicks(side == 'ask' ? 'sold' : 'bought', tick);
+		let branch = side == 'ask' ? 'sold' : 'bought';
+		this.chartPushTicks(branch, tick);
 	}
 	
 	orderCancelled(idNum, trader, time) {
@@ -825,9 +884,6 @@ class SimuLOB extends OrderBook {
 		}
 		let {instrument, label} = order;
 		this.dismissQuote(idNum);
-		//why
-		//this.derailedLabels[instrument][label] = true;
-		//this?
 		this.strategy.hook_orderCancelled(instrument, label, trader, time);
 	}
 	
@@ -901,7 +957,6 @@ class SimuLOB extends OrderBook {
 	}
 };
 
-// this is an interface
 class SimuReceiver extends LOBReceiver {
 	constructor(forwarder) {
 		super(forwarder);
@@ -957,11 +1012,8 @@ class SimuForwarder extends SimuReceiver {
 	setUpdateFrequency(frequencies) {
 		this.forward('setUpdateFrequency', frequencies);
 	}
-	chartPushTicks(...args) {
-		this.forward('chartPushTicks', ...args);
-	}
-	_chartPushTicks(...args) {
-		this.forward('_chartPushTicks', ...args);
+	_chartFlushTicks(reqId, ticksBuffer) {
+		this.forward('_chartPushTicksBuffer', reqId, ticksBuffer);
 	}
 	chartSetTicks(...args) {
 		this.forward('chartSetTicks', ...args);
@@ -1005,6 +1057,9 @@ class SimuClient extends LOBClient {
 	}
 	strategy_hook_beforeUpdateChart(chartLabel) {
 		return this.sendRegistered('strategy_hook_beforeUpdateChartReq', null, chartLabel);
+	}
+	chartUpdateGroups(data) {
+		return this.sendRegistered('chartUpdateGroups', null, data);
 	}
 	run(dates) {
 		this.sendQuery('run', dates);

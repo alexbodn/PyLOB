@@ -169,13 +169,14 @@ class SimuStrategy {
 	async hook_chartBuildDataset(datasets) {return Promise.resolve([]);}
 	hook_beforeUpdateChart(chartLabel) {}
 	hook_afterTicks(chartLabel, lastTime) {}
-	hook_newChartStart() {}
-	hook_orderSent(tid, instrument, label, price) {}
+	hook_newChartStart(chartLabel, firstTime) {}
+	hook_orderSent(instrument, label, tid, price, qty) {}
 	hook_tickLastPrice(instrument, price, time) {}
 	hook_tickMidPoint(instrument, midPoint, time) {}
 	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
 	hook_orderExecuted(instrument, label, trader, time, qty, price) {}
 	hook_orderCancelled(instrument, label, trader, time) {}
+	hook_dismissQuote(instrument, label, trader) {}
 	hook_traderBalance(trader, instrument, amount, lastprice, value, liquidation, time, extra) {}
 	hook_traderNLV(trader, nlv, extra) {}
 	
@@ -183,12 +184,42 @@ class SimuStrategy {
 	getButtons() {return {};}
 };
 
-//receives info from strategy
+//receives info from strategy. forwards to simu
 class StrategyReceiver extends WorkerReceiver {
 	constructor(forwarder) {
 		super(forwarder);
 	}
-	
+	/*
+	addFilter
+
+_chartPushTicks
+chartPushTicks
+chartSetTicks
+clearTableField
+config
+createInstrument
+createTrader
+getChartInfo
+getRounder
+logobj
+order_log_show
+pause
+quoteGetAll
+quotesQueue
+quotesQueueLock
+setRounder
+setTableField
+setUpdateFrequency
+showNLV
+traderCashDeposit
+traderCashReset
+traderFundsDeposit
+traderFundsReset
+traderGetBalance
+traderGetNLV
+valid_sides
+verbose
+*/
 };
 
 class StrategyForwarder extends StrategyReceiver {
@@ -206,13 +237,14 @@ class StrategyClient extends WorkerClient {
 	async hook_chartBuildDataset(datasets) {return Promise.resolve([]);}
 	hook_beforeUpdateChart(chartLabel) {}
 	hook_afterTicks(chartLabel, lastTime) {}
-	hook_newChartStart() {}
-	hook_orderSent(tid, instrument, label, price) {}
+	hook_newChartStart(chartLabel, firstTime) {}
+	hook_orderSent(instrument, label, tid, price, qty) {}
 	hook_tickLastPrice(instrument, price, time) {}
 	hook_tickMidPoint(instrument, midPoint, time) {}
 	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
 	hook_orderExecuted(instrument, label, trader, time, qty, price) {}
 	hook_orderCancelled(instrument, label, trader, time) {}
+	hook_dismissQuote(instrument, label, trader) {}
 	hook_traderBalance(trader, instrument, amount, lastprice, value, liquidation, time, extra) {}
 	hook_traderNLV(trader, nlv, extra) {}
 };

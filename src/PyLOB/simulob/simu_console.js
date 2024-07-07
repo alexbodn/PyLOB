@@ -50,10 +50,10 @@ class SimuConsole extends SimuReceiver {
 		sum: 'sum',
 	};
 	updateFrequency = {
-		default: 10,
-		sum: 20,
-		balance: 1,
-		executions: 1,
+		default: 100,
+		sum: 120,
+		balance: 10,
+		executions: 3,
 	};
 	
 	static scatterTooltip = {
@@ -79,7 +79,7 @@ class SimuConsole extends SimuReceiver {
 			pointStyle: false,
 			yAxisID: 'yDate',
 			//xAxisID: 'x',
-			updateGroup: null,
+			updateGroup: 'default',
 			datalabels: {
 				color: 'black',
 				backgroundColor: 'yellow',
@@ -624,6 +624,7 @@ class SimuConsole extends SimuReceiver {
 			}
 			chartIndex[label] = {dataset: branch_ix};
 		}
+		await this.lobClient.chartUpdateGroups([this.updateGroups, this.updateFrequency]);
 		this.branches = branches;
 		this.order_branches = order_branches;
 		this.chartIndex = chartIndex;
@@ -693,32 +694,13 @@ class SimuConsole extends SimuReceiver {
 			);
 			return;
 		}
-		let updateGroup = this.updateGroups[label];
-		//update the counter for the group and instrument
-		let groups = [updateGroup, 'sum'];
-		let shouldUpdate = false;
-		for (let group of groups) {
-			chartInfo.updateCounters[group] += ticks.length;
-			if (chartInfo.updateCounters[group] >= this.updateFrequency[group]) {
-				shouldUpdate = true;
-			}
-		}
-		if (chartInfo.updating) {
+		if (chartInfo.updating || chartInfo.updateTimeout) {
 			return;
 		}
-		if (shouldUpdate) {
-			this.chartDoUpdate(chartInfo);
-		}
-		else {
-			if (chartInfo.updateTimeout) {
-				clearTimeout(chartInfo.updateTimeout);
-				chartInfo.updateTimeout = 0;
-			}
-			chartInfo.updateTimeout = setTimeout(
-				this.chartDoUpdate,
-				2000, chartInfo
-			);
-		}
+		chartInfo.updateTimeout = setTimeout(
+			this.chartDoUpdate,
+			1000, chartInfo
+		);
 	}
 	
 	chartPushTicks(label, ...ticks) {
@@ -763,6 +745,14 @@ class SimuConsole extends SimuReceiver {
 			}
 			this.chartDataUpdate(label, ticks, chartLabel);
 		}
+	}
+	
+	_chartPushTicksBuffer(reqId, ticksBuffer) {
+		for (let row of ticksBuffer) {
+			let [label, chartLabel, ticks] = row;
+			this._chartPushTicks(label, chartLabel, ...ticks);
+		}
+		this.lobClient.sendQuery('done', reqId);
 	}
 	
 	chartSetTicks(label, ticks, chartLabel) {
@@ -836,7 +826,7 @@ class SimuConsole extends SimuReceiver {
 		let timeLabel = `chartInit ${chartLabel}`;
 		console.time(timeLabel);
 		this.chartLabel = chartLabel;
-	/*this.chartLabel = chartLabel;
+	/*
 	this.prevLabel = prevLabel;
 	this.firstTime = firstTime;*/
 		this.charts[chartLabel] = {
@@ -925,6 +915,7 @@ class SimuConsole extends SimuReceiver {
 			},
 			afterUpdate: (chart, args, options) => {
 				chartInfo.updating = false;
+				chartInfo.updateTimeout = 0;
 				return true;
 			}
 		};

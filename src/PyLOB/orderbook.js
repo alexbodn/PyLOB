@@ -579,6 +579,20 @@ class OrderBook {
 		return idNum;
 	}
 	
+	createQuote(tid, instrument, side, qty, price=null) {
+		let quote = {
+			tid: tid,
+			instrument: instrument,
+			side: side,
+			qty: qty,
+			price: price,
+			order_type: price ? 'limit' : 'market',
+			idNum: this.quoteNum(),
+			timestamp: this.updateTime(),
+		};
+		return quote;
+	}
+	
 	processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
 		//todo implement condition as event, and fire at event
 		quote = {
