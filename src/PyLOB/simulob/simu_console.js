@@ -136,10 +136,6 @@ class SimuConsole extends SimuReceiver {
 		},
 	};
 	
-	request_promises = {};
-	reqIds = {};
-	reqIdsLocked = false;
-	
 	constructor(oo, thisLocation) {
 		super();
 		this.loading = document.querySelector('#loading');
@@ -400,52 +396,6 @@ class SimuConsole extends SimuReceiver {
 				datasets: []
 			},*/
 		};
-	}
-	
-	getReqExtra(subject, reqId) {
-		let promise = null, extra = null;
-		try {
-			if (reqId in this.request_promises) {
-				promise = this.request_promises[reqId];
-				delete this.request_promises[reqId];
-			}
-		}
-		catch(error) {
-			console.log('getReqExtra', error);
-		}
-		return [promise, extra];
-	}
-	
-	getReqId = (subject, reqId=null, {extra=null, withPromise=false}={}) => {
-		this.reqIdsLock();
-		if (!(subject in this.reqIds)) {
-			this.reqIds[subject] = 0;
-		}
-		if (!reqId) {
-			reqId = ++this.reqIds[subject];
-		}
-		this.reqIdsLock(false);
-		if (withPromise) {
-			const promise = Promise.withResolvers();
-			this.request_promises[reqId] = promise;
-			return [reqId, promise.promise];
-		}
-		return reqId;
-	}
-	
-	reqIdsLock(lock=true) {
-		if (lock) {
-			let checkInterval = setInterval(
-				() => {
-				if (!this.reqIdsLocked) {
-					this.reqIdsLocked = true;
-					clearInterval(checkInterval);
-				}
-			}, 1);
-		}
-		else {
-			this.reqIdsLocked = false;
-		}
 	}
 	
 	studySide(side, chartLabel) {

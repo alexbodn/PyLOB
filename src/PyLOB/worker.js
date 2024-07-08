@@ -76,16 +76,61 @@ function doneFunc(reqId, ...args) {
 
 // receives from worker
 class WorkerReceiver {
+	
+	request_promises = {};
+	reqIds = {};
+	reqIdsLocked = false;
+	
 	constructor(forwarder=null) {
 		this.forwarder = forwarder;
 	}
 	
-	// a derived class should implement getReqExtra and getReqId
 	getReqExtra(subject, reqId) {
-		return null;
+		let promise = null, extra = null;
+		try {
+			if (reqId in this.request_promises) {
+				promise = this.request_promises[reqId];
+				delete this.request_promises[reqId];
+			}
+		}
+		catch(error) {
+			console.log('getReqExtra', error);
+		}
+		return [promise, extra];
 	}
+	
 	getReqId = (subject, reqId=null, {extra=null, withPromise=false}={}) => {
+		this.reqIdsLock();
+		if (!(subject in this.reqIds)) {
+			this.reqIds[subject] = 0;
+		}
+		if (!reqId) {
+			reqId = ++this.reqIds[subject];
+		}
+		this.reqIdsLock(false);
+		if (withPromise) {
+			const promise = Promise.withResolvers();
+			this.request_promises[reqId] = promise;
+			return [reqId, promise.promise];
+		}
+		return reqId;
 	}
+	
+	reqIdsLock(lock=true) {
+		if (lock) {
+			let checkInterval = setInterval(
+				() => {
+				if (!this.reqIdsLocked) {
+					this.reqIdsLocked = true;
+					clearInterval(checkInterval);
+				}
+			}, 1);
+		}
+		else {
+			this.reqIdsLocked = false;
+		}
+	}
+	
 	done = doneFunc;
 	forward(method, ...args) {
 		this.forwarder(method, ...args);
@@ -126,7 +171,7 @@ class WorkerClient {
 		return promise;
 	}
 	clientError(data) {
-		error(`worker sent ${JSON.stringify(data)}`);
+		error(`received ${JSON.stringify(data)} from worker`);
 	}
 	init = async () => {
 		let [initReqId, promise] = this.receiver.getReqId('any', null, {withPromise: true});
