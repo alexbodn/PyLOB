@@ -699,7 +699,7 @@ class SimuConsole extends SimuReceiver {
 		}
 		chartInfo.updateTimeout = setTimeout(
 			this.chartDoUpdate,
-			1000, chartInfo
+			300, chartInfo
 		);
 	}
 	
