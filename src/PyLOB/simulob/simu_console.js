@@ -143,7 +143,7 @@ class SimuConsole extends SimuReceiver {
 		this.location = thisLocation;
 		const sqlite3Dir = '/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
 		this.worker_url = `${this.location}/simu_worker.js?sqlite3.dir=${sqlite3Dir}`;
-		this.lobClient = new SimuClient(this.worker_url, this, null/*dtFormat*/);
+		this.lobClient = new SimuClient(this.worker_url, this);
 		
 		if (this.isAuthonomous) {
 			this.price_branch.push('midpoint');

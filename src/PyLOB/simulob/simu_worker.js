@@ -1,8 +1,6 @@
 
 'use strict';
 		
-		self.sob = null;
-		
 		console.log("Running demo from Worker thread.");
 		let logHtml = function(cssClass,...args){
 			console.log(args);
@@ -30,7 +28,6 @@
 		if(urlParams.has('sqlite3.dir')){
 			sqlite3Js = `${urlParams.get('sqlite3.dir')}/${sqlite3Js}`;
 		}
-		self.initReqId = urlParams.get('initReqId');
 		importScripts(
 			sqlite3Js,
 			new URL('../worker.js', self.location.href),
@@ -71,8 +68,7 @@
 					warn('initialization done.');
 					console.timeEnd('sob_init');
 					self.performer.addPerformer(self.sob, self.forwarder);
-					self.performer.send('done', self.initReqId);
-					self.performer.processQueue();
+					self.performer.initialized();
 				});
 			}
 			catch(e){

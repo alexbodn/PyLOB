@@ -64,6 +64,12 @@ class WorkerPerformer {
 			queryMethodArguments,
 		});
 	}
+	initialized() {
+		const urlParams = new URL(self.location.href).searchParams;
+		const initReqId = urlParams.get('initReqId');
+		this.send('done', initReqId);
+		this.processQueue();
+	}
 };
 
 function doneFunc(reqId, ...args) {
@@ -132,23 +138,23 @@ class WorkerReceiver {
 	}
 	
 	done = doneFunc;
+	
 	forward(method, ...args) {
 		this.forwarder(method, ...args);
 	}
 };
 
-// create and contact a worker
+// create and call a worker
 class WorkerClient {
 	
 	worker = null;
 	
-	constructor(worker_url, receiver, dtFormat) {
+	constructor(worker_url, receiver) {
 		this.worker_url = worker_url;
 		this.receiver = receiver;
 		if (receiver?.clientError) {
 			this.clientError = receiver.clientError;
 		}
-		this.dtFormat = dtFormat;
 	}
 	// This functions takes at least one argument, the method name we want to query.
 	// Then we can pass in the arguments that the method needs.
@@ -178,7 +184,6 @@ class WorkerClient {
 		this.worker_url += `&initReqId=${initReqId}`;
 		this.worker = this.worker || new Worker(this.worker_url);
 		this.worker.onmessage = (event) => {
-//console.log('workerReplied', event.data);
 			if (
 				event.data instanceof Object &&
 				Object.hasOwn(event.data, "queryMethodListener") &&

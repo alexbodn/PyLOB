@@ -1642,7 +1642,9 @@ class LOBForwarder extends LOBReceiver {
 class LOBClient extends WorkerClient {
 	constructor(worker_url, receiver, dtFormat) {
 		super(worker_url, receiver);
-		this.dtFormat = dtFormat;
+		if (dtFormat) {
+			this.dtFormat = dtFormat;
+		}
 	}
 	async init() {return super.init();}
 	
@@ -1712,6 +1714,10 @@ class LOBClient extends WorkerClient {
 	}
 	order_log_show(callback) {
 		return this.sendQuery('order_log_show', );
+	}
+	
+	dtFormat(value, fmt) {
+		return value.toString();
 	}
 	
 	logReplacer = (key, value) => {
