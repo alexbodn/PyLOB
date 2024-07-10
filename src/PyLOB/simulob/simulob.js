@@ -261,7 +261,7 @@ class SimuLOB extends OrderBook {
 		}
 	}
 	
-	chartUpdateGroups(reqId, data) {
+	chartUpdateGroupsReq(reqId, data) {
 		let [updateGroups, updateFrequency] = data;
 		this.updateGroups = updateGroups;
 		this.updateFrequency = updateFrequency;
@@ -1042,10 +1042,21 @@ class SimuForwarder extends SimuReceiver {
 };
 
 class SimuClient extends LOBClient {
-	constructor(worker_url, receiver, dtFormat) {
-		super(worker_url, receiver, dtFormat);
+	constructor(worker_url, receiver) {
+		super(worker_url, receiver, {
+			destinations: {
+				run: destinationTypes.REGULAR,
+				strategyLoad: destinationTypes.REGISTERED,
+				strategy_getButtons: destinationTypes.REGISTERED,
+				strategy_hook_chartBuildDataset: destinationTypes.REGISTERED,
+				strategy_hook_beforeUpdateChart: destinationTypes.REGISTERED,
+				chartUpdateGroups: destinationTypes.REGISTERED,
+				quoteGetAll: destinationTypes.REGISTERED,
+			}
+		});
 	}
 	async init() {return super.init();}
+	/*
 	async strategyLoad(name, defaults) {
 		return this.sendRegistered('strategyLoadReq', null, name, defaults);
 	}
@@ -1059,7 +1070,7 @@ class SimuClient extends LOBClient {
 		return this.sendRegistered('strategy_hook_beforeUpdateChartReq', null, chartLabel);
 	}
 	chartUpdateGroups(data) {
-		return this.sendRegistered('chartUpdateGroups', null, data);
+		return this.sendRegistered('chartUpdateGroupsReq', null, data);
 	}
 	run(dates) {
 		this.sendQuery('run', dates);
@@ -1067,5 +1078,6 @@ class SimuClient extends LOBClient {
 	quoteGetAll(...args) {
 		return this.sendRegistered('quoteGetAllReq', null, ...args);
 	}
+	*/
 };
 

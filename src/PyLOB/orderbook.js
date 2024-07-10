@@ -1640,21 +1640,46 @@ class LOBForwarder extends LOBReceiver {
 };
 
 class LOBClient extends WorkerClient {
-	constructor(worker_url, receiver, dtFormat) {
-		super(worker_url, receiver);
-		if (dtFormat) {
-			this.dtFormat = dtFormat;
-		}
+	constructor(worker_url, receiver, {destinations}) {
+		const myDestinations = {
+			setRounder: destinationTypes.REGULAR,
+			close: destinationTypes.REGULAR,
+			doUpdateTime: destinationTypes.REGULAR,
+			getTime: destinationTypes.REGULAR,
+			
+			createInstrument: destinationTypes.REGISTERED,
+			createTrader: destinationTypes.REGISTERED,
+			//todo: REGISTER these
+			traderCashDeposit: destinationTypes.REGULAR,
+			traderFundsDeposit: destinationTypes.REGULAR,
+			traderCashReset: destinationTypes.REGULAR,
+			traderFundsReset: destinationTypes.REGULAR,
+			
+			traderGetBalance: destinationTypes.REGISTERED_EXTRA,
+			traderGetNLV: destinationTypes.REGISTERED_EXTRA,
+			traderGetBalance: destinationTypes.REGISTERED_EXTRA,
+			traderGetBalance: destinationTypes.REGISTERED_EXTRA,
+			findOrder: destinationTypes.REGISTERED,
+			orderGetSide: destinationTypes.REGISTERED,
+			createQuote: destinationTypes.REGULAR,
+			processOrder: destinationTypes.REGULAR,
+			cancelOrder: destinationTypes.REGULAR,
+			modifyOrder: destinationTypes.REGULAR,
+			modificationsCharge: destinationTypes.REGULAR,
+			setLastPrice: destinationTypes.REGULAR,
+			getRounder: destinationTypes.REGISTERED,
+			order_log_filter: destinationTypes.REGULAR,
+			order_log_show: destinationTypes.REGULAR,
+		};
+		super(worker_url, receiver, {
+			destinations: Object.assign({}, myDestinations, destinations)
+		});
 	}
 	async init() {return super.init();}
-	
+	/*
 	setRounder(rounder) {return this.sendQuery('setRounder', rounder);}
-	close() {return this.sendQuery('close');} //should terminate
-	doUpdateTime(timestamp) {
-//console.log('c', timestamp);
-//console.trace();
-		return this.sendQuery('doUpdateTime', timestamp);
-	}
+	close() {return this.sendQuery('close');}
+	doUpdateTime(timestamp) {return this.sendQuery('doUpdateTime', timestamp);}
 	getTime() {return this.sendQuery('getTime');}
 	async createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={}) {
 		return this.sendRegistered(
@@ -1707,7 +1732,7 @@ class LOBClient extends WorkerClient {
 		return this.sendQuery('setLastPrice', instrument, lastprice, time);
 	}
 	async getRounder(instrument) {
-		return this.sendRegistered('getRounderReq', undefined, instrument);
+		return this.sendRegistered('getRounderReq', null, instrument);
 	}
 	order_log_filter(order_id, label) {
 		return this.sendQuery('order_log_filter', order_id, label);
@@ -1715,7 +1740,7 @@ class LOBClient extends WorkerClient {
 	order_log_show(callback) {
 		return this.sendQuery('order_log_show', );
 	}
-	
+	*/
 	dtFormat(value, fmt) {
 		return value.toString();
 	}

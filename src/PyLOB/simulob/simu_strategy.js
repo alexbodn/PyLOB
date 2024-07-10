@@ -189,17 +189,11 @@ class StrategyReceiver extends WorkerReceiver {
 	constructor(forwarder) {
 		super(forwarder);
 	}
-	/*
-	addFilter
+};
 
-_chartPushTicks
-chartPushTicks
-chartSetTicks
-clearTableField
-config
+	/*
 createInstrument
 createTrader
-getChartInfo
 getRounder
 logobj
 order_log_show
@@ -208,9 +202,7 @@ quoteGetAll
 quotesQueue
 quotesQueueLock
 setRounder
-setTableField
 setUpdateFrequency
-showNLV
 traderCashDeposit
 traderCashReset
 traderFundsDeposit
@@ -220,11 +212,26 @@ traderGetNLV
 valid_sides
 verbose
 */
-};
 
 class StrategyForwarder extends StrategyReceiver {
+	config = {};
+	
 	constructor(forwarder) {
 		super(forwarder);
+	}
+	addFilter(field, value) {
+	}
+	chartPushTicks(label, ...ticks) {
+	}
+	async _chartPushTicks(label, chartLabel, ...ticks) {
+	}
+	chartSetTicks(label, ticks, chartLabel) {
+	}
+	clearTableField(tableId, field) {
+	}
+	setTableField(tableId, field, ...value) {
+	}
+	showNLV(snlv, nlvColor) {
 	}
 };
 
@@ -233,20 +240,48 @@ class StrategyClient extends WorkerClient {
 	constructor(worker_url, receiver) {
 		super(worker_url, receiver);
 	}
-	async hook_afterInit() {return Promise.resolve();}
-	async hook_chartBuildDataset(datasets) {return Promise.resolve([]);}
-	hook_beforeUpdateChart(chartLabel) {}
-	hook_afterTicks(chartLabel, lastTime) {}
-	hook_newChartStart(chartLabel, firstTime) {}
-	hook_orderSent(instrument, label, tid, price, qty) {}
-	hook_tickLastPrice(instrument, price, time) {}
-	hook_tickMidPoint(instrument, midPoint, time) {}
-	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
-	hook_orderExecuted(instrument, label, trader, time, qty, price) {}
-	hook_orderCancelled(instrument, label, trader, time) {}
-	hook_dismissQuote(instrument, label, trader) {}
-	hook_traderBalance(trader, instrument, amount, lastprice, value, liquidation, time, extra) {}
-	hook_traderNLV(trader, nlv, extra) {}
+	async hook_afterInit() {
+		return this.sendRegistered('hook_afterInitReq');
+	}
+	async hook_chartBuildDataset(datasets) {
+		return this.sendRegistered('hook_chartBuildDatasetReq', null, datasets);
+	}
+	hook_beforeUpdateChart(...args) {
+		this.sendQuery('hook_beforeUpdateChart', ...args);
+	}
+	hook_afterTicks(...args) {
+		this.sendQuery('hook_afterTicks', ...args);
+	}
+	hook_newChartStart(...args) {
+		this.sendQuery('hook_newChartStart', ...args);
+	}
+	hook_orderSent(...args) {
+		this.sendQuery('hook_orderSent', ...args);
+	}
+	hook_tickLastPrice(...args) {
+		this.sendQuery('hook_tickLastPrice', ...args);
+	}
+	hook_tickMidPoint(...args) {
+		this.sendQuery('hook_tickMidPoint', ...args);
+	}
+	hook_orderFulfill(...args) {
+		this.sendQuery('hook_orderFulfill', ...args);
+	}
+	hook_orderExecuted(...args) {
+		this.sendQuery('hook_orderExecuted', ...args);
+	}
+	hook_orderCancelled(...args) {
+		this.sendQuery('hook_orderCancelled', ...args);
+	}
+	hook_dismissQuote(...args) {
+		this.sendQuery('hook_dismissQuote', ...args);
+	}
+	hook_traderBalance(...args) {
+		this.sendQuery('hook_traderBalance', ...args);
+	}
+	hook_traderNLV(...args) {
+		this.sendQuery('hook_traderNLV', ...args);
+	}
 };
 
 if (typeof module !== 'undefined') {

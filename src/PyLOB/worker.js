@@ -13,7 +13,8 @@ class WorkerPerformer {
 	}
 	findPerformer(event) {
 		return this.performers.find(performer => {
-			return typeof performer[event.data.queryMethod] === 'function'
+			return typeof performer[event.data.queryMethod] === 'function' ||
+				event.data.queryMethod in this.destinations;
 		});
 	}
 	processQueue() {
@@ -144,17 +145,47 @@ class WorkerReceiver {
 	}
 };
 
+const destinationTypes = Object.freeze({
+    REGULAR:   Symbol("REGULAR"),
+    REGISTERED:  Symbol("REGISTERED"),
+    REGISTERED_EXTRA: Symbol("REGISTERED_EXTRA")
+});
+
 // create and call a worker
 class WorkerClient {
 	
 	worker = null;
+	destinations = {};
 	
-	constructor(worker_url, receiver) {
+	constructor(worker_url, receiver, {destinations={}}={}) {
 		this.worker_url = worker_url;
 		this.receiver = receiver;
 		if (receiver?.clientError) {
 			this.clientError = receiver.clientError;
 		}
+		Object.assign(this.destinations, destinations);
+		return new Proxy(this, {
+			get: (target, name) => {
+				if (!(name in target) && name in this.destinations) {
+					target[name] = async (...args) => {
+						switch (target.destinations[name]) {
+						case destinationTypes.REGULAR: {
+							return target.sendQuery(name, ...args);
+						}
+						case destinationTypes.REGISTERED: {
+							return target.sendRegistered(name + 'Req', null, ...args);
+						}
+						case destinationTypes.REGISTERED_EXTRA: {
+							let args1 = [...args];
+							let extra = args1.pop();
+							return target.sendRegistered(name + 'Req', extra, ...args1);
+						}
+						}
+					};
+				}
+				return target[name];
+			}
+		});
 	}
 	// This functions takes at least one argument, the method name we want to query.
 	// Then we can pass in the arguments that the method needs.
