@@ -34,15 +34,6 @@ async function jsLoad(src, module=false) {
 	});
 }
 
-function labelattr(context, attr)
-{
-	let label = context.dataset.data[context.dataIndex].label;
-	if (label) {
-		return label[attr];
-	}
-	return null;
-}
-
 function parseDate(dt) {
 	let lx = luxon.DateTime.fromISO(
 		dt, {
@@ -62,47 +53,6 @@ function formatDate(millis, fmt='HH:mm:ss.SSS') {
 		millis, options);
 	return dt.toFormat(fmt, options);
 }
-
-const zoomOptions = {
-	limits: {
-		x: {min: -200, max: 200, minRange: 50},
-		y: {min: -200, max: 200, minRange: 50}
-	},
-	pan: {
-		enabled: true,
-		mode: 'xy',
-	},
-	zoom: {
-		wheel: {
-			enabled: true,
-		},
-		pinch: {
-			enabled: true
-		},
-		mode: 'xy',
-		onZoomComplete({chart}) {
-			// This update is needed to display up to date zoom level in the title.
-			// Without this, previous zoom level is displayed.
-			// The reason is: title uses the same beforeUpdate hook, and is evaluated before zoom.
-			chart.update('none');
-		}
-	}
-};
-
-const bgPlugin = {
-	id: 'custom_canvas_background_color',
-	beforeDraw: (chart, args, options) => {
-		const {ctx} = chart;
-		ctx.save();
-		ctx.globalCompositeOperation = 'destination-over';
-		ctx.fillStyle = options.color;
-		ctx.fillRect(0, 0, chart.width, chart.height);
-		ctx.restore();
-	},
-	defaults: {
-		color: 'lightGreen'
-	}
-};
 
 class SimuLOB extends OrderBook {
 	
@@ -229,8 +179,8 @@ class SimuLOB extends OrderBook {
 		return this.getReqId('quote', idNum);
 	}
 	
-	chartPushTicks(label, ...ticks) {
-		this._chartPushTicks(label, this.chartLabel, ...ticks);
+	async chartPushTicks(label, ...ticks) {
+		await this._chartPushTicks(label, this.chartLabel, ...ticks);
 	}
 	
 	async _chartPushTicks(label, chartLabel, ...ticks) {
@@ -376,16 +326,14 @@ class SimuLOB extends OrderBook {
 		if (extra && extra.time == null) {
 			extra.time = this.getTime();
 		}
-		let reqId = this.getReqId(null, null, {extra});
-		return this.traderGetBalanceReq(reqId, trader, instrument);
+		super.traderGetBalance(trader, instrument, extra);
 	}
 	
 	traderGetNLV(trader, extra) {
 		if (extra && extra.time == null) {
 			extra.time = this.getTime();
 		}
-		let reqId = this.getReqId(null, null, {extra});
-		return this.traderGetNLVReq(reqId, trader);
+		super.traderGetNLV(trader, extra);
 	}
 	
 	pause(value=true) {
@@ -878,13 +826,14 @@ class SimuLOB extends OrderBook {
 		let order = this.quoteGetByNum(idNum);
 		if (!order) {
 			this.findOrder(idNum).then((info) => {
-				console.error('canceled order not found', idNum, info);
+				console.error('cancelled order not found', idNum, info);
 			});
 			return;
 		}
 		let {instrument, label} = order;
 		this.dismissQuote(idNum);
 		this.strategy.hook_orderCancelled(instrument, label, trader, time);
+		this.chartPushTicks('cancelled', {x: time, y: null});
 	}
 	
 	orderRejected(idNum, why) {
@@ -892,33 +841,20 @@ class SimuLOB extends OrderBook {
 		this.quoteDismiss(idNum);
 	}
 	
-	traderBalance({
+	traderBalance(extra, {
 		trader, instrument, amount, rounder, lastprice, value, 
-		liquidation, modification_debit, execution_credit, time, reqId
+		liquidation, modification_debit, execution_credit, time
 	}) {
 		if (trader != this.config.trader_tid) {
 			return;
-		}
-		let [promise, extra] = this.getReqExtra('any', reqId);
-		const info = {
-			trader, instrument, amount, rounder, lastprice, value,
-			liquidation, modification_debit, execution_credit, time, extra
-		};
-		if (promise) {
-			promise.resolve(info);
 		}
 		this.strategy.hook_traderBalance(
 			trader, instrument, amount, lastprice, value, liquidation, time, extra);
 	}
 	
-	traderNLV({trader, nlv, reqId}) {
+	traderNLV(extra, {trader, nlv}) {
 		if (trader != this.config.trader_tid) {
 			return;
-		}
-		let [promise, extra] = this.getReqExtra('any', reqId);
-		const info = {trader, nlv, extra};
-		if (promise) {
-			promise.resolve(info);
 		}
 		this.strategy.hook_traderNLV(trader, nlv, extra);
 	}
@@ -958,86 +894,44 @@ class SimuLOB extends OrderBook {
 };
 
 class SimuReceiver extends LOBReceiver {
-	constructor(forwarder) {
-		super(forwarder);
-	}
-	strategyLoadResp(reqId, config) {
-		let [promise, extra] = this.getReqExtra('any', reqId);
-		if (promise) {
-			promise.resolve(config);
-		}
-	}
-	strategy_hook_chartBuildDatasetResp(reqId, ds) {
-		let [promise, extra] = this.getReqExtra('any', reqId);
-		if (promise) {
-			promise.resolve(ds);
-		}
-	}
-	strategy_hook_beforeUpdateChartResp(reqId, data) {
-		let [promise, extra] = this.getReqExtra('any', reqId);
-		if (promise) {
-			promise.resolve(data);
-		}
-	}
-	quoteGetAllResp(reqId, quotes) {
-		let [promise, extra] = this.getReqExtra('any', reqId);
-		if (promise) {
-			promise.resolve(quotes);
-		}
-	}
-	strategyGetButtonsResp(reqId, buttons) {
-		let [promise, extra] = this.getReqExtra('any', reqId);
-		if (promise) {
-			promise.resolve(buttons);
-		}
+	constructor({defaultCallback=null, receipts={}, defaultForwarder=null, forwards={}}={}) {
+		super({
+			defaultCallback,
+			receipts: Object.assign({}, {
+				strategyLoadResp: null,
+				strategy_hook_chartBuildDatasetResp: null,
+				strategy_hook_beforeUpdateChartResp: null,
+				quoteGetAllResp: null,
+				strategyGetButtonsResp: null,
+			}, receipts),
+			defaultForwarder,
+			forwards,
+		});
 	}
 };
 
-class SimuForwarder extends SimuReceiver {
-	constructor(forwarder) {
-		super(forwarder);
-	}
-	strategyLoadResp(...args) {
-		this.forward('strategyLoadResp', ...args);
-	}
-	strategyGetButtonsResp(...args) {
-		this.forward('strategyGetButtonsResp', ...args);
-	}
-	strategy_hook_chartBuildDatasetResp(...args) {
-		this.forward('strategy_hook_chartBuildDatasetResp', ...args);
-	}
-	strategy_hook_beforeUpdateChartResp(...args) {
-		this.forward('strategy_hook_beforeUpdateChartResp', ...args);
-	}
-	setUpdateFrequency(frequencies) {
-		this.forward('setUpdateFrequency', frequencies);
-	}
-	_chartFlushTicks(reqId, ticksBuffer) {
-		this.forward('_chartPushTicksBuffer', reqId, ticksBuffer);
-	}
-	chartSetTicks(...args) {
-		this.forward('chartSetTicks', ...args);
-	}
-	afterTicks(...args) {
-		this.forward('afterTicks', ...args);
-	}
-	pause(...args) {
-		this.forward('pause', ...args);
-	}
-	clearTableField(...args) {
-		this.forward('clearTableField', ...args);
-	}
-	setTableField(...args) {
-		this.forward("setTableField", ...args);
-	}
-	showNLV(...args) {
-		this.forward("showNLV", ...args);
-	}
-	chartInit(reqId, chartLabel, prevLabel, firstTime) {
-		this.forward('chartInit', reqId, chartLabel, prevLabel, firstTime);
-	}
-	quoteGetAllResp(reqId, quotes) {
-		this.forward('quoteGetAllResp', quotes);
+class SimuForwarder extends LOBForwarder {
+	constructor(defaultForwarder) {
+		super({
+			forwards: {
+				strategyLoadResp: null,
+				strategyGetButtonsResp: null,
+				strategy_hook_chartBuildDatasetResp: null,
+				strategy_hook_beforeUpdateChartResp: null,
+				setUpdateFrequency: null,
+				_chartFlushTicks: null,
+				chartSetTicks: null,
+				afterTicks: null,
+				pause: null,
+				clearTableField: null,
+				setTableField: null,
+				showNLV: null,
+				chartInit: null,
+				quoteGetAllResp: null,
+				logHtml: null,
+			},
+			defaultForwarder,
+		});
 	}
 };
 
@@ -1055,8 +949,8 @@ class SimuClient extends LOBClient {
 			}
 		});
 	}
-	async init() {return super.init();}
 	/*
+	async init() {return super.init();}
 	async strategyLoad(name, defaults) {
 		return this.sendRegistered('strategyLoadReq', null, name, defaults);
 	}

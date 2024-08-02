@@ -25,8 +25,10 @@
 		if(urlParams.has('sqlite3.dir')){
 			sqlite3Js = `${urlParams.get('sqlite3.dir')}/${sqlite3Js}`;
 		}
+console.log(123);
 		importScripts(
 			sqlite3Js,
+			new URL('./PyLOB/worker.js', self.location.href),
 			new URL('./PyLOB/orderbook.js', self.location.href),
 			'example.js',
 		);

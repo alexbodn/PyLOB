@@ -169,6 +169,7 @@
 	const log = (...args)=>sqlConsole.log(...args);
 	const warn = (...args)=>sqlConsole.warn(...args);
 	const error = (...args)=>sqlConsole.error(...args);
+	logHtml = (...args)=>sqlConsole.logHtml(...args);
 	</script>
 	<script>
 	if(self.window!==self) /*worker thread*/{
@@ -209,7 +210,7 @@
 			// loading strategies
 			Promise.all(
 				strategies.map(strategy => {
-					//return jsLoad(`./PyLOB/simulob/strategies/${strategy}.js`, true);
+					//return jsLoad(`./PyLOB/simulob/strategies/${strategy}.js`);
 					return require(`./PyLOB/simulob/strategies/${strategy}`);
 				})
 			)

@@ -31,6 +31,56 @@ function setTableField(tableId, field, ...value) {
 	table.insertAdjacentHTML('beforeend', row);
 }
 
+const zoomOptions = {
+	limits: {
+		x: {min: -200, max: 200, minRange: 50},
+		y: {min: -200, max: 200, minRange: 50}
+	},
+	pan: {
+		enabled: true,
+		mode: 'xy',
+	},
+	zoom: {
+		wheel: {
+			enabled: true,
+		},
+		pinch: {
+			enabled: true
+		},
+		mode: 'xy',
+		onZoomComplete({chart}) {
+			// This update is needed to display up to date zoom level in the title.
+			// Without this, previous zoom level is displayed.
+			// The reason is: title uses the same beforeUpdate hook, and is evaluated before zoom.
+			chart.update('none');
+		}
+	}
+};
+
+const bgPlugin = {
+	id: 'custom_canvas_background_color',
+	beforeDraw: (chart, args, options) => {
+		const {ctx} = chart;
+		ctx.save();
+		ctx.globalCompositeOperation = 'destination-over';
+		ctx.fillStyle = options.color;
+		ctx.fillRect(0, 0, chart.width, chart.height);
+		ctx.restore();
+	},
+	defaults: {
+		color: 'lightGreen'
+	}
+};
+
+function labelattr(context, attr)
+{
+	let label = context.dataset.data[context.dataIndex].label;
+	if (label) {
+		return label[attr];
+	}
+	return null;
+}
+
 class SimuConsole extends SimuReceiver {
 	
 	titleLabel = 'title';
@@ -38,7 +88,7 @@ class SimuConsole extends SimuReceiver {
 	title_branch = ['title'];
 	price_branch = ['price'];
 	balance_branch = ['nlv'];
-	executions_branch = ['bought', 'sold'];
+	executions_branch = ['bought', 'sold', 'cancelled'];
 	market_orders = ['ask', 'bid'];
 	
 	// an index to the datasets
@@ -125,6 +175,14 @@ class SimuConsole extends SimuReceiver {
 				backgroundColor: 'red',
 			},
 			emoji: '🤝',
+			tooltip: this.constructor.scatterTooltip,
+			updateGroup: 'executions',
+		},
+		cancelled: {
+			borderColor: 'yellow',
+			pointStyle: 'crossrot',
+			type: 'scatter',
+			emoji: '🔥',
 			tooltip: this.constructor.scatterTooltip,
 			updateGroup: 'executions',
 		},
@@ -697,7 +755,7 @@ class SimuConsole extends SimuReceiver {
 		}
 	}
 	
-	_chartPushTicksBuffer(reqId, ticksBuffer) {
+	_chartFlushTicks(reqId, ticksBuffer) {
 		for (let row of ticksBuffer) {
 			let [label, chartLabel, ticks] = row;
 			this._chartPushTicks(label, chartLabel, ...ticks);
@@ -954,6 +1012,6 @@ class SimuConsole extends SimuReceiver {
 	}
 	
 	logHtml({cssClass, args}) {
-		return logHtml(cssClass, args);
+		logHtml(cssClass, ...args);
 	}
 };

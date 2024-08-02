@@ -6,15 +6,14 @@ class WorkerPerformer {
 	performers = [];
 	
 	constructor(performers=[]) {
-		this.performers = performers;
+		this.addPerformer(...performers);
 	}
 	addPerformer(...performers) {
 		this.performers.push(...performers);
 	}
 	findPerformer(event) {
 		return this.performers.find(performer => {
-			return typeof performer[event.data.queryMethod] === 'function' ||
-				event.data.queryMethod in this.destinations;
+			return typeof performer[event.data.queryMethod] === 'function';
 		});
 	}
 	processQueue() {
@@ -56,9 +55,8 @@ class WorkerPerformer {
 		console.log('misrouted', data);
 	}
 	send(queryMethodListener, ...queryMethodArguments) {
-//console.log('workerSend', queryMethodListener, ...queryMethodArguments);
 		if (!queryMethodListener) {
-			throw new TypeError("performer.send - not enough arguments");
+			throw new TypeError("performer.send - no method specified");
 		}
 		postMessage({
 			queryMethodListener,
@@ -81,15 +79,54 @@ function doneFunc(reqId, ...args) {
 	return extra;
 }
 
-// receives from worker
+const destinationTypes = Object.freeze({
+    REGULAR:   Symbol("REGULAR"),
+    REGISTERED:  Symbol("REGISTERED"),
+    REGISTERED_EXTRA: Symbol("REGISTERED_EXTRA"),
+});
+
+// implements methods to handle info received from worker
+// the method name is the first argument, and further args may follow.
+// canned methods:
+// 1. receipts that may resolve a promise opened when the client was invoked with an optional callback
+// that will be called with the received data as argument;
+// 2. forwards that may invoke another function (by default this.forwarder) with the method name and args
+// exactly as received.
 class WorkerReceiver {
 	
 	request_promises = {};
 	reqIds = {};
 	reqIdsLocked = false;
 	
-	constructor(forwarder=null) {
-		this.forwarder = forwarder;
+	constructor({defaultCallback=null, receipts={}, defaultForwarder=null, forwards={}}={}) {
+		this.forwarder = defaultForwarder;
+		for (let [receipt, callback] of Object.entries(receipts)) {
+			if (!callback) {
+				callback = defaultCallback;
+			}
+			if (!Object.hasOwn(this, receipt)) {
+				this[receipt] = async (...args) => {
+					if (callback && callback.constructor.name == 'String') {
+						callback = this[callback];
+					}
+					return this.receive(receipt, callback, ...args);
+				};
+			}
+		}
+		for (let [forward, forwarder] of Object.entries(forwards)) {
+			if (!forwarder) {
+				forwarder = defaultForwarder;
+			}
+			if (!Object.hasOwn(this, forward)) {
+				this[forward] = async (...args) => {
+					return forwarder(forward, ...args);
+				};
+			}
+		}
+	}
+	
+	hasPerformer(event) {
+		return typeof this[event.data?.queryMethodListener] === 'function';
 	}
 	
 	getReqExtra(subject, reqId) {
@@ -140,16 +177,21 @@ class WorkerReceiver {
 	
 	done = doneFunc;
 	
+	receive(destination, callback, ...args) {
+		let [reqId, ...data] = args;
+		let [promise, extra] = this.getReqExtra('any', reqId);
+		if (callback) {
+			callback(...data, extra);
+		}
+		if (promise) {
+			promise.resolve(...data, extra);
+		}
+	}
+	
 	forward(method, ...args) {
 		this.forwarder(method, ...args);
 	}
 };
-
-const destinationTypes = Object.freeze({
-    REGULAR:   Symbol("REGULAR"),
-    REGISTERED:  Symbol("REGISTERED"),
-    REGISTERED_EXTRA: Symbol("REGISTERED_EXTRA")
-});
 
 // create and call a worker
 class WorkerClient {
@@ -167,20 +209,27 @@ class WorkerClient {
 		return new Proxy(this, {
 			get: (target, name) => {
 				if (!(name in target) && name in this.destinations) {
-					target[name] = async (...args) => {
-						switch (target.destinations[name]) {
-						case destinationTypes.REGULAR: {
+					switch (target.destinations[name]) {
+					case destinationTypes.REGULAR: {
+						target[name] = async (...args) => {
 							return target.sendQuery(name, ...args);
 						}
-						case destinationTypes.REGISTERED: {
+						break;
+					}
+					case destinationTypes.REGISTERED: {
+						target[name] = async (...args) => {
 							return target.sendRegistered(name + 'Req', null, ...args);
 						}
-						case destinationTypes.REGISTERED_EXTRA: {
+						break;
+					}
+					case destinationTypes.REGISTERED_EXTRA: {
+						target[name] = async (...args) => {
 							let args1 = [...args];
 							let extra = args1.pop();
 							return target.sendRegistered(name + 'Req', extra, ...args1);
 						}
-						}
+						break;
+					}
 					};
 				}
 				return target[name];
@@ -207,8 +256,8 @@ class WorkerClient {
 		this.sendQuery(method, reqId, ...args);
 		return promise;
 	}
-	clientError(data) {
-		error(`received ${JSON.stringify(data)} from worker`);
+	clientError(...args) {
+		console.error(...args);
 	}
 	init = async () => {
 		let [initReqId, promise] = this.receiver.getReqId('any', null, {withPromise: true});
@@ -219,7 +268,7 @@ class WorkerClient {
 				event.data instanceof Object &&
 				Object.hasOwn(event.data, "queryMethodListener") &&
 				Object.hasOwn(event.data, "queryMethodArguments") &&
-				typeof this.receiver[event.data.queryMethodListener] === 'function'
+				this.receiver.hasPerformer(event)
 			) {
 				this.receiver[event.data.queryMethodListener].apply(
 					this.receiver,
@@ -227,7 +276,7 @@ class WorkerClient {
 				);
 			}
 			else {
-				this.clientError(event.data);
+				this.clientError('received misrouted', event.data, 'from worker');
 			}
 		};
 		this.worker.onerror = this.clientError;

@@ -56,7 +56,7 @@
 				self.oo = sqlite3.oo1/*high-level OO API*/;
 				self.performer = new WorkerPerformer();
 				logHtml = function(cssClass,...args){
-					self.performer.send('logHtml', {cssClass, args});
+					self.performer.send('logHtml', cssClass, ...args);
 				};
 				self.forwarder = new StrategyForwarder(self.performer.send);
 				self.sob = new SimuLOB(

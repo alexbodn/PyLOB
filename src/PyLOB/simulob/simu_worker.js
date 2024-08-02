@@ -3,7 +3,8 @@
 		
 		console.log("Running demo from Worker thread.");
 		let logHtml = function(cssClass,...args){
-			console.log(args);
+console.log('$$$$$', cssClass, ...args);
+			console.log(...args);
 		};
 		const log = (...args)=>logHtml('',...args);
 		const warn = (...args)=>logHtml('warning',...args);
@@ -50,14 +51,14 @@
 			print: log,
 			printErr: console.error
 		}).then(function(sqlite3){
-			console.log("Done initializing. Running demo...");
+			console.log("Done sqlite initializing.");
 			try {
 				self.oo = sqlite3.oo1/*high-level OO API*/;
 				self.performer = new WorkerPerformer();
-				logHtml = function(cssClass,...args){
-					self.performer.send('logHtml', {cssClass, args});
-				};
 				self.forwarder = new SimuForwarder(self.performer.send);
+				/*logHtml = function(cssClass, ...args){
+					self.performer.send('logHtml', cssClass, ...args);
+				};*/
 				self.sob = new SimuLOB(
 					self.oo,
 					new URL('./', self.location.href),
