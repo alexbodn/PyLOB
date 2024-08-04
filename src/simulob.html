@@ -138,38 +138,11 @@
 	<!--script src="./node_modules/@tarp/require/require.min.js"></script>
 	<script>Tarp.require({expose: true})</script-->
 	<script>
-	/**
-	Set up our output channel differently depending
-	on whether we are running in a worker thread or
-	the main (UI) thread.
-	*/
-	let logHtml;
-	if(self.window === self /* UI thread */){
-		console.log("Running demo from main UI thread.");
-		logHtml = function(cssClass,...args){
-			const ln = document.createElement('div');
-			if(cssClass) ln.classList.add(cssClass);
-			ln.insertAdjacentHTML('beforeend', args.join(' '));
-			let logDiv = document.querySelector("div#simu_log");
-			if (logDiv) {
-				logDiv.insertAdjacentElement('beforeend', ln);
-			}
-		};
-	}
-	else{ /* Worker thread */
-		console.log("Running demo from Worker thread.");
-		logHtml = function(cssClass,...args){
-			postMessage({
-				type:'log',
-				payload:{cssClass, args}
-			});
-		};
-	}
 	window.sqlConsole = new SQLiteXplorer('div#sqlQuery');
 	const log = (...args)=>sqlConsole.log(...args);
 	const warn = (...args)=>sqlConsole.warn(...args);
 	const error = (...args)=>sqlConsole.error(...args);
-	logHtml = (...args)=>sqlConsole.logHtml(...args);
+	const logHtml = (...args)=>sqlConsole.logHtml(...args);
 	</script>
 	<script>
 	if(self.window!==self) /*worker thread*/{
@@ -198,7 +171,7 @@
 		// We can redirect any stdout/stderr from the module
 		// like so...
 		print: log,
-		printErr: console.error
+		printErr: error
 	}).then(function(sqlite3){
 		//log("Done initializing. Running demo...");
 		try {

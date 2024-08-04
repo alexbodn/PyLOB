@@ -1012,6 +1012,7 @@ class SimuConsole extends SimuReceiver {
 	}
 	
 	logHtml({cssClass, args}) {
+//console.log(arguments);
 		logHtml(cssClass, ...args);
 	}
 };

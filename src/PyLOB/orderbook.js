@@ -222,6 +222,7 @@ class OrderBook {
 		'cancel_order',
 		'find_order',
 		'find_active_order',
+		'check_active_order',
 		'insert_order',
 		'order_info',
 		'trader_insert',
@@ -334,24 +335,20 @@ class OrderBook {
 		return ret;
 	}
 	
-	findOrderReq(reqId, idNum) {
-		let ret = this.findOrder(idNum);
+	async findOrderReq(reqId, idNum) {
+		let ret = await this.findOrder(idNum);
 		this.receiver.findOrderResp(reqId, ret);
 	}
 	
-	findOrder(idNum, db) {
-		let ret;
-		(db || this.db).exec({
+	async findOrder(idNum, db) {
+		let found = await (db || this.db).exec({
 			sql: this.queries.find_order,
 			bind: prepKeys(
 				{idNum},
 				this.queries.find_order),
 			rowMode: 'object',
-			callback: row => {
-				ret = row;
-			}
 		});
-		return ret;
+		return found && found.length ? found[0] : null;
 	}
 	
 	async clipPrice(instrument, price, db) {
@@ -720,6 +717,18 @@ class OrderBook {
 		let balance_updates = [];
 		let totalprice = 0;
 		
+		if (!justquery) {
+			let active = await db.exec({
+				sql: this.queries.check_active_order,
+				bind: prepKeys(
+					{order_id: quote.order_id},
+					this.queries.check_active_order),
+				rowMode: 'object',
+			});
+			if (!active.length) {
+				return [];
+			}
+		}
 		let matches = await db.exec({
 			sql: sql_matches,
 			bind: prepKeys({
@@ -813,7 +822,7 @@ class OrderBook {
 		let trade = {
 			bid_order: bid_order,
 			ask_order: ask_order,
-			time: this.time,
+			time: this.getTime(),
 			price: price,
 			qty: qty
 		};
@@ -825,7 +834,7 @@ class OrderBook {
 		//await this.order_log(this.time, ask_order, 'execute_order', `<u>SOLD</u> ${qty} @ ${price}`, db);
 		//await this.order_log(this.time, bid_order, 'execute_order', `<u>BOUGHT</u> ${qty} @ ${price}`, db);
 		if (this.isAuthonomous) {
-			this.setLastPrice(instrument, price, this.time, db);
+			this.setLastPrice(instrument, price, this.getTime(), db);
 		}
 		if (verbose) {
 			log(`>>> TRADE \nt=${this.getTime()} ${price} n=${qty} p1=${counterparty} p2=${quote.tid}`);

@@ -55,6 +55,7 @@ class WorkerPerformer {
 		console.log('misrouted', data);
 	}
 	send(queryMethodListener, ...queryMethodArguments) {
+//console.log('WorkerSend', queryMethodListener, ...queryMethodArguments);
 		if (!queryMethodListener) {
 			throw new TypeError("performer.send - no method specified");
 		}

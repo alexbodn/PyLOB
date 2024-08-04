@@ -412,7 +412,7 @@ class SimuLOB extends OrderBook {
 				let instrument = quote.instrument;
 				simu.processQuote(quote);
 			}
-			else if (this.ticks.length) {
+			if (this.ticks.length) {
 				let tick = this.ticks.shift();
 				if (tick.label == 'chartReset') { //todo should trigger explicitly
 					//if (!simu.chartLabel) {

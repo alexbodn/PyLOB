@@ -3,7 +3,6 @@
 		
 		console.log("Running demo from Worker thread.");
 		let logHtml = function(cssClass,...args){
-console.log('$$$$$', cssClass, ...args);
 			console.log(...args);
 		};
 		const log = (...args)=>logHtml('',...args);
@@ -56,9 +55,9 @@ console.log('$$$$$', cssClass, ...args);
 				self.oo = sqlite3.oo1/*high-level OO API*/;
 				self.performer = new WorkerPerformer();
 				self.forwarder = new SimuForwarder(self.performer.send);
-				/*logHtml = function(cssClass, ...args){
-					self.performer.send('logHtml', cssClass, ...args);
-				};*/
+				logHtml = function(cssClass, ...args){
+					self.performer.send('logHtml', {cssClass, args});
+				};
 				self.sob = new SimuLOB(
 					self.oo,
 					new URL('./', self.location.href),
