@@ -75,44 +75,15 @@
 			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="simuStop();" /></td>
 			<td><input value="▶️" title="run" id="run" type="button" onclick="simuPlay();" /></td>
 		</tr>
-		<!--tr>
-			<td colspan="7">
-				<div style="width: 100%">
-					<label for="configFile" class="btn">Select config</label>
-					<input id="configFile" style="visibility:hidden;" type="file" accept=".json" />
-				</div>
-			</td>
-		</tr-->
 		</tbody>
 	</table>
 	</div>
 	<div id="sqlQuery" class="sqlQuery"></div>
-
-
-<!-- The `multiple` attribute lets users select multiple files. -->
-	<!--script>
-		const cfgSelector = document.querySelector('#configFile');
-		cfgSelector.addEventListener('change', (event) => {
-			const file = event.target.files[0];
-			let reader = new FileReader();
-			reader.readAsText(file);
-			reader.onload = function(event) {
-				var cfgData = event.target.result;
-				simuDefaults = JSON.parse(cfgData);
-				console.log(simuDefaults);
-			};
-			reader.onerror = function() {
-				alert('Unable to read ' + file.fileName);
-			};
-		});
-	</script-->
-	<script src="./node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.js"></script>
+	
 	<script src="./PyLOB/worker.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
 	<script src="./PyLOB/simulob/simu_strategy.js"></script>
-	<!--script src="./PyLOB/commission.js"></script-->
-	<!--script src="./PyLOB/simulob/peakdet.js"></script-->
 	<script src="./PyLOB/simulob/simulob.js"></script>
 	<script src="./PyLOB/simulob/simu_console.js"></script>
 	
@@ -125,18 +96,10 @@
 	<script src="./PyLOB/luxon/luxon.min.js"></script>
 	<script src="./PyLOB/chart/chartjs-luxon/chartjs-adapter-luxon.js"></script>
 	
-	<!--script src="./PyLOB/jszip/jszip.min.js"></script-->
 	<!--script src="./PyLOB/eruda/eruda.js"></script-->
 	<script src="./PyLOB/file-saver/FileSaver.js"></script>
 	<script src="./PyLOB/csv/papaparse.min.js"></script>
-	<!--script>
-		//var FileSaver = require('file-saver');
-		var file = new File(["Hello, world!"], "hello world.txt", {type: "text/plain;charset=utf-8"});
-		saveAs(file);
-	</script-->
 	<script src="./require.js"></script>
-	<!--script src="./node_modules/@tarp/require/require.min.js"></script>
-	<script>Tarp.require({expose: true})</script-->
 	<script>
 	window.sqlConsole = new SQLiteXplorer('div#sqlQuery');
 	const log = (...args)=>sqlConsole.log(...args);
@@ -145,38 +108,7 @@
 	const logHtml = (...args)=>sqlConsole.logHtml(...args);
 	</script>
 	<script>
-	if(self.window!==self) /*worker thread*/{
-		/*
-		If sqlite3.js is in a directory other than this script, in order
-		to get sqlite3.js to resolve sqlite3.wasm properly, we have to
-		explicitly tell it where sqlite3.js is being loaded from. We do
-		that by passing the `sqlite3.dir=theDirName` URL argument to
-		_this_ script. That URL argument will be seen by the JS/WASM
-		loader and it will adjust the sqlite3.wasm path accordingly. If
-		sqlite3.js/.wasm are in the same directory as this script then
-		that's not needed.
-
-		URL arguments passed as part of the filename via importScripts()
-		are simply lost, and such scripts see the self.location of
-		_this_ script.
-		*/
-		let sqlite3Js = 'sqlite3.js';
-		const urlParams = new URL(self.location.href).searchParams;
-		if(urlParams.has('sqlite3.dir')){
-			sqlite3Js = urlParams.get('sqlite3.dir') + '/' + sqlite3Js;
-		}
-		importScripts(sqlite3Js);
-	}
-	self.sqlite3InitModule({
-		// We can redirect any stdout/stderr from the module
-		// like so...
-		print: log,
-		printErr: error
-	}).then(function(sqlite3){
-		//log("Done initializing. Running demo...");
 		try {
-			//const
-			oo = sqlite3.oo1/*high-level OO API*/;
 			let buttons = document.querySelector("#buttons");
 			buttons.style.display = 'table';
 			
@@ -188,14 +120,12 @@
 				})
 			)
 			.then(() => {
-				SimuStrategy.strategyChoice(sqlConsole, oo, dates);
+				SimuStrategy.strategyChoice(sqlConsole, dates);
 			});
 		}
 		catch(e){
-			oo = null;
 			warn("Exception:",e.message);
 		}
-	});
 	</script>
 	<script>
 	function simuReset() {

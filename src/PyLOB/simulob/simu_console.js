@@ -194,7 +194,7 @@ class SimuConsole extends SimuReceiver {
 		},
 	};
 	
-	constructor(oo, thisLocation) {
+	constructor(thisLocation) {
 		super();
 		this.loading = document.querySelector('#loading');
 		this.paused = document.querySelector('#paused');
@@ -1012,7 +1012,6 @@ class SimuConsole extends SimuReceiver {
 	}
 	
 	logHtml({cssClass, args}) {
-//console.log(arguments);
 		logHtml(cssClass, ...args);
 	}
 };

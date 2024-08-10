@@ -88,11 +88,10 @@ class SimuLOB extends OrderBook {
 	request_promises = {};
 	chartBuffer = {};
 	
-	constructor(oo, thisLocation, receiver) {
+	constructor(oo, thisLocation, receiver, {db_log=false, verbose=true}={}) {
 		let lobLocation = new URL('../', thisLocation);
-		let verbose = true;
 		const isAuthonomous = false;
-		super(oo, undefined, verbose, lobLocation, isAuthonomous, receiver);
+		super(oo, undefined, verbose, lobLocation, isAuthonomous, receiver, db_log);
 		this.location = thisLocation;
 		this.lobLocation = lobLocation;
 		this.valid_sides = OrderBook.valid_sides;
@@ -326,6 +325,9 @@ class SimuLOB extends OrderBook {
 		if (extra && extra.time == null) {
 			extra.time = this.getTime();
 		}
+if (extra) {
+this.logobj('get balance', instrument, extra);
+}
 		super.traderGetBalance(trader, instrument, extra);
 	}
 	
@@ -537,8 +539,7 @@ class SimuLOB extends OrderBook {
 	}
 	
 	quoteGetAll(trader, instrument, side=null, status=null, db) {
-		let ret = {};
-		(db || this.simu_db).exec({
+		return (db || this.simu_db).exec({
 			sql: this.simu_queries.quote_getall,
 			bind: prepKeys(
 				{
@@ -549,12 +550,11 @@ class SimuLOB extends OrderBook {
 				},
 				this.simu_queries.quote_getall),
 			rowMode: 'object',
-			callback: row => {
-				//console.log(row);
-				ret[row.label] = JSON.parse(row.quote);
-			}
-		});
-		return ret;
+		})
+		.reduce((acc, curr) => {
+			acc[curr.label] = JSON.parse(curr.quote);
+			return acc;
+		}, {});
 	}
 
 	quoteGetKeys(trader, instrument, side=null, db) {
@@ -613,6 +613,7 @@ class SimuLOB extends OrderBook {
 	}
 
 	quoteDismiss(idNum, db) {
+console.log('dismiss', idNum);
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_dismiss,
 			bind: prepKeys(
@@ -626,6 +627,7 @@ class SimuLOB extends OrderBook {
 	}
 	
 	static quoteRe = /^\s*(?<side>ask|bid|sell|buy)\s+(?<qty>\d+)(\s+(?<instrument>([A-Za-z]{1,5})(-[A-Za-z]{1,2})?))?(\s+(limit|lmt)\s*(?<price>(\d+\.?\d*))|mkt|market)?\s*$/;
+	//to do: stop orders, based on events
 	
 	//'buy 10 AAPL lmt 123',
 	parseQuote(str) {
@@ -642,7 +644,18 @@ class SimuLOB extends OrderBook {
 	
 	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
 		let quote = this.quoteGet(trader, instrument, label, 'sent');
-		if (!quote) {
+		if (cancelQuote) {
+			if (quote) {
+				super.cancelOrder(quote.idNum);
+				return quote.idNum;
+			}
+			else {
+				let quote = this.quoteGet(trader, instrument, label);
+				this.logobj("quote CANCEL FAILED", quote);
+				return;
+			}
+		}
+		else if (!quote) {
 			if (!side) {
 				side = label.slice(0, 3);
 			}
@@ -655,10 +668,6 @@ class SimuLOB extends OrderBook {
 			///quote.fulfilled = 0;
 			this.processOrder(quote, true, false, isPrivate);
 		}
-		else if (cancelQuote) {
-			super.cancelOrder(quote.idNum);
-			return quote.idNum;
-		}
 		else {
 			let update = {
 				price,
@@ -670,6 +679,10 @@ class SimuLOB extends OrderBook {
 			quote = Object.assign(quote, update);
 		}
 		return quote.idNum;
+	}
+	
+	async findOrder(idNum) {
+		return Promise.resolve(super.findOrder(idNum));
 	}
 	
 	cancelQuote(trader, instrument, label) {
@@ -784,10 +797,8 @@ class SimuLOB extends OrderBook {
 		}
 		let {instrument, label, quote} = order;
 		quote.fulfilled = fulfilled;
+		quote.status = 'dismissed';
 		this.quoteUpdate(quote);
-		if (fulfilled == qty) {
-			this.dismissQuote(idNum);
-		}
 		this.strategy.hook_orderFulfill(
 			instrument, label, trader, qty, fulfilled, commission, avgPrice);
 	}
@@ -831,9 +842,28 @@ class SimuLOB extends OrderBook {
 			return;
 		}
 		let {instrument, label} = order;
+console.log('cancelled', label, idNum);
 		this.dismissQuote(idNum);
 		this.strategy.hook_orderCancelled(instrument, label, trader, time);
 		this.chartPushTicks('cancelled', {x: time, y: null});
+	}
+	
+	orderCancelFailed(idNum, time) {
+		let order = this.quoteGetByNum(idNum);
+		if (!order) {
+			this.findOrder(idNum).then((info) => {
+				console.error('cancel_failed order not found', idNum, info);
+			});
+			return;
+		}
+		let {trader, instrument, label} = order;
+		if (trader != this.config.trader_tid) {
+			return;
+		}
+console.log('cancel_failed', label, idNum);
+		this.dismissQuote(idNum);
+		this.strategy.hook_orderCancelFailed(instrument, label, trader, time);
+		this.chartPushTicks('cancel_failed', {x: time, y: null});
 	}
 	
 	orderRejected(idNum, why) {
@@ -861,6 +891,10 @@ class SimuLOB extends OrderBook {
 	
 	dtFormat(millis, fmt='HH:mm:ss.SSS') {
 		return formatDate(millis, fmt);
+	}
+	
+	dtPrint(millis) {
+		return dtFormat(millis || this.getTime());
 	}
 	
 	order_log_filter(order_id, label, db) {
@@ -949,29 +983,5 @@ class SimuClient extends LOBClient {
 			}
 		});
 	}
-	/*
-	async init() {return super.init();}
-	async strategyLoad(name, defaults) {
-		return this.sendRegistered('strategyLoadReq', null, name, defaults);
-	}
-	async strategy_getButtons() {
-		return this.sendRegistered('strategy_getButtonsReq');
-	}
-	strategy_hook_chartBuildDataset() {
-		return this.sendRegistered('strategy_hook_chartBuildDatasetReq');
-	}
-	strategy_hook_beforeUpdateChart(chartLabel) {
-		return this.sendRegistered('strategy_hook_beforeUpdateChartReq', null, chartLabel);
-	}
-	chartUpdateGroups(data) {
-		return this.sendRegistered('chartUpdateGroupsReq', null, data);
-	}
-	run(dates) {
-		this.sendQuery('run', dates);
-	}
-	quoteGetAll(...args) {
-		return this.sendRegistered('quoteGetAllReq', null, ...args);
-	}
-	*/
 };
 

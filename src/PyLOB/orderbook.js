@@ -265,7 +265,7 @@ class OrderBook {
 	order_log_filters = {};
 	
 	//@isAuthonomous will set last price by the executed orders
-	constructor(oo, tick_size=0.0001, verbose=false, thisLocation, isAuthonomous=true, receiver) {
+	constructor(oo, tick_size=0.0001, verbose=false, thisLocation, isAuthonomous=true, receiver, db_log) {
 		this.tickSize = tick_size;
 		this.decimalDigits = Math.log10(1 / this.tickSize);
 		this.rounder = 1 / this.tickSize;
@@ -279,6 +279,7 @@ class OrderBook {
 
 		this.OrderBookLocation = thisLocation;
 		this.verbose = verbose;
+		this.db_log = db_log;
 		this.isAuthonomous = isAuthonomous;
 		this.instrument_cache = {};
 	}
@@ -335,13 +336,13 @@ class OrderBook {
 		return ret;
 	}
 	
-	async findOrderReq(reqId, idNum) {
-		let ret = await this.findOrder(idNum);
-		this.receiver.findOrderResp(reqId, ret);
+	findOrderReq(reqId, idNum) {
+		let found = this.findOrder(idNum);
+		this.receiver.findOrderResp(reqId, found);
 	}
 	
-	async findOrder(idNum, db) {
-		let found = await (db || this.db).exec({
+	findOrder(idNum, db) {
+		let found = (db || this.db).exec({
 			sql: this.queries.find_order,
 			bind: prepKeys(
 				{idNum},
@@ -351,9 +352,9 @@ class OrderBook {
 		return found && found.length ? found[0] : null;
 	}
 	
-	async clipPrice(instrument, price, db) {
+	clipPrice(instrument, price, db) {
 		// Clips the price according to the ticksize
-		let rounder = await this.getRounder(instrument, db);
+		let rounder = this.getRounder(instrument, db);
 		return Math.round(price * rounder) / rounder;
 	}
 	
@@ -482,7 +483,8 @@ class OrderBook {
 		return this.traderGetBalanceReq(null, trader, instrument, extra);
 	}
 	
-	traderGetBalanceReq(reqId, trader, instrument, extra) {
+	// @param {string} [instrument=null] instrument
+	traderGetBalanceReq(reqId, trader, instrument=null, extra) {
 		// if !instrument, then all
 		const traderBalance =
 			(ob, info) => {ob.traderBalance(extra, info);};
@@ -598,7 +600,7 @@ class OrderBook {
 		return quote;
 	}
 	
-	async processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
+	processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
 		//todo implement condition as event, and fire at event
 		quote = {
 			...quote,
@@ -621,37 +623,37 @@ class OrderBook {
 		}
 		
 		let matches = [];
-		await this.db.transaction(
-			async D => {
+		this.db.transaction(
+			D => {
 				if (quote.price) {
-					quote.price = await this.clipPrice(quote.instrument, quote.price, D);
+					quote.price = this.clipPrice(quote.instrument, quote.price, D);
 				}
 				else {
 					quote.price = null;
 				}
-				await D.exec({
+				D.exec({
 					sql: this.queries.insert_order,
 					bind: prepKeys(
 						quote, this.queries.insert_order),
 				});
-				let last = await D.exec({
+				let last = D.exec({
 					sql: this.queries.lastorder,
 					rowMode: 'object',
 				});
 				for (let res of last) {
 					quote.order_id = res.lastorder;
-					let sQuote = await this.printQuote(quote, D);
-					await this.order_log(
+					let sQuote = this.printQuote(quote, D);
+					this.order_log(
 						this.time, res.lastorder, 'create_order',
 						sQuote, D);
-					/*await this.order_log(
+					/*this.order_log(
 						this.time, res.lastorder, 'order_detail',
 						this.printOrder(quote.idNum, 'id: {order_id}', D), D);
 						*/
-					await this.orderBalance(
+					this.orderBalance(
 						quote.order_id, quote.order_id, quote.tid,
 						quote.tid, quote.instrument, undefined, D);
-					let processed = await this.processMatches(quote, false, D, verbose);
+					let processed = this.processMatches(quote, false, D, verbose);
 					matches.push(...processed);
 				}
 			}
@@ -705,7 +707,7 @@ class OrderBook {
 		return ret;
 	}
 	
-	async processMatches(quote, justquery, db, verbose) {
+	processMatches(quote, justquery, db, verbose) {
 		let instrument = quote.instrument;
 		quote.lastprice = this.getLastPrice(instrument, db);
 		let qtyToExec = quote.qty;
@@ -718,7 +720,7 @@ class OrderBook {
 		let totalprice = 0;
 		
 		if (!justquery) {
-			let active = await db.exec({
+			let active = db.exec({
 				sql: this.queries.check_active_order,
 				bind: prepKeys(
 					{order_id: quote.order_id},
@@ -729,7 +731,7 @@ class OrderBook {
 				return [];
 			}
 		}
-		let matches = await db.exec({
+		let matches = db.exec({
 			sql: sql_matches,
 			bind: prepKeys({
 				instrument: quote.instrument,
@@ -758,14 +760,14 @@ class OrderBook {
 			let bid_quote = quote.side == 'bid';
 			let bid_order = bid_quote ? quote.order_id : order_id;
 			let ask_order = bid_quote ? order_id : quote.order_id;
-			let trade = await this.tradeExecute(
+			let trade = this.tradeExecute(
 				bid_order, ask_order, price, qty, instrument, db, verbose);
 			trade.bid_trader = bid_quote ? quote.tid : counterparty;
 			trade.ask_trader = bid_quote ? counterparty : quote.tid;
 			trade.bid_idNum = bid_quote ? quote.idNum : idNum;
 			trade.ask_idNum = bid_quote ? idNum : quote.idNum;
 			trades.push(trade);
-			let trade_fulfills = await db.exec({
+			let trade_fulfills = db.exec({
 				sql: this.queries.trade_fulfills,
 				bind: prepKeys({
 					bid_order,
@@ -776,12 +778,12 @@ class OrderBook {
 			for (let row of trade_fulfills) {
 				fulfills.push(row);
 				let color = row.side == 'ask' ? 'red' : 'mediumblue';
-				await this.order_log(
+				this.order_log(
 					this.time, row.order_id, 'fulfill_order',
 					`<u style="color: ${color}">FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
 				);
 			}
-			let trade_balance_updates = await this.orderBalance(
+			let trade_balance_updates = this.orderBalance(
 				quote.order_id, order_id, quote.tid, counterparty, instrument, currency, db);
 			balance_updates.push(...trade_balance_updates);
 		}
@@ -792,14 +794,14 @@ class OrderBook {
 		return [trades, fulfills, balance_updates];
 	}
 	
-	async orderBalance(order_id, counter_order, trader, counterparty, instrument, currency, db) {
+	orderBalance(order_id, counter_order, trader, counterparty, instrument, currency, db) {
 		if (!db) {
 			db = this.db;
 		}
 		if (!currency) {
 			currency = this.getCurrency(instrument, db);
 		}
-		let balance_updates = await db.exec({
+		let balance_updates = db.exec({
 			sql: this.queries.trade_balance,
 			bind: prepKeys({
 				trader: trader,
@@ -810,7 +812,7 @@ class OrderBook {
 			rowMode: 'object',
 		});
 		for (let row of balance_updates) {
-			await this.order_log(
+			this.order_log(
 				this.time, row.trader == trader ? order_id : counter_order, 'balance_update',
 				`<u>BALANCE</u> of ${row.instrument} amt:${formatRounder(row.amount)}`, db
 			);
@@ -818,7 +820,7 @@ class OrderBook {
 		return balance_updates;
 	}
 	
-	async tradeExecute(bid_order, ask_order, price, qty, instrument, db, verbose) {
+	tradeExecute(bid_order, ask_order, price, qty, instrument, db, verbose) {
 		let trade = {
 			bid_order: bid_order,
 			ask_order: ask_order,
@@ -826,13 +828,13 @@ class OrderBook {
 			price: price,
 			qty: qty
 		};
-		await db.exec({
+		db.exec({
 			sql: this.queries.insert_trade,
 			bind: prepKeys(
 				trade, this.queries.insert_trade)
 		});
-		//await this.order_log(this.time, ask_order, 'execute_order', `<u>SOLD</u> ${qty} @ ${price}`, db);
-		//await this.order_log(this.time, bid_order, 'execute_order', `<u>BOUGHT</u> ${qty} @ ${price}`, db);
+		//this.order_log(this.time, ask_order, 'execute_order', `<u>SOLD</u> ${qty} @ ${price}`, db);
+		//this.order_log(this.time, bid_order, 'execute_order', `<u>BOUGHT</u> ${qty} @ ${price}`, db);
 		if (this.isAuthonomous) {
 			this.setLastPrice(instrument, price, this.getTime(), db);
 		}
@@ -842,9 +844,9 @@ class OrderBook {
 		return trade;
 	}
 	
-	async matchesEvents(trades, fulfills, balance_updates, quote, comment) {
+	matchesEvents(trades, fulfills, balance_updates, quote, comment) {
 		if (comment) {
-			await this.order_log(quote.timestamp, quote.order_id, comment);
+			this.order_log(quote.timestamp, quote.order_id, comment);
 		}
 		queueMicrotask(() => {
 		for (let trade of trades) {
@@ -864,12 +866,10 @@ class OrderBook {
 				// update position event
 			}
 			else {
-				// update balance
+				// update balance of currency
 			}
-			//todo: that's probably the way to go
-//			if (false && this.verbose) {
-				this.traderGetBalance(update.trader, update.instrument);
-//			}
+			// for now, they are the same
+			this.traderGetBalance(update.trader, update.instrument);
 			//error(JSON.stringify(update));
 		}
 		});
@@ -902,12 +902,11 @@ class OrderBook {
 		this.receiver.orderExecuted(idNum, trader, time, qty, price);
 	}
 	
-	async cancelOrder(idNum, time, {comment=null}={}) {
+	cancelOrder(idNum, time, {comment=null}={}) {
 		time = this.updateTime(time);
-		let _trader = null;
-		await this.db.transaction(
-			async D => {
-				let active = await D.exec({
+		this.db.transaction(
+			D => {
+				let active = D.exec({
 					sql: this.queries.find_active_order,
 					bind: prepKeys(
 						{idNum},
@@ -923,20 +922,27 @@ class OrderBook {
 							cancel: 1,
 						}, this.queries.cancel_order)
 					});
-					_trader = trader;
-					await this.order_log(time, order_id, 'cancel_order', '<u>CANCEL</u> <s>@@order@@</s>', D);
+					this.order_log(time, order_id, 'cancel_order', '<u>CANCEL</u> <s>@@order@@</s>', D);
+					queueMicrotask(() => {
+						this.orderCancelled(idNum, trader, time);
+					});
+				}
+				if (!active.length) {
+					queueMicrotask(() => {
+						this.orderCancelFailed(idNum, time);
+					});
 				}
 			}
 		);
-		if (_trader) {
-			queueMicrotask(() => {
-				this.orderCancelled(idNum, _trader, time);
-			});
-		}
 	}
 
 	orderCancelled(idNum, trader, time) {
 		return this.receiver.orderCancelled(idNum, trader, this.time);
+	}
+	
+	orderCancelFailed(idNum, time) {
+		this.logobj(`order CANCEL FAILED #${idNum} not found or not active`);
+		return this.receiver.orderCancelFailed(idNum, this.time);
 	}
 	
 	betterPrice(side, price, comparedPrice) {
@@ -976,12 +982,12 @@ class OrderBook {
 		return side;
 	}
 
-	async modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null}={}) {
+	modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null}={}) {
 		let matches = [];
 		let updateSide, updatePrice;
-		await this.db.transaction(
-			async D => {
-				let active = await D.exec({
+		this.db.transaction(
+			D => {
+				let active = D.exec({
 					sql: this.queries.find_active_order,
 					bind: prepKeys(
 						{idNum},
@@ -1005,7 +1011,7 @@ class OrderBook {
 					if (orderUpdate.price) {
 						let logprice = formatRounder(orderUpdate.price);
 						loginfo += ` price: ${logprice};`;
-						updatePrice = orderUpdate.price = await this.clipPrice(
+						updatePrice = orderUpdate.price = this.clipPrice(
 							instrument, orderUpdate.price, D);
 					}
 					else {
@@ -1017,17 +1023,17 @@ class OrderBook {
 					else {
 						orderUpdate.qty = qty;
 					}
-					await D.exec({
+					D.exec({
 						sql: this.queries.modify_order,
 						bind: prepKeys(
 							orderUpdate,
 							this.queries.modify_order)
 					});
-					let sQuote = await this.printQuote(orderUpdate, D);
-					await this.order_log(this.time, order_id, 'modify_order', sQuote, D);
-					await this.order_log(this.time, order_id, 'modify_detail', `${loginfo}`, D);
+					let sQuote = this.printQuote(orderUpdate, D);
+					this.order_log(this.time, order_id, 'modify_order', sQuote, D);
+					this.order_log(this.time, order_id, 'modify_detail', `${loginfo}`, D);
 					if (this.betterPrice(side, price, orderUpdate.price)) {
-						let processed = await this.processMatches(orderUpdate, false, D, verbose);
+						let processed = this.processMatches(orderUpdate, false, D, verbose);
 						matches.push(...processed);
 					}
 				}
@@ -1157,14 +1163,13 @@ class OrderBook {
 	}
 	
 	getRounderReq(reqId, instrument) {
-		this.getRounder(instrument)
-		.then(rounder => {this.receiver.getRounderResp(reqId, rounder);});
+		let rounder = this.getRounder(instrument);
+		this.receiver.getRounderResp(reqId, rounder);
 	}
 	
-	async getRounder(instrument, db) {
+	getRounder(instrument, db) {
 		let cache = this.getInstrument(instrument, db);
-		let rounder = (cache ? cache.rounder : null) || this.rounder;
-		return Promise.resolve(rounder);
+		return cache?.rounder || this.rounder;
 	}
 	
 	getCurrency(instrument, db) {
@@ -1245,9 +1250,9 @@ class OrderBook {
 		return this.getPrice(instrument, 'ask', 'desc', forWhom);
 	}
 	
-	async getLiquidationPrice(instrument, side, qty, forWhom) {
+	getLiquidationPrice(instrument, side, qty, forWhom) {
 		let quote = this.createQuote(forWhom, instrument, side, qty);
-		return await this.processMatches(quote, true, this.db);
+		return this.processMatches(quote, true, this.db);
 	}
 	
 	order_log_filter(order_id, label, db) {
@@ -1277,7 +1282,7 @@ class OrderBook {
 		this.order_log_filters[field] = value;
 	}
 	
-	async order_log(event_dt, order_id, label, info, db) {
+	order_log(event_dt, order_id, label, info, db) {
 		let [dolog, data] = this.order_log_filter(order_id, label, db);
 		for (let [field, value] of Object.entries(this.order_log_filters)) {
 			if (field in data && data[field] != this.order_log_filters[field]) {
@@ -1288,22 +1293,29 @@ class OrderBook {
 			return;
 		}
 		if (this.verbose) {
-			let order = await this.printQuote(data, db);
-			info = info.replace('@@order@@', order);
+			if (info.indexOf('@@order@@') > -1) {
+				let order = this.printQuote(data, db);
+				info = info.replace('@@order@@', order);
+			}
 			log(`id:${data.idNum}${data.order_label ? '/' + data.order_label : ''}(tid:${data.trader})@${this.dtFormat(event_dt)} => ${info}`);
 		}
-		await db.exec({
-			sql: this.queries.insert_order_log,
-			bind: prepKeys({
-				event_dt,
-				order_id,
-				label,
-				info
-			}, this.queries.insert_order_log)
-		});
+		if (this.db_log) {
+			db.exec({
+				sql: this.queries.insert_order_log,
+				bind: prepKeys({
+					event_dt,
+					order_id,
+					label,
+					info
+				}, this.queries.insert_order_log)
+			});
+		}
 	}
 	
 	order_log_show(callback) {
+		if (!this.db_log) {
+			return;
+		}
 		if (!callback) {
 			callback = row => {
 				this.logobj(row);
@@ -1316,17 +1328,13 @@ class OrderBook {
 		});
 	}
 	
-	sql(query, params={}) {
-		let ret = [];
-		this.db.exec({
+	sql(db, query, params={}) {
+		let ret = db.exec({
 			sql: query,
 			bind: prepKeys(
 				params,
 				query),
 			rowMode: 'object',
-			callback: row => {
-				ret.push(row);
-			}
 		});
 		return ret;
 	}
@@ -1339,9 +1347,9 @@ class OrderBook {
 		*/
 	}
 	
-	async printQuote(quote, db) {
+	printQuote(quote, db) {
 		let side = quote.side.toUpperCase();
-		let price = await this.clipPrice(quote.instrument, quote.price, db);
+		let price = this.clipPrice(quote.instrument, quote.price, db);
 		price = (quote.order_type == 'limit' && price) ? `LMT ${price}` : 'MKT';
 		let ret = `<u>${side}</u> ${quote.qty} ${quote.instrument} @${price}`;
 		return ret;
@@ -1552,6 +1560,7 @@ class LOBReceiver extends WorkerReceiver {
 	orderFulfill(idNum, trader, qty, fulfilled, commission, avgPrice) {}
 	orderExecuted(idNum, trader, time, qty, price) {}
 	orderCancelled(idNum, trader, time) {}
+	orderCancelFailed(idNum, time) {}
 	tickMidPoint(instrument, midPoint, time) {}
 	tickLastPrice(instrument, lastprice, time) {}
 	tickLastBid(instrument, lastbid, time) {}
@@ -1579,6 +1588,7 @@ class LOBForwarder extends WorkerReceiver {
 				orderFulfill: null,
 				orderExecuted: null,
 				orderCancelled: null,
+				orderCancelFailed: null,
 				tickMidPoint: null,
 				tickLastPrice: null,
 				tickLastBid: null,
@@ -1630,72 +1640,6 @@ class LOBClient extends WorkerClient {
 			destinations: Object.assign({}, myDestinations, destinations)
 		});
 	}
-	/*
-	async init() {return super.init();}
-	setRounder(rounder) {return this.sendQuery('setRounder', rounder);}
-	close() {return this.sendQuery('close');}
-	doUpdateTime(timestamp) {return this.sendQuery('doUpdateTime', timestamp);}
-	getTime() {return this.sendQuery('getTime');}
-	async createInstrument(symbol, currency, {modification_fee=0, execution_credit=0}={}) {
-		return this.sendRegistered(
-			'createInstrumentReq', null, symbol, currency, {modification_fee, execution_credit});
-	}
-	async createTrader(name, tid, currency, commission_data, allow_self_matching=0) {
-		return this.sendRegistered(
-			'createTraderReq', null, name, tid, currency, commission_data, allow_self_matching);
-	}
-	traderCashDeposit(trader, currency, amount) {
-		return this.sendQuery('traderCashDeposit', trader, currency, amount);
-	}
-	traderFundsDeposit(trader, instrument, amount) {
-		return this.sendQuery('traderFundsDeposit', trader, instrument, amount);
-	}
-	traderFundsReset(trader, instrument) {
-		return this.sendQuery('traderFundsReset', trader, instrument);
-	}
-	traderCashReset(trader, currency) {
-		return this.sendQuery('traderCashReset', trader, currency);
-	}
-	async traderGetBalance(trader, instrument, extra) {
-		return this.sendRegistered('traderGetBalanceReq', extra, trader, instrument);
-	}
-	async traderGetNLV(trader, extra) {
-		return this.sendRegistered('traderGetNLVReq', extra, trader);
-	}
-	async findOrder(idNum) {
-		return this.sendRegistered('findOrderReq', null, idNum);
-	}
-	async orderGetSide(idNum) {
-		return this.sendRegistered('orderGetSideReq', null, idNum);
-	}
-	createQuote(tid, instrument, side, qty, price=null) {
-		return this.sendQuery('createQuote', tid, instrument, side, qty, price);
-	}
-	processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
-		return this.sendQuery('processOrder', quote, fromData, verbose, isPrivate, {comment});
-	}
-	cancelOrder(idNum, time, {comment=null}={}) {
-		return this.sendQuery('cancelOrder', idNum, time, {comment});
-	}
-	modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null}={}) {
-		return this.sendQuery('modifyOrder', idNum, orderUpdate, time, verbose, isPrivate, {comment});
-	}
-	modificationsCharge() {
-		return this.sendQuery('modificationsCharge', );
-	}
-	setLastPrice(instrument, lastprice, time) {
-		return this.sendQuery('setLastPrice', instrument, lastprice, time);
-	}
-	async getRounder(instrument) {
-		return this.sendRegistered('getRounderReq', null, instrument);
-	}
-	order_log_filter(order_id, label) {
-		return this.sendQuery('order_log_filter', order_id, label);
-	}
-	order_log_show(callback) {
-		return this.sendQuery('order_log_show', );
-	}
-	*/
 	dtFormat(value, fmt) {
 		return value.toString();
 	}

@@ -481,25 +481,25 @@ create table if not exists event_arg (
 create table if not exists event_condition (
 	condition integer primary key,
 	trader integer null,
-	instrument text null,
 	field text check (
-		case when field is null then field='timestamp'
-		else field in ('price', 'bid', 'ask') end),
-	field_relation text check (field is null or field_relation in ('lt', 'gt', 'le', 'ge', 'eq')),
+		case when field_relation in ('and', 'or')
+		then field is null
+		else field in ('timestamp', 'price', 'bid', 'ask')
+		end
+	) null,
+	instrument text check (
+		case when field is null or field='timestamp'
+		then instrument is null
+		else instrument is not null
+		end
+	) null,
+	field_relation text check (field_relation in ('lt', 'gt', 'le', 'ge', 'eq', 'and', 'or')),
 	field_value real check (field is null or field_value is not null),
+	-- this condition may be subordinated to another, with field_relation and/or
 	condition_relation integer null,
 	foreign key (trader) references trader(tid),
 	foreign key (instrument) references instrument(symbol),
-	foreign key (condition_relation) references event_condition_relation(condition_relation)
-);
-
-create table if not exists event_condition_relation (
-	condition_relation integer primary key,
-	relation text check (condition_relation in ('and', 'or')),
-	related1 integer,
-	related2 integer,
-	foreign key (related1) references event_condition(condition),
-	foreign key (related2) references event_condition(condition)
+	foreign key (condition_relation) references event_condition(condition)
 );
 
 create table if not exists order_log (

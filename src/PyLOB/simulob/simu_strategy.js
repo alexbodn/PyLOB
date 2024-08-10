@@ -54,7 +54,7 @@ class SimuStrategy {
 			'click',
 			e => {
 				const simuLocation = new URL('PyLOB/simulob', window.location.href);
-				const sob = new SimuConsole(oo, simuLocation);
+				const sob = new SimuConsole(simuLocation);
 				const defaults = strategy.getDialogConfig();
 				sob.init(strategy.name, defaults).then(
 					obj => {
@@ -91,7 +91,7 @@ class SimuStrategy {
 		window.strategyClass = strategy;
 	}
 	
-	static strategyChoice(sqlConsole, oo, dates) {
+	static strategyChoice(sqlConsole, dates) {
 		let tab, tabInfo;
 		const tag = 'strategies';
 		tab = sqlConsole.tabSearch(tag);
@@ -176,6 +176,7 @@ class SimuStrategy {
 	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
 	hook_orderExecuted(instrument, label, trader, time, qty, price) {}
 	hook_orderCancelled(instrument, label, trader, time) {}
+	hook_orderCancelFailed(instrument, label, trader, time) {}
 	hook_dismissQuote(instrument, label, trader) {}
 	hook_traderBalance(trader, instrument, amount, lastprice, value, liquidation, time, extra) {}
 	hook_traderNLV(trader, nlv, extra) {}
@@ -272,6 +273,9 @@ class StrategyClient extends WorkerClient {
 	}
 	hook_orderCancelled(...args) {
 		this.sendQuery('hook_orderCancelled', ...args);
+	}
+	hook_orderCancelFailed(...args) {
+		this.sendQuery('hook_orderCancelFailed', ...args);
 	}
 	hook_dismissQuote(...args) {
 		this.sendQuery('hook_dismissQuote', ...args);
