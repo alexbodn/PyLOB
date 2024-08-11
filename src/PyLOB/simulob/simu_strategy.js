@@ -12,6 +12,22 @@ class SimuStrategy {
 	}
 	
 	static strategyBuildDialog = (key, strategy, dates) => {
+		function strategyReset(e) {
+			let charts = `span[data-search-tag^="${key}/"]`;
+			sqlConsole.mainForm
+				.querySelectorAll(charts)
+				.forEach(
+					chartTab => {
+						sqlConsole.tabClose(chartTab);
+					}
+				);
+			sqlConsole.logClear();
+		}
+		function strategyClose(e) {
+			strategyReset(e);
+			sqlConsole.tabClose(strategyTab);
+		}
+		
 		let strategyTab = sqlConsole.tabSearch(key), strategyDialog;
 		if (!strategyTab) {
 			const datesList = dates
@@ -20,12 +36,17 @@ class SimuStrategy {
 			[strategyTab, strategyDialog] = sqlConsole.createTab(
 				key, `
 				<div class="buttons" style="float: inline-start; width: 10%;">
-					<button class="run" autofocus="autofocus">run</button>
-					<button class="stop">stop</button>
+					<button class="run" autofocus="autofocus">run ▶️</button>
+					<button class="pause">pause ⏸️</button>
+					<button class="resume">resume ⏯️</button>
+					<button class="stop">stop ⏹️</button>
 					<button class="close">close</button>
-					<button class="copy-config">copy</button>
-					<button class="paste-config">paste</button>
-					<button class="reset-config">reset</button>
+					<button class="reset">reset 🧹</button>
+					<button class="debug-start">debug 👾</button>
+					<button class="debug-stop"><strike>debug 👾</strike></button>
+					<button class="copy-config">copy config</button>
+					<button class="paste-config">paste config</button>
+					<button class="reset-config">reset config</button>
 				</div>
 				<div class="config" style="float: inline-start; width: 50%"></div>
 				<div style="float: inline-start; width: 10%;">
@@ -43,12 +64,15 @@ class SimuStrategy {
 		strategy.showConfig();
 		strategy.dialog.querySelector('button.close').addEventListener(
 			'click',
-			e => {
-				if (window.strategyClass === strategy) {
-					window.strategyClass = null;
-				}
+			strategyClose
+			/*e => {
+				strategyReset(e);
 				sqlConsole.tabClose(strategyTab);
-			}
+			}*/
+		);
+		strategy.dialog.querySelector('button.reset').addEventListener(
+			'click',
+			strategyReset
 		);
 		strategy.dialog.querySelector('button.run').addEventListener(
 			'click',
@@ -59,15 +83,24 @@ class SimuStrategy {
 				sob.init(strategy.name, defaults).then(
 					obj => {
 						//sqlConsole.setDb(sob.db);
-						sob.run(dates);
+						strategy.dialog.querySelector('button.pause').addEventListener(
+							'click', e => {sob.pause();});
+						strategy.dialog.querySelector('button.resume').addEventListener(
+							'click', e => {sob.pause(false);});
+						strategy.dialog.querySelector('button.debug-start').addEventListener(
+							'click', e => {sob.setDebug();});
+						strategy.dialog.querySelector('button.debug-stop').addEventListener(
+							'click', e => {sob.setDebug(false);});
 						strategy.dialog.querySelector('button.stop').addEventListener(
 							'click', e => {sob.close();});
 						strategy.dialog.querySelector('button.close').addEventListener(
 							'click', e => {
 								sob.close();
-								sqlConsole.tabClose(strategyTab);
+								strategyClose(e);
+//								sqlConsole.tabClose(strategyTab);
 							}
 						);
+						sob.run(dates);
 					}
 				);
 			}
@@ -88,7 +121,6 @@ class SimuStrategy {
 			}
 		);
 		sqlConsole.tabActivate(strategyTab);
-		window.strategyClass = strategy;
 	}
 	
 	static strategyChoice(sqlConsole, dates) {

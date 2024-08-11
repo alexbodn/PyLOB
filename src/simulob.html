@@ -25,13 +25,13 @@
 	<style>
 		.warning, .error {color: red}
 		.error {background-color: yellow}
-		.lob-header * {
+		.lob-header > * {
 			float: left;
 		}
-
-		table#buttons td {
-			padding-left: 15px;
-			padding-right: 15px;
+		.lob-header {
+			overflow:hidden;
+			width:100%;
+			height:100%;
 		}
 	</style>
 	<style>
@@ -43,40 +43,23 @@
 </head>
 <body>
 	<h1>simulob</h1>
-	<div style="float0: left;">
-	<div>
+	<div class="lob-header">
 		<div>
-		<h3 class="lob-header">
-			<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
-			<img id="paused" src="./paused.png" style="display: none; height: 20px;" />
-			<span>NLV</span>
-			<span id="nlv"></span>
-		</h3>
+			<h3 class="lob-header">
+				<img id="loading" src="./loading.png" style="display: none; height: 20px;" />
+				<img id="paused" src="./paused.png" style="display: none; height: 20px;" />
+				<span>NLV</span>
+				<span id="nlv"></span>
+			</h3>
 		</div>
-		<table>
-			<tbody id="balance"></tbody>
-		</table>
-	</div>
-	<div>
-	<table>
-		<tbody id="status"></tbody>
-	</table>
-	</div>
-	</div>
-	<div class="clear"></div>
-	<div>
-	<table id="buttons" style="display: none">
-		<tbody>
-		<tr>
-			<td><input value="👾" title="debug" id="debug" type="button" onclick="sob.setDebug();" /></td>
-			<td><button title="stop debug" id="stop-debug" onclick="sob.setDebug(false);"><strike>👾</strike></button></td>
-			<td><input value="🧹" title="reset" id="pause" type="button" onclick="simuReset();" /></td>
-			<td><input value="⏸️" title="pause" id="pause" type="button" onclick="sob.pause();" /></td>
-			<td><input value="⏹️" title="stop" id="stop" type="button" onclick="simuStop();" /></td>
-			<td><input value="▶️" title="run" id="run" type="button" onclick="simuPlay();" /></td>
-		</tr>
-		</tbody>
-	</table>
+		<div>
+			<table>
+				<tbody id="balance"></tbody>
+			</table>
+			<table>
+				<tbody id="status"></tbody>
+			</table>
+		</div>
 	</div>
 	<div id="sqlQuery" class="sqlQuery"></div>
 	
@@ -109,9 +92,6 @@
 	</script>
 	<script>
 		try {
-			let buttons = document.querySelector("#buttons");
-			buttons.style.display = 'table';
-			
 			// loading strategies
 			Promise.all(
 				strategies.map(strategy => {
@@ -126,49 +106,6 @@
 		catch(e){
 			warn("Exception:",e.message);
 		}
-	</script>
-	<script>
-	function simuReset() {
-		let tabs = Array.from(
-			document.querySelectorAll('span.tab-close'), 
-			x => x.closest('span[data-search-tag]'));
-		console.log();
-		tabs.concat(sqlConsole.tabSearch('schema')).forEach(tab => {sqlConsole.tabClose(tab)})
-	}
-	
-	function simuStop() {
-		if (window.sob) {
-			sob.close();
-			window.sob = undefined;
-		}
-	}
-	function simuPlay() {
-		if (window.sob && sob.dopause) {
-			sob.pause(false);
-		}
-		else {
-			simuStop();
-			runsob(oo);
-		}
-	}
-	function runsob(oo) {
-		if (!window.strategyClass) {
-			alert('please activate one of the strategies');
-			return;
-		}
-		const simuLocation = new URL('PyLOB/simulob', window.location.href);
-		window.sob = new SimuLOB(
-			oo, simuLocation,
-			new SimuForwarder()
-		);
-		window.sob.init(window.strategyClass).then(
-			obj => {
-				window.sqlConsole.setDb(sob.db);
-				
-				window.sob.run(dates);
-			}
-		);
-	}
 	</script>
 	<!--script>window.eruda && (eruda._isInit || eruda.init());</script-->
 </body>

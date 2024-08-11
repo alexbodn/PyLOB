@@ -27,11 +27,11 @@ long_line_behaviour=1
 long_line_column=80
 
 [files]
-current_page=3
-FILE_NAME_0=13809;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
-FILE_NAME_1=183;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
-FILE_NAME_2=4751;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
-FILE_NAME_3=14726;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fpeakswinger.js;0;4
+current_page=1
+FILE_NAME_0=8143;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimulob.js;0;4
+FILE_NAME_1=570;HTML;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fsimulob.html;0;4
+FILE_NAME_2=2766;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsimu_strategy.js;0;4
+FILE_NAME_3=14456;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fpeakswinger.js;0;4
 FILE_NAME_4=3290;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fjslob2.html;0;4
 FILE_NAME_5=1468;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fstrategies%2Fgood-swinger.js;0;4
 FILE_NAME_6=34013;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Forderbook.js;0;4
@@ -43,18 +43,12 @@ FILE_NAME_11=2293;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Ffile-read.cbl;0;
 FILE_NAME_12=401;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fexample.js;0;4
 FILE_NAME_13=1142;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fworker2.js;0;4
 FILE_NAME_14=1580;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Fsub-recursive.cbl;0;4
-FILE_NAME_15=0;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Ftrade_fulfills.sql;0;4
-FILE_NAME_16=6193;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Forderbook.sql;0;4
-FILE_NAME_17=248;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Finsert_trade.sql;0;4
-FILE_NAME_18=499;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Fmatches.sql;0;4
-FILE_NAME_19=0;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Fbest_quotes_order.sql;0;4
-FILE_NAME_20=0;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Fbest_quotes.sql;0;4
-FILE_NAME_21=8;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Fcheck_active_order.sql;0;4
-FILE_NAME_22=426;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Fsub-global.cbl;0;4
-FILE_NAME_23=554;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Fsub-module.cbl;0;4
-FILE_NAME_24=227;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Fsub-function.cbl;0;4
-FILE_NAME_25=1;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Fquote_update.sql;0;4
-FILE_NAME_26=29;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Fquote_dismiss.sql;0;4
+FILE_NAME_15=426;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Fsub-global.cbl;0;4
+FILE_NAME_16=554;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Fsub-module.cbl;0;4
+FILE_NAME_17=227;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Fsub-function.cbl;0;4
+FILE_NAME_18=1;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Fquote_update.sql;0;4
+FILE_NAME_19=29;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Fquote_dismiss.sql;0;4
+FILE_NAME_20=56130;Javascript;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2Fnode_modules%2Fsqlitexplorer%2Flib%2Fsqlitexplorer.js;0;4
 
 [VTE]
-last_dir=/home/alex/python3/PyLOB/src/PyLOB/simulob
+last_dir=/home/alex/python3/PyLOB/src
