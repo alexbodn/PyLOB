@@ -1,12 +1,14 @@
 
 PRAGMA foreign_keys=on;
 PRAGMA recursive_triggers=1;
+PRAGMA cell_size_check=on;
+PRAGMA cache_spill=off;
 
 begin transaction;
 
 create table if not exists trader (
     tid integer not null primary key,
-    name text,
+    name text unique,
     currency text default('USD'),
     -- commission calculations in the currency of the instrument
     commission_per_unit real default(0),
@@ -14,7 +16,7 @@ create table if not exists trader (
     commission_max_percnt real default(0),
     allow_self_matching integer default(0),
     foreign key(currency) references instrument(symbol)
-) -- strict
+) STRICT
 ;
 
 create table if not exists instrument (
@@ -30,7 +32,7 @@ create table if not exists instrument (
 		references instrument(symbol)
 		on DELETE restrict
 		on UPDATE cascade
-) -- strict
+) STRICT
 ;
 
 create trigger if not exists instrument_update_lock
@@ -60,7 +62,7 @@ create table if not exists cash_balance (
     primary key(trader, currency),
     foreign key(trader) references trader(tid),
     foreign key(currency) references instrument(symbol)
-) -- strict
+) STRICT
 ;
 
 create table if not exists trader_balance (
@@ -72,7 +74,7 @@ create table if not exists trader_balance (
     primary key(trader, instrument),
     foreign key(trader) references trader(tid),
     foreign key(instrument) references instrument(symbol)
-) -- strict
+) STRICT
 ;
 
 -- todo change of commission should update balance
@@ -83,7 +85,7 @@ create table if not exists commission (
 	amount real,
 	unique(order_id, name) on conflict replace,
 	foreign key (order_id) references trade_order(order_id)
-) -- strict
+) STRICT
 ;
 
 create table if not exists side (
@@ -91,7 +93,7 @@ create table if not exists side (
     matching text,
     matching_order integer,
     foreign key (matching) references side(side)
-) -- strict
+) STRICT
 ;
 
 insert into side (side, matching, matching_order) 
@@ -139,7 +141,7 @@ create table if not exists trade_order (
     foreign key(condition) references event_condition(condition),
     foreign key(instrument) references instrument(symbol),
     foreign key(currency) references instrument(symbol)
-) -- STRICT
+) STRICT
 ;
 
 create index if not exists order_priority 
@@ -308,7 +310,7 @@ create table if not exists trade (
     idNum integer, -- external supplied, optional
     foreign key(bid_order) references trade_order(order_id),
     foreign key(ask_order) references trade_order(order_id)
-) -- STRICT
+) STRICT
 ;
 
 create trigger if not exists trade_lock

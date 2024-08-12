@@ -778,9 +778,10 @@ class OrderBook {
 			for (let row of trade_fulfills) {
 				fulfills.push(row);
 				let color = row.side == 'ask' ? 'red' : 'mediumblue';
+				let action = row.side == 'bid' ? 'BOUGHT' : 'SOLD';
 				this.order_log(
 					this.time, row.order_id, 'fulfill_order',
-					`<u style="color: ${color}">FULFILL</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
+					`fulfill: <u style="color: ${color}">${action}</u> ${row.fulfilled} / ${row.qty} @${price}. fee: ${row.commission}`, db
 				);
 			}
 			let trade_balance_updates = this.orderBalance(
