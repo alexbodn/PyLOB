@@ -202,7 +202,7 @@ class SimuStrategy {
 	hook_beforeUpdateChart(chartLabel) {}
 	hook_afterTicks(chartLabel, lastTime) {}
 	hook_newChartStart(chartLabel, firstTime) {}
-	hook_orderSent(instrument, label, tid, price, qty) {}
+	hook_orderSent(instrument, label, tid, price, qty, idNum) {}
 	hook_tickLastPrice(instrument, price, time) {}
 	hook_tickMidPoint(instrument, midPoint, time) {}
 	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}

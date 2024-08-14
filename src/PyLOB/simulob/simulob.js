@@ -413,6 +413,7 @@ this.logobj('get balance', instrument, extra);
 				label = quote.label;
 				let instrument = quote.instrument;
 				simu.processQuote(quote);
+this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.length});
 			}
 			if (this.ticks.length) {
 				let tick = this.ticks.shift();
@@ -527,7 +528,7 @@ this.logobj('get balance', instrument, extra);
 				this.simu_queries.quote_getnum),
 			rowMode: 'object',
 			callback: row => {
-				ret = row.idNum;
+				ret = row;
 			}
 		});
 		return ret;
@@ -642,11 +643,11 @@ console.log('dismiss', idNum);
 		return quote;
 	}
 	
-	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false}) {
+	processQuote({trader, instrument, label, side, qty, price=null, isPrivate=false, cancelQuote=false, idNum=null}) {
 		let quote = this.quoteGet(trader, instrument, label, 'sent');
 		if (cancelQuote) {
-			if (quote) {
-				super.cancelOrder(quote.idNum);
+			if (quote && quote.order_id) {
+				this.cancelOrder(null, null, {quote: quote.order_id});
 				return quote.idNum;
 			}
 			else {
@@ -665,7 +666,6 @@ console.log('dismiss', idNum);
 				this.order_names[quote.idNum] = [instrument, label];
 			}
 			this.quoteSave(label, quote, 'saved'); //todo is this needed?
-			///quote.fulfilled = 0;
 			this.processOrder(quote, true, false, isPrivate);
 		}
 		else {
@@ -686,9 +686,9 @@ console.log('dismiss', idNum);
 	}
 	
 	cancelQuote(trader, instrument, label) {
-		let idNum = this.quoteGetNum(trader, instrument, label);
-		if (idNum !== null) {
-			super.cancelOrder(idNum);
+		let nums = this.quoteGetNum(trader, instrument, label);
+		if (nums && nums.order_id) {
+			this.cancelOrder(null, null, {order_id});
 		}
 	}
 	
@@ -724,7 +724,7 @@ console.log('dismiss', idNum);
 		}
 		quote.status = 'sent';
 		this.quoteUpdate(quote);
-		this.strategy.hook_orderSent(instrument, label, quote.tid, quote.price, quote.qty);
+		this.strategy.hook_orderSent(instrument, label, quote.tid, quote.price, quote.qty, idNum);
 		this.chartPushTicks(
 			label,
 			{x: quote.timestamp, y: quote.price},

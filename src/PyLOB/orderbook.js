@@ -903,14 +903,17 @@ class OrderBook {
 		this.receiver.orderExecuted(idNum, trader, time, qty, price);
 	}
 	
-	cancelOrder(idNum, time, {comment=null}={}) {
+	cancelOrder(idNum, time, {comment=null, order_id=null}={}) {
 		time = this.updateTime(time);
 		this.db.transaction(
 			D => {
 				let active = D.exec({
 					sql: this.queries.find_active_order,
 					bind: prepKeys(
-						{idNum},
+						{
+							idNum,
+							order_id,
+						},
 						this.queries.find_active_order),
 					rowMode: 'object',
 				});
@@ -983,7 +986,7 @@ class OrderBook {
 		return side;
 	}
 
-	modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null}={}) {
+	modifyOrder(idNum, orderUpdate, time, verbose=false, isPrivate=false, {comment=null, order_id=null}={}) {
 		let matches = [];
 		let updateSide, updatePrice;
 		this.db.transaction(
@@ -991,7 +994,10 @@ class OrderBook {
 				let active = D.exec({
 					sql: this.queries.find_active_order,
 					bind: prepKeys(
-						{idNum},
+						{
+							idNum,
+							order_id,
+						},
 						this.queries.find_active_order),
 					rowMode: 'object',
 				});

@@ -1,6 +1,8 @@
 
-PRAGMA foreign_keys=1;
+PRAGMA foreign_keys=on;
 PRAGMA recursive_triggers=1;
+PRAGMA cell_size_check=on;
+PRAGMA cache_spill=off;
 
 begin transaction;
 
