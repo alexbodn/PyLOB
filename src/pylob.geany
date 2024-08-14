@@ -49,7 +49,7 @@ FILE_NAME_17=405;COBOL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fcobol%2Fsub-function.cbl;
 FILE_NAME_18=0;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Finsert_order.sql;0;4
 FILE_NAME_19=105;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsql%2Forderbook.sql;0;4
 FILE_NAME_20=0;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Fquote_insert.sql;0;4
-FILE_NAME_21=190;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Fsimulob.sql;0;4
+FILE_NAME_21=1648;SQL;0;EUTF-8;1;1;0;%2Fhome%2Falex%2Fpython3%2FPyLOB%2Fsrc%2FPyLOB%2Fsimulob%2Fsql%2Fsimulob.sql;0;4
 
 [VTE]
-last_dir=/home/alex/python3/PyLOB/src/PyLOB/simulob
+last_dir=/home/alex/python3/PyLOB/src/PyLOB/simulob/sql

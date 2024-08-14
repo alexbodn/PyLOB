@@ -11,12 +11,12 @@ create table if not exists requests (
     reqId integer not null,
     extra text,
     primary key (subject, reqId)
-);
+) STRICT;
 
 create table if not exists trading_template (
     instrument text not null primary key,
     price real not null
-);
+) STRICT;
 
 create table if not exists template_level (
     instrument text not null,
@@ -30,7 +30,7 @@ create table if not exists template_level (
         references trading_template (instrument)
         on DELETE cascade
         on UPDATE cascade
-);
+) STRICT;
 
 create table if not exists trader_quotes (
     trader integer not null,
@@ -48,7 +48,7 @@ create table if not exists trader_quotes (
     --,
     --foreign key(trader) references trader(tid),
     --foreign key(instrument) references instrument(symbol)
-);
+) STRICT;
 
 create unique index if not exists trader_quotes_ix
 	on trader_quotes (trader, instrument, label);
