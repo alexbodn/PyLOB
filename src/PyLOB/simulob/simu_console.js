@@ -868,7 +868,7 @@ class SimuConsole extends SimuReceiver {
 						},
 					);
 					console.timeEnd(timeLabel);
-					let quotes = await this.lobClient.quoteGetAll(
+					let quotes = await this.lobClient.quoteGetAllGrouped(
 						this.config.trader_tid, this.config.instrument, null, 'sent');
 					for (let [label, quote] of Object.entries(quotes)) {
 						if (!quote) {

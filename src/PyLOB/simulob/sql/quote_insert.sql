@@ -1,15 +1,20 @@
 
 insert into trader_quotes 
-    (trader, instrument, side, label, quote, price, qty, fulfilled, idNum, order_id, [status])
-values (:trader, :instrument, :side, :label, :quote, :price, :qty, :fulfilled, :idNum, :order_id, :status)
-on conflict (trader, instrument, label) -- where expr
+	(trader, instrument, side, qty, price, label, fulfilled, [quote], order_id, [status], [timestamp], idNum)
+values (:trader, :instrument, :side, :qty, :price, :label, :fulfilled, :quote, :order_id, :status, :timestamp, :idNum)
+on conflict (idNum)
 do update
-    set quote=:quote,
-        price=:price,
-        qty=:qty,
-        fulfilled=:fulfilled,
-        idNum=:idNum,
-        order_id=:order_id,
-        [status]=:status
-where trader=:trader and instrument=:instrument and label=:label
+	set
+		trader=:trader,
+		instrument=:instrument,
+		side=:side,
+		qty=:qty,
+		price=:price,
+		label=:label,
+		fulfilled=:fulfilled,
+		[quote]=:quote,
+		order_id=:order_id,
+		[status]=:status,
+		[timestamp]=:timestamp
+where idNum=:idNum
 ;

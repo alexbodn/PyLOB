@@ -1,5 +1,5 @@
 
-select trader, instrument, label, quote, price, qty, fulfilled
+select trader, instrument, label, [quote], price, qty, fulfilled, idNum, order_id
 from trader_quotes
 where
     trader=:trader and

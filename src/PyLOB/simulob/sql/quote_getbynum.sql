@@ -1,5 +1,5 @@
 
-select trader, instrument, label, [quote]
+select trader, instrument, label, [quote], idNum, order_id
 from trader_quotes
-where idNum=:idNum
+where idNum=:idNum or order_id=:order_id
 ;
