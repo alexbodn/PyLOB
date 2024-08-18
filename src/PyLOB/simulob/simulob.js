@@ -651,7 +651,7 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 	}
 
 	quoteDismiss(idNum, db) {
-console.log('dismiss', idNum);
+//console.log('quoteDismiss', idNum);
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_dismiss,
 			bind: prepKeys(
@@ -769,7 +769,7 @@ console.log('dismiss', idNum);
 		let order, label, quote;
 		this.simu_db.transaction(D => {
 			order = this.quoteGetByNum(null, D, order_id);
-console.log('dismissQuote', order);
+//console.log('dismissQuote', order);
 			if (!order) {
 				this.findOrder(null, null, order_id).then((info) => {
 					console.error('dismissed order not found', order_id, info);
@@ -876,7 +876,7 @@ console.table(this.quoteGetAll(trader));
 			return;
 		}
 		let {instrument, label} = order;
-console.log('cancelled', label, order_id);
+//console.log('orderCancelled', label, order_id);
 		this.dismissQuote(order_id);
 		this.strategy.hook_orderCancelled(instrument, label, trader, time);
 		this.chartPushTicks('cancelled', {x: time, y: null});

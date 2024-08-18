@@ -905,7 +905,7 @@ class OrderBook {
 	
 	cancelOrder(idNum, time, {comment=null, order_id=null}={}) {
 		time = this.updateTime(time);
-console.warn(idNum, time, order_id);
+//console.warn('cancelOrder', idNum, time, order_id);
 		this.db.transaction(
 			D => {
 				let active = D.exec({
