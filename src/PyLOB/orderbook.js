@@ -1533,12 +1533,6 @@ class OrderBook {
 	}
 };
 
-/*
-export {
-  OrderBook
-};
-*/
-
 class LOBReceiver extends WorkerReceiver {
 	constructor({defaultCallback=null, receipts={}, defaultForwarder=null, forwards={}}={}) {
 		super({
@@ -1671,3 +1665,12 @@ class LOBClient extends WorkerClient {
 	//	return this.receiver('logobj', ...args);
 	}
 };
+
+if (typeof module !== 'undefined') {
+	module.exports = {
+		OrderBook,
+		LOBReceiver,
+		LOBForwarder,
+		LOBClient,
+	};
+}

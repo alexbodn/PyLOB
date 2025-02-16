@@ -322,5 +322,10 @@ class StrategyClient extends WorkerClient {
 };
 
 if (typeof module !== 'undefined') {
-	module.exports = {SimuStrategy};
+	module.exports = {
+		SimuStrategy,
+		StrategyReceiver,
+		StrategyForwarder,
+		StrategyClient,
+	};
 }

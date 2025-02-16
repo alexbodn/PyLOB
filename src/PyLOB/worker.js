@@ -293,3 +293,10 @@ class WorkerClient {
 	}
 };
 
+if (typeof module !== 'undefined') {
+	module.exports = {
+		WorkerPerformer,
+		WorkerReceiver,
+		WorkerClient,
+	};
+}
