@@ -733,7 +733,7 @@ class SimuConsole extends SimuReceiver {
 		}
 		let data = this.chartData(label, chartLabel);
 		if (data && ticks.length) {
-			if (data.length && data.at(-1).sentinel) {
+			if (data.length > 1 && data.at(-1).sentinel) {
 				data.pop();
 			}
 			data.push(...ticks);
@@ -869,7 +869,7 @@ class SimuConsole extends SimuReceiver {
 					);
 					console.timeEnd(timeLabel);
 					let quotes = await this.lobClient.quoteGetAllGrouped(
-						this.config.trader_tid, this.config.instrument, null, 'sent');
+						this.config.trader_tid, this.config.instrument, null, 'open');
 					for (let [label, quote] of Object.entries(quotes)) {
 						if (!quote) {
 							continue;
