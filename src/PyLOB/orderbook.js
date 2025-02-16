@@ -224,6 +224,7 @@ class OrderBook {
 		'find_active_order',
 		'check_active_order',
 		'insert_order',
+		'insert_cancelled_order',
 		'order_info',
 		'trader_insert',
 		'trader_transfer',
@@ -336,12 +337,13 @@ class OrderBook {
 		return ret;
 	}
 	
-	findOrderReq(reqId, idNum, order_id) {
-		let found = this.findOrder(idNum, null, order_id);
-		this.receiver.findOrderResp(reqId, found);
+	findOrderReq(reqId, {idNum, order_id}) {
+		this.findOrder({idNum, order_id}).then(found => {
+			this.receiver.findOrderResp(reqId, found);
+		});
 	}
 	
-	findOrder(idNum, db, order_id) {
+	async findOrder({idNum=null, order_id=null}, db) {
 		let found = (db || this.db).exec({
 			sql: this.queries.find_order,
 			bind: prepKeys(
@@ -600,13 +602,23 @@ class OrderBook {
 		return quote;
 	}
 	
-	processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
+	async processOrder(quote, fromData, verbose=false, isPrivate=false, {comment=null}={}) {
 		//todo implement condition as event, and fire at event
 		quote = {
 			...quote,
 			timestamp: this.updateTime(quote.timestamp),
 		};
-		if (!fromData) {
+		if (quote.idNum) {
+			let order = await this.findOrder({idNum: quote.idNum});
+			if (order?.cancel) {
+				this.orderRejected(quote.idNum, 'order already cancelled');
+			}
+			else if (order) {
+				console.log(order);
+				throw new Error(`processOrder(${quote.idNum}) order already in system`);
+			}
+		}
+		else if (!fromData) {
 			quote.idNum = this.quoteNum();
 		}
 		if (!quote.instrument) {
@@ -663,9 +675,9 @@ class OrderBook {
 				quote.instrument, this.db, 'last'+quote.side, quote.price);
 		}
 		queueMicrotask(() => {
-			this.orderSent(
+			this.orderOpen(
 				quote.idNum,
-				Object.assign({status: 'sent'}, quote)
+				Object.assign({}, quote)
 			);
 		});
 		if (matches.some(match => match.length > 0)) {
@@ -676,7 +688,7 @@ class OrderBook {
 	}
 	
 	commissionCalc(trader, qty, price, currency, db) {
-		let ret = null;
+		let commission = null;
 		(db || this.db).exec({
 			sql: this.queries.commission_calc,
 			bind: prepKeys({
@@ -686,13 +698,13 @@ class OrderBook {
 				currency: currency || null,
 			}, this.queries.commission_calc),
 			rowMode: 'object',
-			callback: row => {ret = row.commission}
+			callback: row => {commission = row.commission}
 		});
-		return ret;
+		return commission;
 	}
 	
 	commissionData(trader, currency, db) {
-		let ret = null;
+		let data = null;
 		(db || this.db).exec({
 			sql: this.queries.commission_data,
 			bind: prepKeys({
@@ -701,10 +713,10 @@ class OrderBook {
 			}, this.queries.commission_data),
 			rowMode: 'object',
 			callback: row => {
-				ret = {...row};
+				data = {...row};
 			}
 		});
-		return ret;
+		return data;
 	}
 	
 	processMatches(quote, justquery, db, verbose) {
@@ -882,8 +894,8 @@ class OrderBook {
 	*/
 	//openOrder on IB
 	//todo should provide order_id
-	orderSent(idNum, quote) {
-		return this.receiver.orderSent(idNum, quote);
+	orderOpen(idNum, quote) {
+		return this.receiver.orderOpen(idNum, quote);
 	}
 	
 	/*
@@ -903,9 +915,9 @@ class OrderBook {
 		this.receiver.orderExecuted(order_id, trader, time, qty, price);
 	}
 	
-	cancelOrder(idNum, time, {comment=null, order_id=null}={}) {
+	cancelOrder({idNum=null, order_id=null}, time, {comment=null, trader=null}={}) {
 		time = this.updateTime(time);
-//console.warn('cancelOrder', idNum, time, order_id);
+//console.warn('cancelOrder', {idNum, order_id}, time);
 		this.db.transaction(
 			D => {
 				let active = D.exec({
@@ -929,25 +941,48 @@ class OrderBook {
 					});
 					this.order_log(time, order_id, 'cancel_order', '<u>CANCEL</u> <s>@@order@@</s>', D);
 					queueMicrotask(() => {
-						this.orderCancelled(order_id, trader, time);
+						this.orderCancelled({order_id}, trader, time);
 					});
 				}
 				if (!active.length) {
-					queueMicrotask(() => {
-						this.orderCancelFailed(order_id, time);
-					});
+					// prevent order in advance
+					try {
+						D.exec({
+							sql: this.queries.insert_cancelled_order,
+							bind: prepKeys(
+								{idNum},
+								this.queries.insert_cancelled_order),
+						});
+						let last = D.exec({
+							sql: this.queries.lastorder,
+							rowMode: 'object',
+						});
+						for (let res of last) {
+							let order_id = res.lastorder;
+							this.order_log(
+								time, order_id, 'cancel_order', '<u>CANCEL</u> in advance', D);
+							queueMicrotask(() => {
+								this.orderCancelled({idNum}, trader, time);
+							});
+						}
+					}
+					catch(error) {
+						queueMicrotask(() => {
+							this.orderCancelFailed({idNum}, time);
+						});
+					}
 				}
 			}
 		);
 	}
 
-	orderCancelled(order_id, trader, time) {
-		return this.receiver.orderCancelled(order_id, trader, this.time);
+	orderCancelled({idNum, order_id}, trader, time) {
+		return this.receiver.orderCancelled({idNum, order_id}, trader, this.time);
 	}
 	
-	orderCancelFailed(order_id, time) {
+	orderCancelFailed({idNum, order_id}, time) {
 		this.logobj(`order CANCEL FAILED #${order_id} not found or not active`);
-		return this.receiver.orderCancelFailed(order_id, this.time);
+		return this.receiver.orderCancelFailed({idNum, order_id}, this.time);
 	}
 	
 	betterPrice(side, price, comparedPrice) {
@@ -1053,7 +1088,7 @@ class OrderBook {
 		}
 		if (updateSide) {
 			queueMicrotask(() => {
-				this.orderSent(idNum, orderUpdate);
+				this.orderOpen(idNum, orderUpdate);
 			});
 			if (matches.some(match => match.length > 0)) {
 				//console.log('modified', orderUpdate);
@@ -1563,12 +1598,12 @@ class LOBReceiver extends WorkerReceiver {
 	}
 	traderBalance(extra, {trader, instrument, amount, lastprice, value, liquidation, time}) {}
 	traderNLV(extra, {trader, nlv}) {}
-	orderSent(idNum, quote) {}
+	orderOpen(idNum, quote) {}
 	orderRejected(idNum, why) {}
 	orderFulfill(order_id, trader, qty, fulfilled, commission, avgPrice) {}
 	orderExecuted(order_id, trader, time, qty, price) {}
-	orderCancelled(order_id, trader, time) {}
-	orderCancelFailed(order_id, time) {}
+	orderCancelled({idNum, order_id}, trader, time) {}
+	orderCancelFailed({idNum, order_id}, time) {}
 	tickMidPoint(instrument, midPoint, time) {}
 	tickLastPrice(instrument, lastprice, time) {}
 	tickLastBid(instrument, lastbid, time) {}
@@ -1591,7 +1626,7 @@ class LOBForwarder extends WorkerReceiver {
 				getRounderResp: null,
 				traderBalance: null,
 				traderNLV: null,
-				orderSent: null,
+				orderOpen: null,
 				orderRejected: null,
 				orderFulfill: null,
 				orderExecuted: null,

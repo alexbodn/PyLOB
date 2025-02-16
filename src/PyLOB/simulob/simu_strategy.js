@@ -202,14 +202,14 @@ class SimuStrategy {
 	hook_beforeUpdateChart(chartLabel) {}
 	hook_afterTicks(chartLabel, lastTime) {}
 	hook_newChartStart(chartLabel, firstTime) {}
-	hook_orderSent(instrument, label, tid, price, qty, idNum, order_id) {}
+	hook_orderOpen(instrument, label, tid, price, qty, idNum, order_id) {}
 	hook_tickLastPrice(instrument, price, time) {}
 	hook_tickMidPoint(instrument, midPoint, time) {}
 	hook_orderFulfill(instrument, label, trader, qty, fulfilled, commission, avgPrice) {}
 	hook_orderExecuted(instrument, label, trader, time, qty, price) {}
 	hook_orderCancelled(instrument, label, trader, time) {}
 	hook_orderCancelFailed(instrument, label, trader, time) {}
-	hook_dismissQuote(instrument, label, trader) {}
+	hook_dismissQuote(instrument, label, trader, idNum) {}
 	hook_traderBalance(trader, instrument, amount, lastprice, value, liquidation, time, extra) {}
 	hook_traderNLV(trader, nlv, extra) {}
 	
@@ -289,8 +289,8 @@ class StrategyClient extends WorkerClient {
 	hook_newChartStart(...args) {
 		this.sendQuery('hook_newChartStart', ...args);
 	}
-	hook_orderSent(...args) {
-		this.sendQuery('hook_orderSent', ...args);
+	hook_orderOpen(...args) {
+		this.sendQuery('hook_orderOpen', ...args);
 	}
 	hook_tickLastPrice(...args) {
 		this.sendQuery('hook_tickLastPrice', ...args);

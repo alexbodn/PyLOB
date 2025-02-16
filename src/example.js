@@ -212,7 +212,7 @@ function test_lob(lob, instrument, currency) {
 	
 	//# Order can be cancelled simply by submitting an order idNum
 	warn("cancelling bid for 5 @ 97..");
-	lob.cancelOrder(firstIdNum + 8);
+	lob.cancelOrder({idNum: firstIdNum + 8});
 	lob.print(instrument);
 	expected = {
 		"instrument": instrument, "forWhom": forWhom, "priceAsk": priceAsk, "priceBid": priceBid, 

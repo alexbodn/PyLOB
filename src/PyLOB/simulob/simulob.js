@@ -191,12 +191,21 @@ class SimuLOB extends OrderBook {
 		if (!(label in this.chartBuffer[chartLabel])) {
 			this.chartBuffer[chartLabel][label] = [];
 		}
+		let lastTick = ticks.at(-1);
+		if (lastTick.sentinel && ticks.length > 2) {
+			ticks = ticks.filter(tick => !tick.sentinel);
+			ticks.push(lastTick);
+		}
 		ticks.forEach(tick => {
 			if (tick.x == null) {
 				tick.x = now;
 			}
 		});
-		this.chartBuffer[chartLabel][label].push(...ticks);
+		let data = this.chartBuffer[chartLabel][label];
+		if (data.length > 1 && data.at(-1).sentinel) {
+			data.pop();
+		}
+		data.push(...ticks);
 		if (!this.updateGroups || !this.updateCounters) {
 			return;
 		}
@@ -449,7 +458,7 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 				else if (simu.valid_sides.includes(tick.label)) {
 					let trader = simu.config.market_tid;
 					quote = this.quoteGet(
-						trader, tick.instrument, tick.label, 'sent');
+						trader, tick.instrument, tick.label, 'open');
 					if (!quote) {
 						quote = this.createQuote(
 							trader,
@@ -612,7 +621,7 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 		return ret;
 	}
 
-	quoteGetByNum(idNum, db, order_id=null) {
+	quoteGetByNum({idNum=null, order_id=null}, db) {
 		let ret = null;
 		(db || this.simu_db).exec({
 			sql: this.simu_queries.quote_getbynum,
@@ -683,18 +692,18 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 	processQuote(amalgam) {
 		let {label, isPrivate=false, cancelQuote=false, ...quote} = amalgam;
 		if (cancelQuote) {
-			this.cancelOrder(quote.idNum, null, {order_id: quote.order_id});
+			this.cancelOrder(quote, null, {trader: quote.tid});
 			return quote.idNum;
 		}
 		else {
 			if (!label) {
 				label = quote.side;
 			}
-			if (!this.quoteGetByNum(quote.idNum, null, quote.order_id)) {
+			if (!this.quoteGetByNum(quote)) {
 				if (!this.valid_sides.includes(label)) {
 					this.order_names[quote.idNum] = [quote.instrument, label];
 				}
-				this.quoteSave(label, quote, 'saved');
+				this.quoteSave(label, quote, 'quoted');
 				this.processOrder(quote, true, false, isPrivate);
 			}
 			else {
@@ -703,7 +712,7 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 					qty: quote.qty,
 				};
 				let verbose = false;
-				this.quoteSave(label, quote, 'quoted'); //save only ours?
+				this.quoteSave(label, quote, 'quoted');
 				this.modifyOrder(
 					quote.idNum, update, quote.timestamp, verbose, isPrivate, {order_id: quote.order_id});
 				quote = Object.assign(quote, update);
@@ -712,14 +721,10 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 		return quote.idNum;
 	}
 	
-	async findOrder(idNum, db, order_id) {
-		return Promise.resolve(super.findOrder(idNum, db, order_id));
-	}
-	
 	cancelQuote(trader, instrument, label) {
 		let nums = this.quoteGetNum(trader, instrument, label);
 		if (nums && nums.order_id) {
-			this.cancelOrder(null, null, {order_id});
+			this.cancelOrder({order_id: nums.order_id}, null, {trader});
 		}
 	}
 	
@@ -735,14 +740,13 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 		this.processQuote(quote);
 	}
 	
-	//todo take and subsequently use order_id
-	orderSent(idNum, quote) {
+	orderOpen(idNum, quote) {
 		let instrument, label;
-		let order = this.quoteGetByNum(idNum);
+		let order = this.quoteGetByNum({idNum});
 		if (!order) {
 			if (quote?.tid == this.config.trader_tid) {
-				this.findOrder(idNum, null, quote.order_id).then((info) => {
-					console.error('sent order not found', order_id, quote, info);
+				this.findOrder({idNum, order_id: quote.order_id}).then((info) => {
+					console.error('open order not found', order_id, quote, info);
 				});
 				return;
 			}
@@ -753,9 +757,9 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 			instrument = order.instrument;
 			label = order.label || order.side;
 		}
-		quote.status = 'sent';
+		quote.status = 'open';
 		this.quoteUpdate(quote);
-		this.strategy.hook_orderSent(
+		this.strategy.hook_orderOpen(
 			instrument, label, quote.tid, quote.price, quote.qty, idNum, quote.order_id);
 		this.chartPushTicks(
 			label,
@@ -768,10 +772,10 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 	dismissQuote(order_id) {
 		let order, label, quote;
 		this.simu_db.transaction(D => {
-			order = this.quoteGetByNum(null, D, order_id);
+			order = this.quoteGetByNum({order_id}, D);
 //console.log('dismissQuote', order);
 			if (!order) {
-				this.findOrder(null, null, order_id).then((info) => {
+				this.findOrder({idNum, order_id}).then((info) => {
 					console.error('dismissed order not found', order_id, info);
 				});
 			}
@@ -784,7 +788,8 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 		if (!order) {
 			return;
 		}
-		this.strategy.hook_dismissQuote(quote.instrument, label, quote.tid);
+		this.strategy.hook_dismissQuote(
+			quote.instrument, label, quote.tid, quote.idNum);
 		this.chartPushTicks(
 			label,
 			{
@@ -821,9 +826,9 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 		if (trader != this.config.trader_tid) {
 			return;
 		}
-		let order = this.quoteGetByNum(null, null, order_id);
+		let order = this.quoteGetByNum({order_id});
 		if (!order) {
-			this.findOrder(null, null, order_id).then((info) => {
+			this.findOrder({idNum, order_id}).then((info) => {
 				console.error('fulfilled quote not found', order_id, info);
 			});
 			return;
@@ -840,9 +845,9 @@ this.logobj({time: this.dtFormat(this.getTime()), quote, qlen: this.quotesQueue.
 		if (trader != this.config.trader_tid) {
 			return;
 		}
-		let order = this.quoteGetByNum(null, null, order_id);
+		let order = this.quoteGetByNum({order_id});
 		if (!order) {
-			this.findOrder(null, null, order_id).then((info) => {
+			this.findOrder({idNum, order_id}).then((info) => {
 				console.error('executed quote not found', order_id, info);
 console.table(this.quoteGetAll(trader));
 			});
@@ -864,28 +869,35 @@ console.table(this.quoteGetAll(trader));
 		this.chartPushTicks(branch, tick);
 	}
 	
-	orderCancelled(order_id, trader, time) {
+	orderCancelled({idNum, order_id}, trader, time) {
 		if (trader != this.config.trader_tid) {
 			return;
 		}
-		let order = this.quoteGetByNum(null, null, order_id);
+		let order = this.quoteGetByNum({idNum, order_id});
 		if (!order) {
-			this.findOrder(null, null, order_id).then((info) => {
+			this.findOrder({idNum, order_id}).then((info) => {
 				console.error('cancelled order not found', order_id, info);
 			});
 			return;
 		}
 		let {instrument, label} = order;
 //console.log('orderCancelled', label, order_id);
-		this.dismissQuote(order_id);
+		if (order_id) {
+			this.dismissQuote(order_id);
+		}
+		else {
+			this.quoteDismiss(idNum);
+		}
 		this.strategy.hook_orderCancelled(instrument, label, trader, time);
-		this.chartPushTicks('cancelled', {x: time, y: null});
+		if (order_id) {
+			this.chartPushTicks('cancelled', {x: time, y: null});
+		}
 	}
 	
-	orderCancelFailed(order_id, time) {
-		let order = this.quoteGetByNum(null, null, order_id);
+	orderCancelFailed({idNum, order_id}, time) {
+		let order = this.quoteGetByNum({idNum, order_id});
 		if (!order) {
-			this.findOrder(null, null, order_id).then((info) => {
+			this.findOrder({idNum, order_id}).then((info) => {
 				console.error('cancel_failed order not found', order_id, info);
 			});
 			return;
@@ -895,9 +907,16 @@ console.table(this.quoteGetAll(trader));
 			return;
 		}
 console.log('cancel_failed', label, order_id);
-		this.dismissQuote(order_id);
+		if (order_id) {
+			this.dismissQuote(order_id);
+		}
+		else {
+			this.quoteDismiss(idNum);
+		}
 		this.strategy.hook_orderCancelFailed(instrument, label, trader, time);
-		this.chartPushTicks('cancel_failed', {x: time, y: null});
+		if (order_id) {
+			this.chartPushTicks('cancel_failed', {x: time, y: null});
+		}
 	}
 	
 	orderRejected(idNum, why) {
