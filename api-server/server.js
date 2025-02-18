@@ -14,6 +14,9 @@ const fs = require('fs');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// route the static files to /client
+app.use('/client', express.static('../src'));
+
 // this is where we'll handle our various routes from
 const routes = require('./routes/routes.js')(app, fs);
 
@@ -22,6 +25,7 @@ app.memdb = memdb;
 
 
 require('../src/PyLOB/utils.js');
+importAll().from('./remote.js');
 importAll().from('./worker.js');
 importAll().from('./simulob/simu_strategy.js');
 const {OrderBook} = require('../src/PyLOB/orderbook.js');
