@@ -194,14 +194,14 @@ class SimuConsole extends SimuReceiver {
 		},
 	};
 	
-	constructor(thisLocation) {
+	constructor(thisLocation, rootPath, driver) {
 		super();
 		this.loading = document.querySelector('#loading');
 		this.paused = document.querySelector('#paused');
 		this.location = thisLocation;
-		const sqlite3Dir = '/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm';
-		this.worker_url = `${this.location}/simu_worker.js?sqlite3.dir=${sqlite3Dir}`;
-		this.lobClient = new SimuClient(this.worker_url, this);
+		const sqlite3Dir = `${rootPath}/node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm`;
+		this.worker_url = `${this.location}/simu_worker.js?sqlite3.dir=${sqlite3Dir}&rootPath=${rootPath}`;
+		this.lobClient = new SimuClient(this.worker_url, rootPath, this, driver);
 		
 		if (this.isAuthonomous) {
 			this.price_branch.push('midpoint');

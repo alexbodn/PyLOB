@@ -1,11 +1,12 @@
 'use strict';
 
-//perform work inside a remote
+// perform work inside a remote
 class RemotePerformer {
 	eventQueue = [];
 	performers = [];
 	
-	constructor(performers=[]) {
+	constructor(driver, performers=[]) {
+		this.driver = new driver.performer();
 		this.addPerformer(...performers);
 	}
 	addPerformer(...performers) {
@@ -54,15 +55,15 @@ class RemotePerformer {
 	defaultReply(data) {
 		console.log('misrouted', data);
 	}
-	send(queryMethodListener, ...queryMethodArguments) {
+	send = (queryMethodListener, ...queryMethodArguments) => {
 //console.log('RemoteSend', queryMethodListener, ...queryMethodArguments);
 		if (!queryMethodListener) {
 			throw new TypeError("performer.send - no method specified");
 		}
-		postMessage({
-			queryMethodListener,
-			queryMethodArguments,
-		});
+		this.postMessage(queryMethodListener, queryMethodArguments);
+	}
+	postMessage = (queryMethodListener, queryMethodArguments) => {
+		this.driver.postMessage(queryMethodListener, queryMethodArguments);
 	}
 	initialized() {
 		const urlParams = new URL(self.location.href).searchParams;
@@ -197,11 +198,12 @@ class RemoteReceiver {
 // create and call a remote
 class RemoteClient {
 	
-	remote = null;
 	destinations = {};
 	
-	constructor(remote_url, receiver, {destinations={}}={}) {
+	constructor(remote_url, rootPath, receiver, driver, {destinations={}}={}) {
+		this.rootPath = rootPath;
 		this.remote_url = remote_url;
+		this.driver = new driver.client(remote_url, receiver);
 		this.receiver = receiver;
 		if (receiver?.clientError) {
 			this.clientError = receiver.clientError;
@@ -246,11 +248,8 @@ class RemoteClient {
 				"sendQuery takes at least one argument",
 			);
 		}
-		this.worker.postMessage({
-			queryMethod,
-			queryMethodArguments,
-		});
-	};
+		this.postMessage(queryMethod, queryMethodArguments);
+	}
 	async sendRegistered(method, extra, ...args) {
 		let [reqId, promise] = this.receiver.getReqId('any', null, {extra, withPromise: true});
 		this.sendQuery(method, reqId, ...args);
@@ -259,33 +258,14 @@ class RemoteClient {
 	clientError(...args) {
 		console.error(...args);
 	}
+	postMessage = (queryMethod, queryMethodArguments) => {
+		return this.driver.postMessage(queryMethod, queryMethodArguments);
+	}
 	init = async () => {
-		let [initReqId, promise] = this.receiver.getReqId('any', null, {withPromise: true});
-		this.remote_url += `&initReqId=${initReqId}`;
-		this.remote = this.remote || new Worker(this.remote_url);
-		this.worker.onmessage = (event) => {
-			if (
-				event.data instanceof Object &&
-				Object.hasOwn(event.data, "queryMethodListener") &&
-				Object.hasOwn(event.data, "queryMethodArguments") &&
-				this.receiver.hasPerformer(event)
-			) {
-				this.receiver[event.data.queryMethodListener].apply(
-					this.receiver,
-					event.data.queryMethodArguments,
-				);
-			}
-			else {
-				this.clientError('received misrouted', event.data, 'from remote');
-			}
-		};
-		this.worker.onerror = this.clientError;
-		return promise;
+		return this.driver.init();
 	}
 	terminate() {
-		console.warn('terminating remote')
-		this.worker.terminate();
-		this.remote = null;
+		return this.driver.terminate();
 	}
 	close() {
 		this.terminate();

@@ -78,7 +78,7 @@ class SimuStrategy {
 			'click',
 			e => {
 				const simuLocation = new URL('PyLOB/simulob', window.location.href);
-				const sob = new SimuConsole(simuLocation);
+				const sob = new SimuConsole(simuLocation, this.rootPath, this.driver);
 				const defaults = strategy.getDialogConfig();
 				sob.init(strategy.name, defaults).then(
 					obj => {
@@ -123,9 +123,11 @@ class SimuStrategy {
 		sqlConsole.tabActivate(strategyTab);
 	}
 	
-	static strategyChoice(sqlConsole, dates) {
+	static strategyChoice(sqlConsole, dates, rootPath='', driver) {
 		let tab, tabInfo;
 		const tag = 'strategies';
+		this.rootPath = rootPath;
+		this.driver = driver;
 		tab = sqlConsole.tabSearch(tag);
 		if (!tab) {
 			let c = 0;
@@ -218,7 +220,7 @@ class SimuStrategy {
 };
 
 //receives info from strategy. forwards to simu
-class StrategyReceiver extends WorkerReceiver {
+class StrategyReceiver extends RemoteReceiver {
 	constructor(forwarder) {
 		super(forwarder);
 	}
@@ -269,10 +271,10 @@ class StrategyForwarder extends StrategyReceiver {
 	}
 };
 
-//invokes the strategy in a worker
-class StrategyClient extends WorkerClient {
-	constructor(worker_url, receiver) {
-		super(worker_url, receiver);
+//invokes the strategy in a remote
+class StrategyClient extends RemoteClient {
+	constructor(remote_url, receiver) {
+		super(remote_url, receiver);
 	}
 	async hook_afterInit() {
 		return this.sendRegistered('hook_afterInitReq');

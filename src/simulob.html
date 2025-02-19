@@ -63,7 +63,7 @@
 	</div>
 	<div id="sqlQuery" class="sqlQuery"></div>
 	
-	<script src="./PyLOB/worker.js"></script>
+	<script src="./PyLOB/remote.js"></script>
 	<script src="./PyLOB/orderbook.js"></script>
 	<!--script src="./example.js"></script-->
 	<script src="./PyLOB/simulob/simu_strategy.js"></script>
@@ -92,6 +92,7 @@
 	</script>
 	<script>
 		try {
+			let driver = require('./PyLOB/worker.js');
 			// loading strategies
 			Promise.all(
 				strategies.map(strategy => {
@@ -99,8 +100,8 @@
 					return require(`./PyLOB/simulob/strategies/${strategy}`);
 				})
 			)
-			.then(() => {
-				SimuStrategy.strategyChoice(sqlConsole, dates);
+			.then((strategies) => {
+				SimuStrategy.strategyChoice(sqlConsole, dates, '/client', driver);
 			});
 		}
 		catch(e){

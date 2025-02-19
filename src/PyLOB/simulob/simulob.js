@@ -1025,8 +1025,8 @@ class SimuForwarder extends LOBForwarder {
 };
 
 class SimuClient extends LOBClient {
-	constructor(worker_url, receiver) {
-		super(worker_url, receiver, {
+	constructor(worker_url, rootPath, receiver, driver) {
+		super(worker_url, rootPath, receiver, driver, {
 			destinations: {
 				run: destinationTypes.REGULAR,
 				strategyLoad: destinationTypes.REGISTERED,

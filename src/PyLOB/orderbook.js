@@ -1568,7 +1568,7 @@ class OrderBook {
 	}
 };
 
-class LOBReceiver extends WorkerReceiver {
+class LOBReceiver extends RemoteReceiver {
 	constructor({defaultCallback=null, receipts={}, defaultForwarder=null, forwards={}}={}) {
 		super({
 			defaultCallback,
@@ -1606,7 +1606,7 @@ class LOBReceiver extends WorkerReceiver {
 	logobj(...args) {logobj(...args);}
 };
 
-class LOBForwarder extends WorkerReceiver {
+class LOBForwarder extends RemoteReceiver {
 	constructor({defaultCallback=null, receipts={}, defaultForwarder=null, forwards={}}={}) {
 		super({
 			defaultForwarder,
@@ -1643,8 +1643,8 @@ class LOBForwarder extends WorkerReceiver {
 	}
 };
 
-class LOBClient extends WorkerClient {
-	constructor(worker_url, receiver, {destinations}) {
+class LOBClient extends RemoteClient {
+	constructor(remote_url, rootPath, receiver, driver, {destinations}) {
 		const myDestinations = {
 			setRounder: destinationTypes.REGULAR,
 			close: destinationTypes.REGULAR,
@@ -1673,7 +1673,7 @@ class LOBClient extends WorkerClient {
 			order_log_filter: destinationTypes.REGULAR,
 			order_log_show: destinationTypes.REGULAR,
 		};
-		super(worker_url, receiver, {
+		super(remote_url, rootPath, receiver, driver, {
 			destinations: Object.assign({}, myDestinations, destinations)
 		});
 	}

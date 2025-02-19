@@ -23,18 +23,22 @@
 		are simply lost, and such scripts see the self.location of
 		_this_ script.
 		*/
-		let sqlite3Js = 'sqlite3.js';
 		const urlParams = new URL(self.location.href).searchParams;
+		let rootPath = '';
+		if(urlParams.has('rootPath')){
+			rootPath = urlParams.get('rootPath');
+		}
+		let sqlite3Js = 'sqlite3.js';
 		if(urlParams.has('sqlite3.dir')){
 			sqlite3Js = `${urlParams.get('sqlite3.dir')}/${sqlite3Js}`;
 		}
 		importScripts(
 			sqlite3Js,
-			new URL('../worker.js', self.location.href),
+			new URL('../remote.js', self.location.href),
 			new URL('../orderbook.js', self.location.href),
-			'/node_modules/jszip/dist/jszip.min.js',
-			'/node_modules/papaparse/papaparse.min.js',
-			'/node_modules/luxon/build/global/luxon.js',
+			`${rootPath}/node_modules/jszip/dist/jszip.min.js`,
+			`${rootPath}/node_modules/papaparse/papaparse.min.js`,
+			`${rootPath}/node_modules/luxon/build/global/luxon.js`,
 			"../../require.js",
 			new URL('./loaddata.js', self.location.href),
 			new URL('./simu_strategy.js', self.location.href),
@@ -42,7 +46,9 @@
 			new URL('../commission.js', self.location.href),
 			new URL('./peakdet.js', self.location.href),
 		);
-		require(new URL('./strategies/peakswinger.js', self.location.href).toString()); //TODO this dynamically
+		//TODO REMOVE this
+		require(new URL('./strategies/peakswinger.js', self.location.href).toString());
+		let driver = require(new URL('../worker.js', self.location.href).toString());
 		
 		self.sqlite3InitModule({
 			// We can redirect any stdout/stderr from the module
@@ -53,7 +59,7 @@
 			console.log("Done sqlite initializing.");
 			try {
 				self.oo = sqlite3.oo1/*high-level OO API*/;
-				self.performer = new WorkerPerformer();
+				self.performer = new RemotePerformer(driver);
 				self.forwarder = new SimuForwarder(self.performer.send);
 				logHtml = function(cssClass, ...args){
 					self.performer.send('logHtml', {cssClass, args});

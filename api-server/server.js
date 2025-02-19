@@ -16,6 +16,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // route the static files to /client
 app.use('/client', express.static('../src'));
+express.static.mime.types['wasm'] = 'application/wasm';
 
 // this is where we'll handle our various routes from
 const routes = require('./routes/routes.js')(app, fs);
