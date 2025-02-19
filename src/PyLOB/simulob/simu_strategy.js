@@ -273,8 +273,8 @@ class StrategyForwarder extends StrategyReceiver {
 
 //invokes the strategy in a remote
 class StrategyClient extends RemoteClient {
-	constructor(remote_url, receiver) {
-		super(remote_url, receiver);
+	constructor(remote_url, receiver, driver) {
+		super(remote_url, receiver, driver);
 	}
 	async hook_afterInit() {
 		return this.sendRegistered('hook_afterInitReq');
