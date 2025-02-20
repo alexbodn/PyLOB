@@ -92,7 +92,8 @@
 	</script>
 	<script>
 		try {
-			let driver = require('./PyLOB/worker.js');
+			const config = require("./config.js");
+			let driver = require(`./PyLOB/${config.driver}.js`);
 			// loading strategies
 			Promise.all(
 				strategies.map(strategy => {
@@ -101,7 +102,7 @@
 				})
 			)
 			.then((strategies) => {
-				SimuStrategy.strategyChoice(sqlConsole, dates, '/client', driver);
+				SimuStrategy.strategyChoice(sqlConsole, dates, config.clientPath, driver);
 			});
 		}
 		catch(e){

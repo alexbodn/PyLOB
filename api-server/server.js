@@ -2,6 +2,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 
+const config = require('../src/config');
+
 // create an instance of express to serve our end points
 const app = express();
 
@@ -15,7 +17,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // route the static files to /client
-app.use('/client', express.static('../src'));
+app.use(config.clientPath, express.static('../src'));
 express.static.mime.types['wasm'] = 'application/wasm';
 
 // this is where we'll handle our various routes from
@@ -27,7 +29,6 @@ app.memdb = memdb;
 
 require('../src/PyLOB/utils.js');
 importAll().from('./remote.js');
-importAll().from('./worker.js');
 importAll().from('./simulob/simu_strategy.js');
 const {OrderBook} = require('../src/PyLOB/orderbook.js');
 

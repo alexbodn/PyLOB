@@ -1,5 +1,5 @@
 const { Database } = require("node-sqlite3-wasm");
-const memdb = new Database("%memory%");
+const memdb = new Database(":memory:");
 
 memdb.exec(
   "DROP TABLE IF EXISTS employees; " +

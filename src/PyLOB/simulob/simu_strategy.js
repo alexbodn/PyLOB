@@ -199,6 +199,7 @@ class SimuStrategy {
 		return this.simu.logobj(...args);
 	}
 	
+	// client api
 	async hook_afterInit() {return Promise.resolve();}
 	async hook_chartBuildDataset(datasets) {return Promise.resolve([]);}
 	hook_beforeUpdateChart(chartLabel) {}
@@ -273,8 +274,27 @@ class StrategyForwarder extends StrategyReceiver {
 
 //invokes the strategy in a remote
 class StrategyClient extends RemoteClient {
-	constructor(remote_url, receiver, driver) {
-		super(remote_url, receiver, driver);
+	constructor(remote_url, rootPath, receiver, driver, {destinations}) {
+		const myDestinations = {
+			hook_afterInit: destinationTypes.REGISTERED,
+			hook_chartBuildDataset: destinationTypes.REGISTERED,
+			hook_beforeUpdateChart: destinationTypes.REGULAR,
+			hook_afterTicks: destinationTypes.REGULAR,
+			hook_newChartStart: destinationTypes.REGULAR,
+			hook_orderOpen: destinationTypes.REGULAR,
+			hook_tickLastPrice: destinationTypes.REGULAR,
+			hook_tickMidPoint: destinationTypes.REGULAR,
+			hook_orderFulfill: destinationTypes.REGULAR,
+			hook_orderExecuted: destinationTypes.REGULAR,
+			hook_orderCancelled: destinationTypes.REGULAR,
+			hook_orderCancelFailed: destinationTypes.REGULAR,
+			hook_dismissQuote: destinationTypes.REGULAR,
+			hook_traderBalance: destinationTypes.REGULAR,
+			hook_traderNLV: destinationTypes.REGULAR,
+		};
+		super(remote_url, rootPath, receiver, driver, {
+			destinations: Object.assign({}, myDestinations, destinations)
+		});
 	}
 	async hook_afterInit() {
 		return this.sendRegistered('hook_afterInitReq');
